@@ -50,7 +50,6 @@ public sealed class Stage1Graph : Migration
             "MapVersionId" uuid NOT NULL REFERENCES public."vrt_MapVersion"("Id"),
             "AgvProfile" varchar(128) NOT NULL,
             "Code" varchar(256) NOT NULL,
-            "AgvProfile" varchar(128) NOT NULL,
             "ResourceType" varchar(32) NOT NULL,
             "Capacity" integer NOT NULL,
             "MinEntryInterval" double precision NOT NULL DEFAULT 0,
