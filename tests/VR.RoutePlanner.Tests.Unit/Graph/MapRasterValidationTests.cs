@@ -7,7 +7,7 @@ namespace VR.RoutePlanner.Tests.Unit.Graph;
 /// <summary>
 /// Проверки декодера PNG и проверки соответствия растра метаданным карты.
 /// </summary>
-public sealed class MapRasterLoaderTests
+public sealed class MapRasterValidationTests
 {
     [Fact]
     public void Load_MatchingSize_ReturnsRasterWithPixels()

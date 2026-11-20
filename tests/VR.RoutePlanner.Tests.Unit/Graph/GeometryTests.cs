@@ -6,7 +6,7 @@ namespace VR.RoutePlanner.Tests.Unit.Graph;
 /// <summary>
 /// Проверки дискретизации NURBS-кривой и ее длины.
 /// </summary>
-public sealed class NurbsDiscretizerTests
+public sealed class GeometryTests
 {
     [Fact]
     public void Discretize_StraightCubicCurve_KeepsStepAndEndpoints()

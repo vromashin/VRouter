@@ -187,15 +187,16 @@ public sealed class TrafficResourceBuilderTests
             new[]
             {
                 // Смежные ребра с одинаковым классом объединяются в один ресурс, поэтому
-                // для конфликта нужны ребра разных классов: C1 (1.0 м) и C3 (3.0 м).
+                // для конфликта нужны ребра разных классов: C1 (1.3 м) и C3 (3.0 м).
+                // 1.3 м при профиле 0.8 м и SideMargin 0.2 проходимо: 1.3 >= 0.8 + 0.4.
                 GraphFixtures.Edge(first, middle, corridor: "narrow"),
                 GraphFixtures.Edge(middle, last, corridor: "wide"),
             });
         var builder = CreateBuilder(FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")), options =>
         {
             options.WidthSource = WidthSource.Manual;
-            options.ManualCorridorWidth = 1.0;
-            options.ManualCorridorWidths["narrow"] = 1.0;
+            options.ManualCorridorWidth = 1.3;
+            options.ManualCorridorWidths["narrow"] = 1.3;
             options.ManualCorridorWidths["wide"] = 3.0;
         });
 
@@ -273,6 +274,163 @@ public sealed class TrafficResourceBuilderTests
             options => options.DefaultAgvProfile = "no-such-profile");
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildAsync(TwoNodeGraph(), MapVersionId));
+    }
+
+    [Fact]
+    public async Task BuildAsync_UnpassableEdge_GetsNoResourceButStaysInWidths()
+    {
+        var builder = CreateBuilder(
+            FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")),
+            options =>
+            {
+                // 1.4 < 1.102 + 2 * 0.2 = 1.502: профиль по ребру не проходит.
+                options.DefaultCorridorWidth = 1.4;
+                options.SideMargin = 0.2;
+                options.AgvProfiles = TestProfiles.Create(1.102);
+                options.DefaultAgvProfile = TestProfiles.Name;
+            });
+
+        var graph = TwoNodeGraph();
+        var set = await BuildAsync(builder, graph);
+
+        Assert.DoesNotContain(set.Resources, resource => resource.Code.Contains("-C1-", StringComparison.Ordinal));
+        Assert.All(set.ResourceEdges, link => Assert.False(link.IsPassable));
+        Assert.All(set.ResourceEdges, link => Assert.Equal(Guid.Empty, link.TrafficResourceId));
+
+        var widths = await builder.ComputeWidthsAsync(graph, MapVersionId);
+        var width = Assert.Single(widths);
+        Assert.Equal(1.4, width.WidthMeters, 1e-9);
+    }
+
+    [Fact]
+    public async Task BuildAsync_NarrowProfile_KeepsUnpassableLinkOutsideResources()
+    {
+        var builder = CreateBuilder(
+            FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")),
+            options =>
+            {
+                options.DefaultCorridorWidth = 1.4;
+                options.SideMargin = 0.2;
+                options.AgvProfiles = TestProfiles.Create(0.6);
+                options.AgvProfiles["wide"] = new AgvProfileOptions
+                {
+                    Name = "wide",
+                    WidthMeters = 1.102,
+                    LengthMeters = 1.455,
+                    HeightMeters = 0.17,
+                };
+                options.DefaultAgvProfile = TestProfiles.Name;
+            });
+
+        var sets = await builder.BuildAsync(TwoNodeGraph(), MapVersionId);
+
+        var narrow = sets.Single(set => set.AgvProfile == TestProfiles.Name);
+        var narrowLink = Assert.Single(narrow.ResourceEdges, link => link.Direction == TransactionDirectionForward);
+        Assert.True(narrowLink.IsPassable);
+        Assert.Contains(narrow.Resources, resource => resource.Id == narrowLink.TrafficResourceId);
+
+        var wide = sets.Single(set => set.AgvProfile == "wide");
+        var wideLink = Assert.Single(wide.ResourceEdges, link => link.Direction == TransactionDirectionForward);
+        Assert.False(wideLink.IsPassable);
+        Assert.DoesNotContain(wide.Resources, resource => resource.Id == wideLink.TrafficResourceId);
+    }
+
+    [Fact]
+    public async Task BuildAsync_TwoProfilesOnSameGraph_ProduceDifferentCapacityAndClass()
+    {
+        var builder = CreateBuilder(
+            FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")),
+            options =>
+            {
+                options.DefaultCorridorWidth = 2.0;
+                options.SideMargin = 0.2;
+                options.AgvProfiles = TestProfiles.Create(0.6);
+                options.AgvProfiles["wide"] = new AgvProfileOptions
+                {
+                    Name = "wide",
+                    WidthMeters = 1.102,
+                    LengthMeters = 1.455,
+                    HeightMeters = 0.17,
+                };
+                options.DefaultAgvProfile = TestProfiles.Name;
+            });
+
+        var sets = await builder.BuildAsync(TwoNodeGraph(), MapVersionId);
+
+        Assert.Equal(2, sets.Count);
+        var narrow = sets.Single(set => set.AgvProfile == TestProfiles.Name);
+        var wide = sets.Single(set => set.AgvProfile == "wide");
+
+        var narrowEdge = Assert.Single(narrow.ResourceEdges, link => link.Direction == TransactionDirectionForward);
+        var wideEdge = Assert.Single(wide.ResourceEdges, link => link.Direction == TransactionDirectionForward);
+        Assert.Equal(CorridorClass.C2, narrowEdge.Class);
+        Assert.Equal(CorridorClass.C1, wideEdge.Class);
+
+        var narrowResource = Assert.Single(narrow.Resources, resource => resource.Id == narrowEdge.TrafficResourceId);
+        var wideResource = Assert.Single(wide.Resources, resource => resource.Id == wideEdge.TrafficResourceId);
+        Assert.Equal(2, narrowResource.Capacity);
+        Assert.Equal(1, wideResource.Capacity);
+        Assert.Equal(TrafficResourceType.DIRECTIONAL, narrowResource.ResourceType);
+        Assert.Equal(TrafficResourceType.EXCLUSIVE, wideResource.ResourceType);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ConflictsOfOneProfile_DoNotReferenceOtherProfiles()
+    {
+        // Два ребра рядом (0.5 м) разных классов: у каждого профиля свой конфликт внутри профиля.
+        var origin = GraphFixtures.Node("wa300", 0.0, 0.0);
+        var firstEnd = GraphFixtures.Node("wa301", 1.0, 0.0);
+        var secondStart = GraphFixtures.Node("wa302", 0.0, 0.5);
+        var secondEnd = GraphFixtures.Node("wa303", 1.0, 0.5);
+        var graph = GraphFixtures.Graph(
+            new[] { origin, firstEnd, secondStart, secondEnd },
+            new[]
+            {
+                GraphFixtures.Edge(origin, firstEnd, corridor: "narrow", length: 1.0),
+                GraphFixtures.Edge(secondStart, secondEnd, corridor: "wide", length: 1.0),
+            });
+
+        var builder = CreateBuilder(
+            FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")),
+            options =>
+            {
+                options.WidthSource = WidthSource.Manual;
+                options.ManualCorridorWidth = 2.0;
+                options.ManualCorridorWidths["narrow"] = 1.4;
+                options.ManualCorridorWidths["wide"] = 3.0;
+                options.SideMargin = 0.2;
+                options.AgvProfiles = TestProfiles.Create(0.6);
+                options.AgvProfiles["wide"] = new AgvProfileOptions
+                {
+                    Name = "wide",
+                    WidthMeters = 1.102,
+                    LengthMeters = 1.455,
+                    HeightMeters = 0.17,
+                };
+                options.DefaultAgvProfile = TestProfiles.Name;
+            });
+
+        var sets = await builder.BuildAsync(graph, MapVersionId);
+
+        foreach (var set in sets)
+        {
+            var own = set.Resources.Select(resource => resource.Id).ToHashSet();
+            var foreign = sets
+                .Where(other => other.AgvProfile != set.AgvProfile)
+                .SelectMany(other => other.Resources)
+                .Select(resource => resource.Id)
+                .ToHashSet();
+
+            Assert.All(set.Conflicts, conflict =>
+            {
+                Assert.Contains(conflict.ResourceId, own);
+                Assert.Contains(conflict.ConflictingResourceId, own);
+                Assert.DoesNotContain(conflict.ResourceId, foreign);
+                Assert.DoesNotContain(conflict.ConflictingResourceId, foreign);
+            });
+        }
+
+        Assert.All(sets, set => Assert.All(set.ResourceEdges, link => Assert.Equal(set.AgvProfile, link.AgvProfile)));
     }
 
     private const string TransactionDirectionForward = "FORWARD";

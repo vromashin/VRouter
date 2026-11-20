@@ -45,6 +45,7 @@ public sealed class TrafficResourceBuilder
     /// Строит ресурсы ребер, ресурсы узлов и конфликты между ними.
     /// </summary>
     /// <param name="graph">Загруженный граф карты.</param>
+    /// <param name="mapVersionId">Идентификатор строки <c>vrt_MapVersion</c>.</param>
     /// <param name="ct">Токен отмены.</param>
     /// <returns>Набор ресурсов, связей и конфликтов.</returns>
     /// <exception cref="InvalidOperationException">Ребро или узел попали в два ресурса, либо нарушены параметры.</exception>
@@ -104,12 +105,7 @@ public sealed class TrafficResourceBuilder
         MapRaster? raster)
     {
 
-        var edges = graph.Edges.Values
-            .SelectMany(list => list)
-            .DistinctBy(edge => edge.Id)
-            .OrderBy(edge => edge.EdgeId, StringComparer.Ordinal)
-            .ThenBy(edge => edge.Id)
-            .ToList();
+        var edges = EdgesOf(graph);
 
         var nodes = graph.Nodes.Values
             .OrderBy(node => node.NodeId, StringComparer.Ordinal)
@@ -126,10 +122,32 @@ public sealed class TrafficResourceBuilder
             })
             .ToList();
 
-        var groups = GroupEdges(edgeInfos);
         var resources = new List<TrafficResource>();
         var resourceEdges = new List<TrafficResourceEdge>();
         var resourceByEdge = new Dictionary<Guid, Guid>();
+
+        var passableInfos = new List<EdgeInfo>(edgeInfos.Count);
+        foreach (var info in edgeInfos)
+        {
+            if (CorridorClassifier.IsPassable(info.Width, profile, options.SideMargin))
+            {
+                passableInfos.Add(info);
+                continue;
+            }
+
+            // Непроходимое ребро ресурса не получает: связь с IsPassable = false остается
+            // в наборе только для диагностики и в конфликты не участвует.
+            resourceEdges.Add(new TrafficResourceEdge(
+                Guid.Empty,
+                info.Edge.Id,
+                TrafficDirections.Forward,
+                0,
+                profile.Name,
+                info.Class,
+                IsPassable: false));
+        }
+
+        var groups = GroupEdges(passableInfos);
 
         var sequenceByClass = new Dictionary<CorridorClass, int>();
         foreach (var group in groups)
@@ -223,7 +241,7 @@ public sealed class TrafficResourceBuilder
 
         EnsureUniqueMembership(resourceEdges, resourceNodes);
 
-        var conflicts = BuildConflicts(edgeInfos, edges, resourceByEdge, profile);
+        var conflicts = BuildConflicts(passableInfos, edges, resourceByEdge, profile);
 
         resources.Sort((left, right) => string.CompareOrdinal(left.Code, right.Code));
         resourceEdges.Sort(CompareResourceEdges);
@@ -294,6 +312,50 @@ public sealed class TrafficResourceBuilder
                 inflation.Value,
                 robotCentimeters);
         }
+    }
+
+    /// <summary>
+    /// Считает ширины и длины ребер по расту: одна и та же величина для всех профилей,
+    /// поэтому результат пишется в <c>vrt_EdgeWidth</c> на версию карты.
+    /// </summary>
+    public async Task<IReadOnlyList<EdgeWidth>> ComputeWidthsAsync(
+        WarehouseGraph graph,
+        Guid mapVersionId,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+
+        var options = _options.Value;
+        var configError = options.Validate();
+        if (configError is not null)
+        {
+            throw new InvalidOperationException(configError);
+        }
+
+        var raster = await LoadRasterAsync(graph.MapId, options, ct).ConfigureAwait(false);
+        var detail = options.WidthSource == Domain.Traffic.WidthSource.Raster ? raster?.SourceName : null;
+
+        return EdgesOf(graph)
+            .Select(edge => BuildEdgeInfo(graph, edge, raster, options))
+            .Select(info => new EdgeWidth(
+                mapVersionId,
+                info.Edge.Id,
+                info.Width,
+                info.LengthMeters,
+                info.Points.Count,
+                options.WidthSource,
+                detail))
+            .ToList();
+    }
+
+    private static List<WarehouseEdge> EdgesOf(WarehouseGraph graph)
+    {
+        return graph.Edges.Values
+            .SelectMany(list => list)
+            .DistinctBy(edge => edge.Id)
+            .OrderBy(edge => edge.EdgeId, StringComparer.Ordinal)
+            .ThenBy(edge => edge.Id)
+            .ToList();
     }
 
     private EdgeInfo BuildEdgeInfo(WarehouseGraph graph, WarehouseEdge edge, MapRaster? raster, RoutePlannerOptions options)
