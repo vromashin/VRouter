@@ -73,7 +73,20 @@ public sealed class RealRasterWidthTests
 
         Assert.Equal(ExpectedEdgeCount, widths.Count);
         Assert.All(widths, width => Assert.Equal(WidthSource.Raster, width.WidthSource));
-        Assert.DoesNotContain(widths, width => Math.Abs(width.WidthMeters - options.DefaultCorridorWidth) < 1e-9);
+
+        // Ширина 2.000 м встречается на карте законно, поэтому проверяется происхождение
+        // значения (растр и имя файла), а не совпадение с DefaultCorridorWidth.
+        Assert.All(
+            widths,
+            width => Assert.False(
+                string.IsNullOrWhiteSpace(width.WidthSourceDetail),
+                "У ширины пустой WidthSourceDetail: значение взято не из растра."));
+        Assert.All(
+            widths,
+            width => Assert.DoesNotContain(
+                "Default",
+                width.WidthSourceDetail!,
+                StringComparison.OrdinalIgnoreCase));
 
         var min = widths.Min(width => width.WidthMeters);
         var max = widths.Max(width => width.WidthMeters);
@@ -104,7 +117,7 @@ public sealed class RealRasterWidthTests
 
         Assert.True(
             narrow < wide,
-            $"Ребро {narrowEdgeId} должно быть уже ребра {wideEdgeId}: узкое = {narrow:F3}, широкое = {wide:F3}.");
+            $"Ребро {narrowEdgeId} должно быть уже ребра {wideEdgeId}: узкое = {narrow:F3}, широкое = {wide:F3}. {summary}");
     }
 
     private static WarehouseGraphRepository CreateGraphRepository(string connectionString)

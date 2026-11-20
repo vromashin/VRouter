@@ -281,7 +281,11 @@ public sealed class TrafficResourceBuilder
 
         EnsureUniqueMembership(resourceEdges, resourceNodes);
 
-        var conflicts = BuildConflicts(passableInfos, edges, resourceByEdge, profile);
+        var nodeResourceIds = resourceNodes
+            .GroupBy(link => link.NodeId)
+            .ToDictionary(group => group.Key, group => group.First().TrafficResourceId);
+
+        var conflicts = BuildConflicts(passableInfos, edges, resourceByEdge, profile, nodeResourceIds);
 
         resources.Sort((left, right) => string.CompareOrdinal(left.Code, right.Code));
         resourceEdges.Sort(CompareResourceEdges);
@@ -655,7 +659,8 @@ public sealed class TrafficResourceBuilder
         List<EdgeInfo> edgeInfos,
         List<WarehouseEdge> edges,
         Dictionary<Guid, Guid> resourceByEdge,
-        AgvProfile profile)
+        AgvProfile profile,
+        IReadOnlyDictionary<Guid, Guid> nodeResourceIds)
     {
         var conflicts = new HashSet<(Guid, Guid)>();
         var sharedNodePairs = new HashSet<(Guid, Guid)>();
@@ -789,11 +794,35 @@ public sealed class TrafficResourceBuilder
             conflicts.Add(pair);
         }
 
+        // Узловой ресурс конфликтует с коридором, в который входит инцидентное узлу ребро:
+        // один робот не должен держать узел, пока другой едет по этому коридору.
+        var nodeInCorridor = new HashSet<(Guid, Guid)>();
+        foreach (var edge in edges)
+        {
+            if (!resourceByEdge.TryGetValue(edge.Id, out var corridorResourceId))
+            {
+                continue;
+            }
+
+            foreach (var nodeId in new[] { edge.FromNodeId, edge.ToNodeId })
+            {
+                if (!nodeResourceIds.TryGetValue(nodeId, out var nodeResourceId)
+                    || nodeResourceId == corridorResourceId)
+                {
+                    continue;
+                }
+
+                nodeInCorridor.Add((nodeResourceId, corridorResourceId));
+                nodeInCorridor.Add((corridorResourceId, nodeResourceId));
+            }
+        }
+
         var result = conflicts
             .Select(pair => new ResourceConflict(
                 pair.Item1,
                 pair.Item2,
                 sharedNodePairs.Contains(pair) ? "SHARED_NODE" : "GEOMETRIC_OVERLAP"))
+            .Concat(nodeInCorridor.Select(pair => new ResourceConflict(pair.Item1, pair.Item2, "NODE_IN_CORRIDOR")))
             .OrderBy(conflict => conflict.ResourceId)
             .ThenBy(conflict => conflict.ConflictingResourceId)
             .ToList();
