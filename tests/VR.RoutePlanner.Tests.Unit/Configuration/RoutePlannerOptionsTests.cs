@@ -23,9 +23,45 @@ public sealed class RoutePlannerOptionsTests
         Assert.NotNull(options.Validate());
     }
 
-    [Fact]
-    public void Validate_NegativeSideMargin_ReturnsError()
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(-1.455)]
+    public void Validate_NonPositiveRobotLength_ReturnsError(double robotLength)
     {
+        var options = new RoutePlannerOptions { RobotLength = robotLength };
+
+        var error = options.Validate();
+
+        Assert.NotNull(error);
+        Assert.Contains("RobotLength", error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(-0.17)]
+    public void Validate_NonPositiveRobotHeight_ReturnsError(double robotHeight)
+    {
+        var options = new RoutePlannerOptions { RobotHeight = robotHeight };
+
+        var error = options.Validate();
+
+        Assert.NotNull(error);
+        Assert.Contains("RobotHeight", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_LengthShorterThanWidth_ReturnsError()
+    {
+        var options = new RoutePlannerOptions { RobotWidth = 1.102, RobotLength = 1.0 };
+
+        var error = options.Validate();
+
+        Assert.NotNull(error);
+        Assert.Contains("RobotLength", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_NegativeSideMargin_ReturnsError()    {
         var options = new RoutePlannerOptions { SideMargin = -0.1 };
 
         Assert.NotNull(options.Validate());
@@ -71,6 +107,25 @@ public sealed class RoutePlannerOptionsTests
         var options = new RoutePlannerOptions { InflationRadius = -0.1 };
 
         Assert.NotNull(options.Validate());
+    }
+
+    [Fact]
+    public void RobotFootprintRadius_Defaults_MatchesDiagonal()
+    {
+        var options = new RoutePlannerOptions();
+
+        // sqrt((1.455 / 2)^2 + (1.102 / 2)^2) = 0.9126
+        Assert.Equal(0.9126, options.RobotFootprintRadius, 1e-4);
+    }
+
+    [Fact]
+    public void RobotDimensions_Defaults_MatchTuskrobotsMaximums()
+    {
+        var options = new RoutePlannerOptions();
+
+        Assert.Equal(1.102, options.RobotWidth, 1e-9);
+        Assert.Equal(1.455, options.RobotLength, 1e-9);
+        Assert.Equal(0.17, options.RobotHeight, 1e-9);
     }
 
     [Fact]

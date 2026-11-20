@@ -215,8 +215,12 @@ public sealed class TrafficResourceBuilder
         var deviation = Math.Abs(inflation.Value - robotCentimeters) / robotCentimeters;
         if (deviation > 0.10)
         {
+            // Растр создан под конкретную ширину робота: если фактический робот шире или уже более чем на 10 процентов,
+            // ширина коридора и Nmax перестают соответствовать габариту и об этом нужно предупредить на старте.
             _logger.LogWarning(
-                "Имя растра {FileName} содержит инфляцию {InflationCm} см, что расходится с RobotWidth {RobotCm} см более чем на 10 процентов.",
+                "Растр {FileName} инфлирован под робота {InflationCm} см (имя файла), а фактическая ширина робота "
+                + "RobotWidth = {RobotCm} см: расхождение более 10 процентов, ширина коридора и Nmax считаются "
+                + "по инфляции растра, а не по габариту робота. Проверьте Routing:InflationRadius.",
                 raster.SourceName,
                 inflation.Value,
                 robotCentimeters);

@@ -58,7 +58,8 @@ internal sealed class FakeMapRasterProvider : IMapRasterProvider
     /// <summary>
     /// Создает растр 40 на 40 пикселей с разрешением 0.1 м/пиксель и препятствием на оси X.
     /// </summary>
-    public static MapRaster CreateDefault()
+    /// <param name="sourceName">Имя файла растра, из которого читается инфляция (например, <c>..._H80.png</c>).</param>
+    public static MapRaster CreateDefault(string? sourceName = null)
     {
         var pixels = new byte[40 * 40];
         Array.Fill(pixels, (byte)255);
@@ -68,6 +69,6 @@ internal sealed class FakeMapRasterProvider : IMapRasterProvider
             pixels[(row * 40) + 20] = 0;
         }
 
-        return new MapRaster(pixels, 40, 40, 0.1, 0, 0, 128);
+        return new MapRaster(pixels, 40, 40, 0.1, 0, 0, 128) { SourceName = sourceName };
     }
 }

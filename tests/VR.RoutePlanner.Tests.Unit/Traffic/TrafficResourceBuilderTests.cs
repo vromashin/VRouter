@@ -87,6 +87,55 @@ public sealed class TrafficResourceBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_RasterInflationNarrowerThanRobot_LogsWarning()
+    {
+        // Растр H80 инфлирован под робота 0.8 м, фактический робот 1.102 м: расхождение больше 10 процентов.
+        var options = new RoutePlannerOptions
+        {
+            WidthSource = WidthSource.Default,
+            RobotWidth = 1.102,
+            RobotLength = 1.455,
+            RobotHeight = 0.17,
+            InflationRadius = 0.4,
+        };
+        var logger = new RecordingLogger<TrafficResourceBuilder>();
+        var builder = new TrafficResourceBuilder(
+            FakeMapRasterProvider.WithRaster(FakeMapRasterProvider.CreateDefault("inflation_map_H80_2608281345.png")),
+            Options.Create(options),
+            logger);
+
+        await builder.BuildAsync(TwoNodeGraph());
+
+        var warning = Assert.Single(
+            logger.Warnings,
+            message => message.Contains("RobotWidth", StringComparison.Ordinal));
+        Assert.Contains("H80", warning, StringComparison.Ordinal);
+        Assert.Contains("80", warning, StringComparison.Ordinal);
+        Assert.Contains("110.2", warning, StringComparison.Ordinal);
+        Assert.Contains("InflationRadius", warning, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BuildAsync_RasterInflationMatchesRobot_NoWarning()
+    {
+        var options = new RoutePlannerOptions
+        {
+            WidthSource = WidthSource.Default,
+            RobotWidth = 0.8,
+            InflationRadius = 0.4,
+        };
+        var logger = new RecordingLogger<TrafficResourceBuilder>();
+        var builder = new TrafficResourceBuilder(
+            FakeMapRasterProvider.WithRaster(FakeMapRasterProvider.CreateDefault("inflation_map_H80.png")),
+            Options.Create(options),
+            logger);
+
+        await builder.BuildAsync(TwoNodeGraph());
+
+        Assert.DoesNotContain(logger.Warnings, message => message.Contains("RobotWidth", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task BuildAsync_EveryNode_GetsExclusiveNodeResource()
     {
         var graph = TwoNodeGraph();
@@ -235,7 +284,14 @@ public sealed class TrafficResourceBuilderTests
         IMapRasterProvider rasterProvider,
         Action<RoutePlannerOptions>? configure = null)
     {
-        var options = new RoutePlannerOptions { WidthSource = WidthSource.Default };
+        // Ширина робота задана явно: ожидания тестов считались от 0.8 м и не должны зависеть
+        // от дефолта конфигурации (сейчас 1.102 м по паспорту TUSKROBOTS).
+        var options = new RoutePlannerOptions
+        {
+            WidthSource = WidthSource.Default,
+            RobotWidth = 0.8,
+            InflationRadius = 0.4,
+        };
         configure?.Invoke(options);
 
         return new TrafficResourceBuilder(

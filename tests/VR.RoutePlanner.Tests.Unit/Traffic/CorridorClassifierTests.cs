@@ -18,6 +18,8 @@ public sealed class CorridorClassifierTests
     [InlineData(4.0, 0.8, 0.2, 4)]
     [InlineData(5.1, 0.8, 0.2, 5)]
     [InlineData(2.0, 1.0, 0.0, 2)]
+    [InlineData(1.2, 1.102, 0.2, 1)]
+    [InlineData(2.5, 1.102, 0.2, 2)]
     public void ComputeNmax_Formula_ReturnsExpected(
         double corridorWidth,
         double robotWidth,

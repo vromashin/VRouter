@@ -23,8 +23,28 @@ public sealed class RoutePlannerOptions
     /// <summary>Горизонт освобождения в секундах. Заполняется этапом 3.</summary>
     public double ReleaseHorizonSeconds { get; set; } = 60;
 
-    /// <summary>Ширина робота B в метрах. Габарит не подтвержден, значение из конфигурации.</summary>
-    public double RobotWidth { get; set; } = 0.8;
+    /// <summary>
+    /// Ширина робота B в метрах: максимум из паспортного диапазона TUSKROBOTS 0.983-1.102.
+    /// </summary>
+    public double RobotWidth { get; set; } = 1.102;
+
+    /// <summary>
+    /// Длина робота в метрах: максимум из паспортного диапазона TUSKROBOTS 1.283-1.455.
+    /// </summary>
+    public double RobotLength { get; set; } = 1.455;
+
+    /// <summary>
+    /// Высота корпуса робота в метрах: 0.17 по паспорту TUSKROBOTS.
+    /// </summary>
+    public double RobotHeight { get; set; } = 0.17;
+
+    /// <summary>
+    /// Радиус описанной окружности габарита робота:
+    /// <c>sqrt((RobotLength / 2)^2 + (RobotWidth / 2)^2)</c>, около 0.9126 м при паспортных максимумах.
+    /// В этапе 1 не используется, нужен этапам 2 и 3 для учета габарита на поворотах.
+    /// </summary>
+    public double RobotFootprintRadius =>
+        Math.Sqrt(Math.Pow(RobotLength / 2, 2) + Math.Pow(RobotWidth / 2, 2));
 
     /// <summary>Боковой зазор S в метрах между роботами в коридоре.</summary>
     public double SideMargin { get; set; } = 0.2;
@@ -74,6 +94,22 @@ public sealed class RoutePlannerOptions
         if (RobotWidth <= 0)
         {
             return $"Routing:RobotWidth должен быть больше нуля, получено {RobotWidth}.";
+        }
+
+        if (RobotLength <= 0)
+        {
+            return $"Routing:RobotLength должен быть больше нуля, получено {RobotLength}.";
+        }
+
+        if (RobotHeight <= 0)
+        {
+            return $"Routing:RobotHeight должен быть больше нуля, получено {RobotHeight}.";
+        }
+
+        if (RobotLength < RobotWidth)
+        {
+            return "Routing:RobotLength не может быть меньше Routing:RobotWidth, "
+                + $"получено RobotLength={RobotLength}, RobotWidth={RobotWidth}.";
         }
 
         if (SideMargin < 0)
