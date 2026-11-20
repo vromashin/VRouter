@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\src\VR.RoutePlanner.Domain\VR.RoutePlanner.Domain.csproj" />
     <ProjectReference Include="..\..\src\VR.RoutePlanner.Application\VR.RoutePlanner.Application.csproj" />
     <ProjectReference Include="..\..\src\VR.RoutePlanner.Infrastructure\VR.RoutePlanner.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\VR.RoutePlanner.Workers\VR.RoutePlanner.Workers.csproj" />
   </ItemGroup>
 
 </Project>

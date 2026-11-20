@@ -76,10 +76,10 @@ namespace VR.RoutePlanner.Tests.Integration.Graph;
             .Distinct()
             .Count();
 
-        Assert.Equal(expectedEdgeCount, widths.Count);
-        Assert.All(widths, width => Assert.Equal(WidthSource.Raster, width.WidthSource));
-        Assert.Contains(widths, width => Math.Abs(width.WidthMeters - 2.0) > 0.001);
-        Assert.True(widths.Max(width => width.WidthMeters) > 2.0);
+        Assert.Equal(expectedEdgeCount, widths.Widths.Count);
+        Assert.All(widths.Widths, width => Assert.Equal(WidthSource.Raster, width.WidthSource));
+        Assert.Contains(widths.Widths, width => Math.Abs(width.WidthMeters - 2.0) > 0.001);
+        Assert.True(widths.Widths.Max(width => width.WidthMeters) > 2.0);
 
         await using var context = new RoutePlannerDbContext(TestDatabase.BuildOptions(connectionString));
         var stored = await context.EdgeWidths
@@ -87,7 +87,7 @@ namespace VR.RoutePlanner.Tests.Integration.Graph;
             .Where(record => record.MapVersionId == mapVersionId)
             .ToListAsync();
 
-        Assert.Equal(widths.Count, stored.Count);
+        Assert.Equal(widths.Widths.Count, stored.Count);
         Assert.All(stored, record => Assert.Equal(nameof(WidthSource.Raster), record.WidthSource, ignoreCase: true));
     }
 

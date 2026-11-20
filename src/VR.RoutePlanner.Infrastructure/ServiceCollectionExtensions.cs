@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using VR.RoutePlanner.Application.Configuration;
 using VR.RoutePlanner.Application.Graph;
+using VR.RoutePlanner.Application.Startup;
 using VR.RoutePlanner.Application.Traffic;
 using VR.RoutePlanner.Infrastructure.Graph;
 using VR.RoutePlanner.Infrastructure.Persistence;
@@ -52,6 +53,12 @@ public static class ServiceCollectionExtensions
         services.AddOptions<DatabaseOptions>()
             .Bind(configuration.GetSection(DatabaseOptions.SectionName));
 
+        services.AddOptions<WarmupOptions>()
+            .Bind(configuration.GetSection(WarmupOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<WarmupOptions>, WarmupOptionsValidator>());
+
         services.AddMemoryCache();
 
         services.AddDbContextFactory<RoutePlannerDbContext>((_, options) => options
@@ -63,6 +70,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IResourceRepository, ResourceRepository>();
         services.AddSingleton<IMapRasterProvider, MapRasterProvider>();
         services.AddSingleton<TrafficResourceBuilder>();
+        services.AddSingleton<ITrafficResourceBuilder>(provider => provider.GetRequiredService<TrafficResourceBuilder>());
+        services.AddSingleton<IMapVersionRepository, MapVersionRepository>();
+        services.AddSingleton<IGraphWarmupService, GraphWarmupService>();
         services.AddHostedService<DatabaseStartupService>();
 
         return services;

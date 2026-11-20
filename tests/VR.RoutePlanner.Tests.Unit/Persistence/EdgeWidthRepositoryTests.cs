@@ -29,10 +29,12 @@ public sealed class EdgeWidthRepositoryTests
         var first = await repository.GetOrCreateAsync(MapVersionId, graph, "801", CancellationToken.None);
         var second = await repository.GetOrCreateAsync(MapVersionId, graph, "801", CancellationToken.None);
 
-        Assert.Single(first);
+        Assert.Single(first.Widths);
+        Assert.False(first.Reused);
+        Assert.True(second.Reused);
         Assert.Equal(1, raster.Calls);
-        Assert.Equal(first.Select(item => item.WidthMeters), second.Select(item => item.WidthMeters));
-        Assert.Equal(first.Select(item => item.EdgeId), second.Select(item => item.EdgeId));
+        Assert.Equal(first.Widths.Select(item => item.WidthMeters), second.Widths.Select(item => item.WidthMeters));
+        Assert.Equal(first.Widths.Select(item => item.EdgeId), second.Widths.Select(item => item.EdgeId));
     }
 
     private static RoutePlannerOptions BuildOptions() => new()

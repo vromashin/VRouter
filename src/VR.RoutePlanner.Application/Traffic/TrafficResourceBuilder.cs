@@ -13,7 +13,7 @@ namespace VR.RoutePlanner.Application.Traffic;
 /// <summary>
 /// Детерминированный вывод транспортных ресурсов и конфликтов по графу карты.
 /// </summary>
-public sealed class TrafficResourceBuilder
+public sealed class TrafficResourceBuilder : ITrafficResourceBuilder
 {
     private const double LengthTolerancePercent = 5.0;
 

@@ -35,11 +35,13 @@ public sealed class EdgeWidthRepositoryTests
         var first = await repository.GetOrCreateAsync(mapVersionId, graph, TestDatabase.MapId, CancellationToken.None);
         var second = await repository.GetOrCreateAsync(mapVersionId, graph, TestDatabase.MapId, CancellationToken.None);
 
-        Assert.NotEmpty(first);
-        Assert.Equal(first.Count, second.Count);
+        Assert.NotEmpty(first.Widths);
+        Assert.False(first.Reused);
+        Assert.True(second.Reused);
+        Assert.Equal(first.Widths.Count, second.Widths.Count);
         Assert.Equal(
-            first.OrderBy(item => item.EdgeId).Select(item => item.WidthMeters),
-            second.OrderBy(item => item.EdgeId).Select(item => item.WidthMeters));
+            first.Widths.OrderBy(item => item.EdgeId).Select(item => item.WidthMeters),
+            second.Widths.OrderBy(item => item.EdgeId).Select(item => item.WidthMeters));
 
         await using var context = new RoutePlannerDbContext(TestDatabase.BuildOptions(connectionString));
         var rows = await context.EdgeWidths
@@ -47,7 +49,7 @@ public sealed class EdgeWidthRepositoryTests
             .Where(record => record.MapVersionId == mapVersionId)
             .ToListAsync();
 
-        Assert.Equal(first.Count, rows.Count);
+        Assert.Equal(first.Widths.Count, rows.Count);
         Assert.All(rows, row => Assert.Equal(mapVersionId, row.MapVersionId));
     }
 

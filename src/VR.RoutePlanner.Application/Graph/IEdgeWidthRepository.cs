@@ -15,8 +15,8 @@ public interface IEdgeWidthRepository
     /// <param name="graph">Загруженный граф карты.</param>
     /// <param name="mapId">Внешний идентификатор карты, для диагностики.</param>
     /// <param name="ct">Токен отмены.</param>
-    /// <returns>Ширины в порядке <c>EdgeId</c>.</returns>
-    Task<IReadOnlyList<EdgeWidth>> GetOrCreateAsync(
+    /// <returns>Ширины в порядке <c>EdgeId</c> и признак повторного использования строк.</returns>
+    Task<EdgeWidthLoad> GetOrCreateAsync(
         Guid mapVersionId,
         WarehouseGraph graph,
         string mapId,

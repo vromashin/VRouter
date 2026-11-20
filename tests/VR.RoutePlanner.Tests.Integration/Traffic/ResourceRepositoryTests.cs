@@ -51,7 +51,7 @@ namespace VR.RoutePlanner.Tests.Integration.Traffic;
             CancellationToken.None);
 
         var builder = CreateBuilder(connectionString, graphRepository, options);
-        var sets = await builder.BuildAsync(graph, widths, mapVersionId, CancellationToken.None);
+        var sets = await builder.BuildAsync(graph, widths.Widths, mapVersionId, CancellationToken.None);
 
         Assert.Equal(2, sets.Count);
 

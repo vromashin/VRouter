@@ -34,7 +34,7 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<EdgeWidth>> GetOrCreateAsync(
+    public async Task<EdgeWidthLoad> GetOrCreateAsync(
         Guid mapVersionId,
         WarehouseGraph graph,
         string mapId,
@@ -55,13 +55,13 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
         var stored = await ReadAsync(mapVersionId, ct).ConfigureAwait(false);
         if (IsUsable(stored, expectedSource, expectedCount))
         {
-            return stored;
+            return new EdgeWidthLoad(stored, Reused: true);
         }
 
         var computed = await _builder.ComputeWidthsAsync(graph, mapVersionId, ct).ConfigureAwait(false);
         if (computed.Count == 0)
         {
-            return computed;
+            return new EdgeWidthLoad(computed, Reused: false);
         }
         await InsertAsync(computed, ct).ConfigureAwait(false);
 
@@ -71,10 +71,10 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
             _logger.LogWarning(
                 "Ширины карты {MapId} не сохранились: строки vrt_EdgeWidth не найдены после вставки.",
                 mapId);
-            return computed;
+            return new EdgeWidthLoad(computed, Reused: false);
         }
 
-        return saved;
+        return new EdgeWidthLoad(saved, Reused: false);
     }
 
     private static bool IsUsable(
