@@ -18,7 +18,8 @@ namespace VR.RoutePlanner.Tests.Integration.Traffic;
 /// Сохранение транспортных ресурсов двух профилей в PostgreSQL на графе карты 801.
 /// Без переменной окружения <c>VRP_RMS_CONNECTION</c> тест пропускается.
 /// </summary>
-public sealed class ResourceRepositoryTests
+[Collection(VrtWriteCollection.Name)]
+    public sealed class ResourceRepositoryTests
 {
     private const string NarrowProfile = "narrow-0600";
     private const string WideProfile = "tusk-forklift-1102";

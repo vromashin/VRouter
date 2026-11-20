@@ -126,6 +126,7 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
     private async Task InsertAsync(IReadOnlyList<EdgeWidth> widths, CancellationToken ct)
     {
         await using var context = await _contextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+        await using var transaction = await context.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
 
         // Пересчет: строки прошлого расчета с другим источником или неполным составом удаляются.
         await context.EdgeWidths
@@ -148,8 +149,10 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
         try
         {
             await context.SaveChangesAsync(ct).ConfigureAwait(false);
+            await transaction.CommitAsync(ct).ConfigureAwait(false);
         }
-        catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.UniqueViolation)
+        catch (DbUpdateException exception)
+            when (exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
             // Гонка двух экземпляров сервиса: строки успел вставить другой процесс.
             // Первичный ключ (MapVersionId, EdgeId) не дал дубля, повторное чтение вернет данные из базы.

@@ -83,7 +83,7 @@ internal static class SchemaComparison
                 continue;
             }
 
-            foreach (var name in expected.Where(name => !indexes.Contains(name)))
+            foreach (var name in expected.Where(name => !indexes.Contains(name!)))
             {
                 problems.Add($"{table}: в базе нет уникального индекса \"{name}\".");
             }

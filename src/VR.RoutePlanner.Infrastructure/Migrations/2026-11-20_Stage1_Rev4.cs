@@ -51,6 +51,10 @@ public sealed class Stage1Rev4 : Migration
         """,
         """ALTER TABLE public."vrt_TrafficResourceEdge" DROP COLUMN IF EXISTS "Class";""",
         """ALTER TABLE public."vrt_TrafficResourceEdge" DROP COLUMN IF EXISTS "IsPassable";""",
+        """
+        CREATE INDEX IF NOT EXISTS "IX_vrt_EdgeWidth_EdgeId"
+            ON public."vrt_EdgeWidth" ("EdgeId");
+        """,
     };
 
     private static readonly string[] DownStatements =

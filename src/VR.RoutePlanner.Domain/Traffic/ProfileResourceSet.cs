@@ -11,6 +11,7 @@ namespace VR.RoutePlanner.Domain.Traffic;
 /// <param name="ResourceEdges">Связи с ребрами.</param>
 /// <param name="ResourceNodes">Связи с узлами.</param>
 /// <param name="Conflicts">Конфликты между коридорными ресурсами этого профиля.</param>
+/// <param name="Passability">Проходимость всех активных рёбер карты для профиля.</param>
 public sealed record ProfileResourceSet(
     AgvProfile Profile,
     IReadOnlyList<TrafficResource> Resources,

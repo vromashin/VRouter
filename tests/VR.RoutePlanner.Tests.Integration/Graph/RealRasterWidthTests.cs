@@ -17,7 +17,8 @@ namespace VR.RoutePlanner.Tests.Integration.Graph;
 /// Ширины ребер карты 801 по настоящему растру инфлированной карты препятствий.
 /// Нужны <c>VRP_RMS_CONNECTION</c> и <c>VRP_MAP_RASTER</c> (полный путь к PNG), иначе тест пропускается.
 /// </summary>
-public sealed class RealRasterWidthTests
+[Collection(VrtWriteCollection.Name)]
+    public sealed class RealRasterWidthTests
 {
     /// <summary>Переменная окружения с полным путем к растру.</summary>
     public const string RasterVariable = "VRP_MAP_RASTER";
@@ -102,6 +103,9 @@ public sealed class RealRasterWidthTests
             min < passableWidth,
             $"Минимальная ширина {min:F3} м должна быть меньше B + 2*S = {passableWidth:F3} м: "
             + "иначе на карте нет непроходимых для робота ребер. " + summary);
+
+        // Те же ребра дают строки IsPassable = false в vrt_EdgePassability.
+        Assert.Contains(widths, width => width.WidthMeters < passableWidth);
 
         // Открытые зоны склада дают ширины в десятки метров.
         Assert.True(

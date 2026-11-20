@@ -18,7 +18,8 @@ namespace VR.RoutePlanner.Tests.Integration.Graph;
 /// Проверка, что залежавшиеся ширины с источником <c>Default</c> пересчитываются,
 /// когда конфигурация требует растр: иначе строки живут в базе вечно и растр не применяется.
 /// </summary>
-public sealed class EdgeWidthCacheInvalidationTests
+[Collection(VrtWriteCollection.Name)]
+    public sealed class EdgeWidthCacheInvalidationTests
 {
     /// <summary>Переменная окружения с полным путем к растру.</summary>
     public const string RasterVariable = "VRP_MAP_RASTER";
