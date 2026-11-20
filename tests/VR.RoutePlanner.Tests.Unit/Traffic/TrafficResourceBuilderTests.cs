@@ -20,7 +20,7 @@ public sealed class TrafficResourceBuilderTests
         var graph = TwoNodeGraph();
         var builder = CreateBuilder(FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")));
 
-        var result = await builder.BuildAsync(graph);
+        var result = await BuildAsync(builder, graph);
 
         Assert.Equal(3, result.Resources.Count);
         Assert.Equal(2, result.ResourceEdges.Count);
@@ -35,7 +35,7 @@ public sealed class TrafficResourceBuilderTests
         var graph = TwoNodeGraph();
         var builder = CreateBuilder(FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")));
 
-        var result = await builder.BuildAsync(graph);
+        var result = await BuildAsync(builder, graph);
 
         var edgeResource = Assert.Single(result.Resources, resource => resource.ResourceType == TrafficResourceType.DIRECTIONAL);
         Assert.Contains("-C2-", edgeResource.Code, StringComparison.Ordinal);
@@ -49,7 +49,7 @@ public sealed class TrafficResourceBuilderTests
         var raster = FakeMapRasterProvider.CreateDefault();
         var builder = CreateBuilder(FakeMapRasterProvider.WithRaster(raster), options => options.WidthSource = WidthSource.Raster);
 
-        var result = await builder.BuildAsync(graph);
+        var result = await BuildAsync(builder, graph);
 
         var edgeResource = Assert.Single(result.Resources, resource => resource.ResourceType == TrafficResourceType.PARALLEL);
         Assert.Equal(3, edgeResource.Capacity);
@@ -64,7 +64,7 @@ public sealed class TrafficResourceBuilderTests
             FakeMapRasterProvider.WithError(new InvalidOperationException("растр от другой карты")),
             options => options.WidthSource = WidthSource.Raster);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildAsync(graph));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildAsync(graph, MapVersionId));
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public sealed class TrafficResourceBuilderTests
                 options.ManualCorridorWidth = 4.0;
             });
 
-        var result = await builder.BuildAsync(graph);
+        var result = await BuildAsync(builder, graph);
 
         var edgeResource = Assert.Single(result.Resources, resource => resource.ResourceType != TrafficResourceType.EXCLUSIVE);
         Assert.Equal(4, edgeResource.Capacity);
@@ -87,42 +87,40 @@ public sealed class TrafficResourceBuilderTests
     }
 
     [Fact]
-    public async Task BuildAsync_RasterInflationNarrowerThanRobot_LogsWarning()
+    public async Task BuildAsync_RasterInflationDiffersFromRadius_LogsWarning()
     {
-        // Растр H80 инфлирован под робота 0.8 м, фактический робот 1.102 м: расхождение больше 10 процентов.
+        // Имя растра H40, а 2 * InflationRadius = 0.8 м = 80 см: расхождение 100 процентов.
         var options = new RoutePlannerOptions
         {
             WidthSource = WidthSource.Default,
-            RobotWidth = 1.102,
-            RobotLength = 1.455,
-            RobotHeight = 0.17,
             InflationRadius = 0.4,
+            AgvProfiles = TestProfiles.Create(),
+            DefaultAgvProfile = "test",
         };
         var logger = new RecordingLogger<TrafficResourceBuilder>();
         var builder = new TrafficResourceBuilder(
-            FakeMapRasterProvider.WithRaster(FakeMapRasterProvider.CreateDefault("inflation_map_H80_2608281345.png")),
+            FakeMapRasterProvider.WithRaster(FakeMapRasterProvider.CreateDefault("inflation_map_H40_2608281345.png")),
             Options.Create(options),
             logger);
 
-        await builder.BuildAsync(TwoNodeGraph());
+        await BuildAsync(builder, TwoNodeGraph());
 
         var warning = Assert.Single(
             logger.Warnings,
-            message => message.Contains("RobotWidth", StringComparison.Ordinal));
-        Assert.Contains("H80", warning, StringComparison.Ordinal);
+            message => message.Contains("InflationRadius", StringComparison.Ordinal));
+        Assert.Contains("H40", warning, StringComparison.Ordinal);
         Assert.Contains("80", warning, StringComparison.Ordinal);
-        Assert.Contains("110.2", warning, StringComparison.Ordinal);
-        Assert.Contains("InflationRadius", warning, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task BuildAsync_RasterInflationMatchesRobot_NoWarning()
+    public async Task BuildAsync_RasterInflationMatchesRadius_NoWarning()
     {
         var options = new RoutePlannerOptions
         {
             WidthSource = WidthSource.Default,
-            RobotWidth = 0.8,
             InflationRadius = 0.4,
+            AgvProfiles = TestProfiles.Create(),
+            DefaultAgvProfile = "test",
         };
         var logger = new RecordingLogger<TrafficResourceBuilder>();
         var builder = new TrafficResourceBuilder(
@@ -130,9 +128,9 @@ public sealed class TrafficResourceBuilderTests
             Options.Create(options),
             logger);
 
-        await builder.BuildAsync(TwoNodeGraph());
+        await BuildAsync(builder, TwoNodeGraph());
 
-        Assert.DoesNotContain(logger.Warnings, message => message.Contains("RobotWidth", StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.Warnings, message => message.Contains("InflationRadius", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -141,7 +139,7 @@ public sealed class TrafficResourceBuilderTests
         var graph = TwoNodeGraph();
         var builder = CreateBuilder(FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")));
 
-        var result = await builder.BuildAsync(graph);
+        var result = await BuildAsync(builder, graph);
 
         var nodeResources = result.Resources
             .Where(resource => resource.Code.Contains("-NODE-", StringComparison.Ordinal))
@@ -171,10 +169,10 @@ public sealed class TrafficResourceBuilderTests
             });
         var builder = CreateBuilder(FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")));
 
-        var result = await builder.BuildAsync(graph);
+        var result = await BuildAsync(builder, graph);
 
         var conflictZone = Assert.Single(result.Resources, resource => resource.ResourceType == TrafficResourceType.CONFLICT_ZONE);
-        Assert.Contains("801-CZ-wa100", conflictZone.Code, StringComparison.Ordinal);
+        Assert.Contains("801-test-CZ-wa100", conflictZone.Code, StringComparison.Ordinal);
         Assert.Equal(1, conflictZone.Capacity);
     }
 
@@ -201,7 +199,7 @@ public sealed class TrafficResourceBuilderTests
             options.ManualCorridorWidths["wide"] = 3.0;
         });
 
-        var result = await builder.BuildAsync(graph);
+        var result = await BuildAsync(builder, graph);
 
         var sharedNode = Assert.Single(
             result.Conflicts,
@@ -221,8 +219,8 @@ public sealed class TrafficResourceBuilderTests
     {
         var builder = CreateBuilder(FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")));
 
-        var first = await builder.BuildAsync(TwoNodeGraph());
-        var second = await builder.BuildAsync(TwoNodeGraph());
+        var first = await BuildAsync(builder, TwoNodeGraph());
+        var second = await BuildAsync(builder, TwoNodeGraph());
 
         Assert.Equal(
             first.Resources.Select(resource => resource.Id).ToList(),
@@ -250,7 +248,7 @@ public sealed class TrafficResourceBuilderTests
 
         var builder = CreateBuilder(FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")));
 
-        var result = await builder.BuildAsync(graph);
+        var result = await BuildAsync(builder, graph);
 
         var leftResource = Assert.Single(
             result.ResourceEdges,
@@ -272,25 +270,30 @@ public sealed class TrafficResourceBuilderTests
     {
         var builder = CreateBuilder(
             FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")),
-            options => options.RobotWidth = 0);
+            options => options.DefaultAgvProfile = "no-such-profile");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildAsync(TwoNodeGraph()));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => builder.BuildAsync(TwoNodeGraph(), MapVersionId));
     }
 
     private const string TransactionDirectionForward = "FORWARD";
     private const string TransactionDirectionBackward = "BACKWARD";
 
+    private static readonly Guid MapVersionId = Guid.Parse("6f1d1f60-9f4c-4a43-9c2a-0f0f3f0a1a01");
+
+    private static async Task<ProfileResourceSet> BuildAsync(TrafficResourceBuilder builder, WarehouseGraph graph)
+        => Assert.Single(await builder.BuildAsync(graph, MapVersionId));
+
     private static TrafficResourceBuilder CreateBuilder(
         IMapRasterProvider rasterProvider,
         Action<RoutePlannerOptions>? configure = null)
     {
-        // Ширина робота задана явно: ожидания тестов считались от 0.8 м и не должны зависеть
-        // от дефолта конфигурации (сейчас 1.102 м по паспорту TUSKROBOTS).
+        // Ширина профиля задана явно: числовые ожидания тестов посчитаны от 0.8 м.
         var options = new RoutePlannerOptions
         {
             WidthSource = WidthSource.Default,
-            RobotWidth = 0.8,
             InflationRadius = 0.4,
+            AgvProfiles = TestProfiles.Create(),
+            DefaultAgvProfile = TestProfiles.Name,
         };
         configure?.Invoke(options);
 

@@ -24,39 +24,23 @@ public sealed class RoutePlannerOptions
     public double ReleaseHorizonSeconds { get; set; } = 60;
 
     /// <summary>
-    /// Ширина робота B в метрах: максимум из паспортного диапазона TUSKROBOTS 0.983-1.102.
+    /// Профили роботов: ключ это <c>Name</c>, значение это габариты корпуса.
+    /// Список не пуст, имена уникальны без учета регистра.
     /// </summary>
-    public double RobotWidth { get; set; } = 1.102;
+    public Dictionary<string, AgvProfileOptions> AgvProfiles { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Длина робота в метрах: максимум из паспортного диапазона TUSKROBOTS 1.283-1.455.
-    /// </summary>
-    public double RobotLength { get; set; } = 1.455;
-
-    /// <summary>
-    /// Высота корпуса робота в метрах: 0.17 по паспорту TUSKROBOTS.
-    /// </summary>
-    public double RobotHeight { get; set; } = 0.17;
-
-    /// <summary>
-    /// Радиус описанной окружности габарита робота:
-    /// <c>sqrt((RobotLength / 2)^2 + (RobotWidth / 2)^2)</c>, около 0.9126 м при паспортных максимумах.
-    /// В этапе 1 не используется, нужен этапам 2 и 3 для учета габарита на поворотах.
-    /// </summary>
-    public double RobotFootprintRadius =>
-        Math.Sqrt(Math.Pow(RobotLength / 2, 2) + Math.Pow(RobotWidth / 2, 2));
+    /// <summary>Имя профиля по умолчанию из <see cref="AgvProfiles"/>.</summary>
+    public string DefaultAgvProfile { get; set; } = "tusk-forklift-1102";
 
     /// <summary>Боковой зазор S в метрах между роботами в коридоре.</summary>
     public double SideMargin { get; set; } = 0.2;
 
     /// <summary>
     /// Радиус инфляции растра в метрах: ширина коридора W = 2 * (d + InflationRadius).
-    /// Значение <c>0</c> означает «не задан»: берется половина <see cref="RobotWidth"/>.
+    /// Обязателен и не зависит от габаритов робота: определяется растром (например H80).
     /// </summary>
-    public double InflationRadius { get; set; }
-
-    /// <summary>Фактический радиус инфляции: заданное значение либо <see cref="RobotWidth"/> / 2.</summary>
-    public double EffectiveInflationRadius => InflationRadius > 0 ? InflationRadius : RobotWidth / 2;
+    public double InflationRadius { get; set; } = 0.4;
 
     /// <summary>Ширина коридора по умолчанию, если траектория ребра недоступна.</summary>
     public double DefaultCorridorWidth { get; set; } = 2.0;
@@ -91,25 +75,10 @@ public sealed class RoutePlannerOptions
     /// <returns>Текст ошибки либо <c>null</c>, если параметры корректны.</returns>
     public string? Validate()
     {
-        if (RobotWidth <= 0)
+        var profileError = ValidateProfiles();
+        if (profileError is not null)
         {
-            return $"Routing:RobotWidth должен быть больше нуля, получено {RobotWidth}.";
-        }
-
-        if (RobotLength <= 0)
-        {
-            return $"Routing:RobotLength должен быть больше нуля, получено {RobotLength}.";
-        }
-
-        if (RobotHeight <= 0)
-        {
-            return $"Routing:RobotHeight должен быть больше нуля, получено {RobotHeight}.";
-        }
-
-        if (RobotLength < RobotWidth)
-        {
-            return "Routing:RobotLength не может быть меньше Routing:RobotWidth, "
-                + $"получено RobotLength={RobotLength}, RobotWidth={RobotWidth}.";
+            return profileError;
         }
 
         if (SideMargin < 0)
@@ -117,19 +86,9 @@ public sealed class RoutePlannerOptions
             return $"Routing:SideMargin не может быть отрицательным, получено {SideMargin}.";
         }
 
-        if (RobotWidth + SideMargin <= 0)
+        if (InflationRadius <= 0)
         {
-            return "Routing:RobotWidth + Routing:SideMargin должны быть больше нуля.";
-        }
-
-        if (InflationRadius < 0)
-        {
-            return $"Routing:InflationRadius не может быть отрицательным, получено {InflationRadius}.";
-        }
-
-        if (EffectiveInflationRadius <= 0)
-        {
-            return $"Routing:InflationRadius должен быть больше нуля, получено {EffectiveInflationRadius}.";
+            return $"Routing:InflationRadius должен быть больше нуля, получено {InflationRadius}.";
         }
 
         if (DefaultCorridorWidth <= 0)
@@ -170,6 +129,63 @@ public sealed class RoutePlannerOptions
 
         return null;
     }
+
+    private string? ValidateProfiles()
+    {
+        if (AgvProfiles is null || AgvProfiles.Count == 0)
+        {
+            return "Routing:AgvProfiles не может быть пустым: нужен хотя бы один профиль робота.";
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in AgvProfiles)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Key))
+            {
+                return "Routing:AgvProfiles содержит профиль с пустым именем.";
+            }
+
+            if (!seen.Add(pair.Key))
+            {
+                return $"Routing:AgvProfiles содержит повторяющееся имя профиля '{pair.Key}'.";
+            }
+
+            var profile = pair.Value;
+            if (profile is null)
+            {
+                return $"Routing:AgvProfiles['{pair.Key}'] не задан.";
+            }
+
+            if (profile.WidthMeters <= 0)
+            {
+                return $"Routing:AgvProfiles['{pair.Key}'].WidthMeters должен быть больше нуля, получено {profile.WidthMeters}.";
+            }
+
+            if (profile.LengthMeters <= 0)
+            {
+                return $"Routing:AgvProfiles['{pair.Key}'].LengthMeters должен быть больше нуля, получено {profile.LengthMeters}.";
+            }
+
+            if (profile.HeightMeters <= 0)
+            {
+                return $"Routing:AgvProfiles['{pair.Key}'].HeightMeters должен быть больше нуля, получено {profile.HeightMeters}.";
+            }
+
+            if (profile.LengthMeters < profile.WidthMeters)
+            {
+                return $"Routing:AgvProfiles['{pair.Key}'].LengthMeters не может быть меньше WidthMeters, "
+                    + $"получено LengthMeters={profile.LengthMeters}, WidthMeters={profile.WidthMeters}.";
+            }
+        }
+
+        var defaultName = DefaultAgvProfile;
+        if (!string.IsNullOrWhiteSpace(defaultName) && !AgvProfiles.ContainsKey(defaultName))
+        {
+            return $"Routing:DefaultAgvProfile = '{defaultName}' отсутствует в Routing:AgvProfiles.";
+        }
+
+        return null;
+    }
 }
 
 /// <summary>
@@ -191,6 +207,24 @@ public sealed class CorridorClassThresholds
 
     /// <summary>Нижняя граница Nmax для класса C5.</summary>
     public int C5 { get; set; } = 5;
+}
+
+/// <summary>
+/// Габариты профиля робота из конфигурации <c>Routing:AgvProfiles</c>.
+/// </summary>
+public sealed class AgvProfileOptions
+{
+    /// <summary>Имя профиля: совпадает с ключом словаря и попадает в код ресурса.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Ширина корпуса B в метрах.</summary>
+    public double WidthMeters { get; set; }
+
+    /// <summary>Длина корпуса в метрах.</summary>
+    public double LengthMeters { get; set; }
+
+    /// <summary>Высота корпуса в метрах.</summary>
+    public double HeightMeters { get; set; }
 }
 
 /// <summary>

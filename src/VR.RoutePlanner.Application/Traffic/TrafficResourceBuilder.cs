@@ -48,9 +48,18 @@ public sealed class TrafficResourceBuilder
     /// <param name="ct">Токен отмены.</param>
     /// <returns>Набор ресурсов, связей и конфликтов.</returns>
     /// <exception cref="InvalidOperationException">Ребро или узел попали в два ресурса, либо нарушены параметры.</exception>
-    public async Task<TrafficResourceBuildResult> BuildAsync(WarehouseGraph graph, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ProfileResourceSet>> BuildAsync(
+        WarehouseGraph graph,
+        Guid mapVersionId,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(graph);
+
+        if (mapVersionId == Guid.Empty)
+        {
+            throw new InvalidOperationException(
+                "Для построения ресурсов нужен идентификатор версии карты vrt_MapVersion.Id.");
+        }
 
         var options = _options.Value;
         var configError = options.Validate();
@@ -61,6 +70,39 @@ public sealed class TrafficResourceBuilder
 
         var raster = await LoadRasterAsync(graph.MapId, options, ct).ConfigureAwait(false);
         WarnAboutInflationRadius(raster, options);
+
+        var profiles = CreateProfiles(options);
+        var sets = new List<ProfileResourceSet>(profiles.Count);
+        foreach (var profile in profiles)
+        {
+            sets.Add(BuildProfileSet(graph, mapVersionId, options, profile, raster));
+        }
+
+        return sets;
+    }
+
+    /// <summary>
+    /// Профили из конфигурации в стабильном порядке: по имени.
+    /// </summary>
+    private static List<AgvProfile> CreateProfiles(RoutePlannerOptions options)
+    {
+        return options.AgvProfiles
+            .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .Select(pair => new AgvProfile(
+                pair.Key,
+                pair.Value.WidthMeters,
+                pair.Value.LengthMeters,
+                pair.Value.HeightMeters))
+            .ToList();
+    }
+
+    private ProfileResourceSet BuildProfileSet(
+        WarehouseGraph graph,
+        Guid mapVersionId,
+        RoutePlannerOptions options,
+        AgvProfile profile,
+        MapRaster? raster)
+    {
 
         var edges = graph.Edges.Values
             .SelectMany(list => list)
@@ -76,6 +118,12 @@ public sealed class TrafficResourceBuilder
 
         var edgeInfos = edges
             .Select(edge => BuildEdgeInfo(graph, edge, raster, options))
+            .Select(info =>
+            {
+                var nmax = CorridorClassifier.ComputeNmax(info.Width, profile.WidthMeters, options.SideMargin);
+                var corridorClass = CorridorClassifier.Classify(nmax, options.CorridorClassThresholds);
+                return info with { Nmax = nmax, Class = corridorClass };
+            })
             .ToList();
 
         var groups = GroupEdges(edgeInfos);
@@ -92,12 +140,14 @@ public sealed class TrafficResourceBuilder
 
             var code = string.Create(
                 CultureInfo.InvariantCulture,
-                $"{graph.MapId}-{corridorClass}-{number}");
+                $"{graph.MapId}-{profile.Name}-{corridorClass}-{number}");
 
             var resourceId = DeterministicId.FromString(code);
             resources.Add(new TrafficResource(
                 resourceId,
+                mapVersionId,
                 code,
+                profile.Name,
                 CorridorClassifier.ResourceTypeOf(corridorClass),
                 group[0].Nmax,
                 MinEntryInterval: 0,
@@ -109,10 +159,25 @@ public sealed class TrafficResourceBuilder
             {
                 sequence++;
                 resourceByEdge[info.Edge.Id] = resourceId;
-                resourceEdges.Add(new TrafficResourceEdge(resourceId, info.Edge.Id, TrafficDirections.Forward, sequence));
+                var passable = CorridorClassifier.IsPassable(info.Width, profile, options.SideMargin);
+                resourceEdges.Add(new TrafficResourceEdge(
+                    resourceId,
+                    info.Edge.Id,
+                    TrafficDirections.Forward,
+                    sequence,
+                    profile.Name,
+                    corridorClass,
+                    passable));
                 if (info.Edge.Bidirectional)
                 {
-                    resourceEdges.Add(new TrafficResourceEdge(resourceId, info.Edge.Id, TrafficDirections.Backward, sequence));
+                    resourceEdges.Add(new TrafficResourceEdge(
+                        resourceId,
+                        info.Edge.Id,
+                        TrafficDirections.Backward,
+                        sequence,
+                        profile.Name,
+                        corridorClass,
+                        passable));
                 }
             }
         }
@@ -121,54 +186,60 @@ public sealed class TrafficResourceBuilder
         var degreeByNode = CountDegrees(edges);
         foreach (var node in nodes)
         {
-            var code = string.Create(CultureInfo.InvariantCulture, $"{graph.MapId}-NODE-{node.NodeId}");
+            var code = string.Create(CultureInfo.InvariantCulture, $"{graph.MapId}-{profile.Name}-NODE-{node.NodeId}");
             var resourceId = DeterministicId.FromString(code);
             resources.Add(new TrafficResource(
                 resourceId,
+                mapVersionId,
                 code,
+                profile.Name,
                 TrafficResourceType.EXCLUSIVE,
                 Capacity: 1,
                 MinEntryInterval: 0,
                 MaxOccupancyTime: 0,
                 IsActive: true));
-            resourceNodes.Add(new TrafficResourceNode(resourceId, node.Id));
+            resourceNodes.Add(new TrafficResourceNode(resourceId, node.Id, profile.Name));
 
             var degree = degreeByNode.TryGetValue(node.Id, out var value) ? value : 0;
             if (degree > 2)
             {
-                var conflictZoneCode = string.Create(CultureInfo.InvariantCulture, $"{graph.MapId}-CZ-{node.NodeId}");
+                var conflictZoneCode = string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{graph.MapId}-{profile.Name}-CZ-{node.NodeId}");
                 var conflictZoneId = DeterministicId.FromString(conflictZoneCode);
                 resources.Add(new TrafficResource(
                     conflictZoneId,
+                    mapVersionId,
                     conflictZoneCode,
+                    profile.Name,
                     TrafficResourceType.CONFLICT_ZONE,
                     Capacity: 1,
                     MinEntryInterval: 0,
                     MaxOccupancyTime: 0,
                     IsActive: true));
-                resourceNodes.Add(new TrafficResourceNode(conflictZoneId, node.Id));
+                resourceNodes.Add(new TrafficResourceNode(conflictZoneId, node.Id, profile.Name));
             }
         }
 
         EnsureUniqueMembership(resourceEdges, resourceNodes);
 
-        var conflicts = BuildConflicts(edgeInfos, edges, resourceByEdge, options.RobotWidth);
+        var conflicts = BuildConflicts(edgeInfos, edges, resourceByEdge, profile);
 
         resources.Sort((left, right) => string.CompareOrdinal(left.Code, right.Code));
         resourceEdges.Sort(CompareResourceEdges);
         resourceNodes.Sort(CompareResourceNodes);
-        var result = new TrafficResourceBuildResult(resources, resourceEdges, resourceNodes, conflicts);
 
         _logger.LogInformation(
-            "Ресурсы карты {MapId} построены: {ResourceCount} ресурсов, {EdgeLinkCount} связей с ребрами, "
-            + "{NodeLinkCount} связей с узлами, {ConflictCount} конфликтов.",
+            "Ресурсы карты {MapId} для профиля {AgvProfile} построены: {ResourceCount} ресурсов, "
+            + "{EdgeLinkCount} связей с ребрами, {NodeLinkCount} связей с узлами, {ConflictCount} конфликтов.",
             graph.MapId,
-            result.Resources.Count,
-            result.ResourceEdges.Count,
-            result.ResourceNodes.Count,
-            result.Conflicts.Count);
+            profile.Name,
+            resources.Count,
+            resourceEdges.Count,
+            resourceNodes.Count,
+            conflicts.Count);
 
-        return result;
+        return new ProfileResourceSet(profile, resources, resourceEdges, resourceNodes, conflicts);
     }
 
     private async Task<MapRaster?> LoadRasterAsync(string mapId, RoutePlannerOptions options, CancellationToken ct)
@@ -206,7 +277,7 @@ public sealed class TrafficResourceBuilder
             return;
         }
 
-        var robotCentimeters = options.RobotWidth * 100.0;
+        var robotCentimeters = 2.0 * options.InflationRadius * 100.0;
         if (robotCentimeters <= 0)
         {
             return;
@@ -215,12 +286,10 @@ public sealed class TrafficResourceBuilder
         var deviation = Math.Abs(inflation.Value - robotCentimeters) / robotCentimeters;
         if (deviation > 0.10)
         {
-            // Растр создан под конкретную ширину робота: если фактический робот шире или уже более чем на 10 процентов,
-            // ширина коридора и Nmax перестают соответствовать габариту и об этом нужно предупредить на старте.
+            // Шаг инфляции в имени файла расходится с 2 * InflationRadius: ширина коридора считается по растру.
             _logger.LogWarning(
-                "Растр {FileName} инфлирован под робота {InflationCm} см (имя файла), а фактическая ширина робота "
-                + "RobotWidth = {RobotCm} см: расхождение более 10 процентов, ширина коридора и Nmax считаются "
-                + "по инфляции растра, а не по габариту робота. Проверьте Routing:InflationRadius.",
+                "Имя растра {FileName} содержит инфляцию {InflationCm} см, а 2 * Routing:InflationRadius = {RobotCm} см: "
+                + "расхождение более 10 процентов, ширина коридора и Nmax считаются по инфляции растра. Проверьте Routing:InflationRadius.",
                 raster.SourceName,
                 inflation.Value,
                 robotCentimeters);
@@ -231,8 +300,6 @@ public sealed class TrafficResourceBuilder
     {
         var points = edge.TrajectoryPoints;
         var width = ResolveWidth(edge, points, raster, options);
-        var nmax = CorridorClassifier.ComputeNmax(width, options.RobotWidth, options.SideMargin);
-        var corridorClass = CorridorClassifier.Classify(nmax, options.CorridorClassThresholds);
 
         var lengthMeters = points.Count > 0
             ? NurbsDiscretizer.PolylineLength(points)
@@ -253,7 +320,7 @@ public sealed class TrafficResourceBuilder
             }
         }
 
-        return new EdgeInfo(edge, width, nmax, corridorClass, lengthMeters, points);
+        return new EdgeInfo(edge, width, lengthMeters, points);
     }
 
     private double ResolveWidth(
@@ -331,7 +398,7 @@ public sealed class TrafficResourceBuilder
             return options.DefaultCorridorWidth;
         }
 
-        return 2.0 * (narrowest + options.EffectiveInflationRadius);
+        return 2.0 * (narrowest + options.InflationRadius);
     }
 
     private static double DistanceByNodes(WarehouseGraph graph, WarehouseEdge edge)
@@ -479,7 +546,7 @@ public sealed class TrafficResourceBuilder
         List<EdgeInfo> edgeInfos,
         List<WarehouseEdge> edges,
         Dictionary<Guid, Guid> resourceByEdge,
-        double robotWidth)
+        AgvProfile profile)
     {
         var conflicts = new HashSet<(Guid, Guid)>();
         var sharedNodePairs = new HashSet<(Guid, Guid)>();
@@ -521,7 +588,7 @@ public sealed class TrafficResourceBuilder
             }
         }
 
-        var cellSize = Math.Max(robotWidth, 0.1);
+        var cellSize = Math.Max(profile.WidthMeters, 0.1);
         var grid = new Dictionary<(int, int), Dictionary<Guid, List<MapPoint>>>();
         foreach (var info in edgeInfos)
         {
@@ -600,7 +667,7 @@ public sealed class TrafficResourceBuilder
                         continue;
                     }
 
-                    if (MinDistance(vicinity[ids[i]], vicinity[ids[j]]) < robotWidth)
+                    if (MinDistance(vicinity[ids[i]], vicinity[ids[j]]) < profile.WidthMeters)
                     {
                         geometric.Add(pair);
                     }
@@ -669,24 +736,14 @@ public sealed class TrafficResourceBuilder
     private sealed record EdgeInfo(
         WarehouseEdge Edge,
         double Width,
-        int Nmax,
-        CorridorClass Class,
         double LengthMeters,
-        IReadOnlyList<MapPoint> Points);
-}
+        IReadOnlyList<MapPoint> Points)
+    {
+        public int Nmax { get; init; }
 
-/// <summary>
-/// Результат вывода транспортных ресурсов.
-/// </summary>
-/// <param name="Resources">Ресурсы ребер, узлов и конфликтных зон.</param>
-/// <param name="ResourceEdges">Связи ресурсов с ребрами и направлениями.</param>
-/// <param name="ResourceNodes">Связи ресурсов с узлами.</param>
-/// <param name="Conflicts">Конфликты ресурсов.</param>
-public sealed record TrafficResourceBuildResult(
-    IReadOnlyList<TrafficResource> Resources,
-    IReadOnlyList<TrafficResourceEdge> ResourceEdges,
-    IReadOnlyList<TrafficResourceNode> ResourceNodes,
-    IReadOnlyList<ResourceConflict> Conflicts);
+        public CorridorClass Class { get; init; } = CorridorClass.C1;
+    }
+}
 
 /// <summary>
 /// Значения направлений обхода ребра.

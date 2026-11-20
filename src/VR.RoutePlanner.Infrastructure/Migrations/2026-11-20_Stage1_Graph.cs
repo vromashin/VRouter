@@ -47,38 +47,48 @@ public sealed class Stage1Graph : Migration
         """
         CREATE TABLE IF NOT EXISTS public."vrt_TrafficResource" (
             "Id" uuid PRIMARY KEY,
+            "MapVersionId" uuid NOT NULL REFERENCES public."vrt_MapVersion"("Id"),
+            "AgvProfile" varchar(128) NOT NULL,
             "Code" varchar(256) NOT NULL,
+            "AgvProfile" varchar(128) NOT NULL,
             "ResourceType" varchar(32) NOT NULL,
             "Capacity" integer NOT NULL,
             "MinEntryInterval" double precision NOT NULL DEFAULT 0,
             "MaxOccupancyTime" double precision NOT NULL DEFAULT 0,
             "IsActive" boolean NOT NULL DEFAULT true,
-            CONSTRAINT "UQ_vrt_TrafficResource_Code" UNIQUE ("Code")
+            CONSTRAINT "UQ_vrt_TrafficResource_Id_Profile" UNIQUE ("Id", "AgvProfile"),
+            CONSTRAINT "UQ_vrt_TrafficResource_MapVersion_Profile_Code"
+                UNIQUE ("MapVersionId", "AgvProfile", "Code")
         );
         """,
         """
         CREATE TABLE IF NOT EXISTS public."vrt_TrafficResourceEdge" (
             "TrafficResourceId" uuid NOT NULL,
-            "EdgeId" uuid NOT NULL,
+            "AgvProfile" varchar(128) NOT NULL,
+            "EdgeId" uuid NOT NULL REFERENCES public."Edges"("Id"),
             "Direction" varchar(16) NOT NULL,
             "Sequence" integer NOT NULL,
+            "Class" integer NOT NULL,
+            "IsPassable" boolean NOT NULL,
             PRIMARY KEY ("TrafficResourceId", "EdgeId", "Direction"),
-            CONSTRAINT "FK_vrt_TrafficResourceEdge_TrafficResource"
-                FOREIGN KEY ("TrafficResourceId") REFERENCES public."vrt_TrafficResource" ("Id") ON DELETE CASCADE,
-            CONSTRAINT "FK_vrt_TrafficResourceEdge_Edge"
-                FOREIGN KEY ("EdgeId") REFERENCES public."Edges" ("Id"),
-            CONSTRAINT "UQ_vrt_TrafficResourceEdge_Edge_Direction" UNIQUE ("EdgeId", "Direction")
+            CONSTRAINT "FK_vrt_TrafficResourceEdge_Resource"
+                FOREIGN KEY ("TrafficResourceId", "AgvProfile")
+                REFERENCES public."vrt_TrafficResource" ("Id", "AgvProfile"),
+            CONSTRAINT "UQ_vrt_TrafficResourceEdge_Edge_Direction_Profile"
+                UNIQUE ("EdgeId", "Direction", "AgvProfile")
         );
         """,
         """
         CREATE TABLE IF NOT EXISTS public."vrt_TrafficResourceNode" (
             "TrafficResourceId" uuid NOT NULL,
-            "NodeId" uuid NOT NULL,
+            "AgvProfile" varchar(128) NOT NULL,
+            "NodeId" uuid NOT NULL REFERENCES public."Nodes"("Id"),
             PRIMARY KEY ("TrafficResourceId", "NodeId"),
-            CONSTRAINT "FK_vrt_TrafficResourceNode_TrafficResource"
-                FOREIGN KEY ("TrafficResourceId") REFERENCES public."vrt_TrafficResource" ("Id") ON DELETE CASCADE,
-            CONSTRAINT "FK_vrt_TrafficResourceNode_Node"
-                FOREIGN KEY ("NodeId") REFERENCES public."Nodes" ("Id")
+            CONSTRAINT "FK_vrt_TrafficResourceNode_Resource"
+                FOREIGN KEY ("TrafficResourceId", "AgvProfile")
+                REFERENCES public."vrt_TrafficResource" ("Id", "AgvProfile"),
+            CONSTRAINT "UQ_vrt_TrafficResourceNode_Node_Profile"
+                UNIQUE ("NodeId", "AgvProfile")
         );
         """,
         """
@@ -98,8 +108,14 @@ public sealed class Stage1Graph : Migration
             ON public."vrt_TrafficResourceEdge" ("EdgeId");
         """,
         """
-        CREATE UNIQUE INDEX IF NOT EXISTS "IX_vrt_TrafficResourceNode_NodeId"
-            ON public."vrt_TrafficResourceNode" ("NodeId");
+        CREATE TABLE IF NOT EXISTS public."vrt_EdgeWidth" (
+            "MapVersionId" uuid NOT NULL REFERENCES public."vrt_MapVersion"("Id"),
+            "EdgeId" uuid NOT NULL REFERENCES public."Edges"("Id"),
+            "Width" double precision NOT NULL,
+            "WidthSource" varchar(16) NOT NULL,
+            "WidthSourceDetail" varchar(256) NOT NULL,
+            PRIMARY KEY ("MapVersionId", "EdgeId")
+        );
         """,
         """
         CREATE INDEX IF NOT EXISTS "IX_vrt_ResourceConflict_ResourceId"
@@ -110,6 +126,7 @@ public sealed class Stage1Graph : Migration
     private static readonly string[] DropStatements =
     {
         """DROP TABLE IF EXISTS public."vrt_ResourceConflict";""",
+        """DROP TABLE IF EXISTS public."vrt_EdgeWidth";""",
         """DROP TABLE IF EXISTS public."vrt_TrafficResourceNode";""",
         """DROP TABLE IF EXISTS public."vrt_TrafficResourceEdge";""",
         """DROP TABLE IF EXISTS public."vrt_TrafficResource";""",

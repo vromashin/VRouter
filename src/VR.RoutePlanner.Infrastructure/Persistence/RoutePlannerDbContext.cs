@@ -31,6 +31,9 @@ public sealed class RoutePlannerDbContext : DbContext
     /// <summary>Конфликты ресурсов.</summary>
     public DbSet<ResourceConflictRecord> ResourceConflicts => Set<ResourceConflictRecord>();
 
+    /// <summary>Ширины ребер по версиям карт.</summary>
+    public DbSet<EdgeWidthRecord> EdgeWidths => Set<EdgeWidthRecord>();
+
     /// <summary>Строки карт склада (только чтение).</summary>
     public DbSet<RmsMapRecord> Maps => Set<RmsMapRecord>();
 
@@ -60,9 +63,11 @@ public sealed class RoutePlannerDbContext : DbContext
         {
             builder.ToTable("vrt_TrafficResource", "public");
             builder.HasKey(record => record.Id);
+            builder.Property(record => record.MapVersionId).HasColumnName("MapVersionId");
             builder.Property(record => record.Code).HasMaxLength(256).IsRequired();
+            builder.Property(record => record.AgvProfile).HasMaxLength(128).IsRequired();
             builder.Property(record => record.ResourceType).HasMaxLength(32).HasConversion<string>().IsRequired();
-            builder.HasIndex(record => record.Code).IsUnique();
+            builder.HasIndex(record => new { record.MapVersionId, record.AgvProfile, record.Code }).IsUnique();
         });
 
         modelBuilder.Entity<TrafficResourceEdgeRecord>(builder =>
@@ -70,14 +75,17 @@ public sealed class RoutePlannerDbContext : DbContext
             builder.ToTable("vrt_TrafficResourceEdge", "public");
             builder.HasKey(record => new { record.TrafficResourceId, record.EdgeId, record.Direction });
             builder.Property(record => record.Direction).HasMaxLength(16).IsRequired();
-            builder.HasIndex(record => new { record.EdgeId, record.Direction }).IsUnique();
+            builder.Property(record => record.AgvProfile).HasMaxLength(128).IsRequired();
+            builder.Property(record => record.IsPassable).HasColumnName("IsPassable");
+            builder.HasIndex(record => new { record.EdgeId, record.Direction, record.AgvProfile }).IsUnique();
         });
 
         modelBuilder.Entity<TrafficResourceNodeRecord>(builder =>
         {
             builder.ToTable("vrt_TrafficResourceNode", "public");
             builder.HasKey(record => new { record.TrafficResourceId, record.NodeId });
-            builder.HasIndex(record => record.NodeId).IsUnique();
+            builder.Property(record => record.AgvProfile).HasMaxLength(128).IsRequired();
+            builder.HasIndex(record => new { record.NodeId, record.AgvProfile }).IsUnique();
         });
 
         modelBuilder.Entity<ResourceConflictRecord>(builder =>
@@ -86,6 +94,15 @@ public sealed class RoutePlannerDbContext : DbContext
             builder.HasKey(record => new { record.ResourceId, record.ConflictingResourceId });
             builder.Property(record => record.ConflictType).HasMaxLength(64).IsRequired();
             builder.HasIndex(record => record.ResourceId);
+        });
+
+        modelBuilder.Entity<EdgeWidthRecord>(builder =>
+        {
+            builder.ToTable("vrt_EdgeWidth", "public");
+            builder.HasKey(record => new { record.MapVersionId, record.EdgeId });
+            builder.Property(record => record.WidthSource).HasMaxLength(16).IsRequired();
+            builder.Property(record => record.WidthSourceDetail).HasMaxLength(256).IsRequired();
+            builder.HasIndex(record => record.EdgeId);
         });
 
         modelBuilder.Entity<RmsMapRecord>(builder =>
@@ -263,8 +280,14 @@ public sealed class TrafficResourceRecord
     /// <summary>Идентификатор ресурса.</summary>
     public Guid Id { get; set; }
 
+    /// <summary>Идентификатор версии карты.</summary>
+    public Guid MapVersionId { get; set; }
+
     /// <summary>Код ресурса.</summary>
     public string Code { get; set; } = string.Empty;
+
+    /// <summary>Профиль робота.</summary>
+    public string AgvProfile { get; set; } = string.Empty;
 
     /// <summary>Тип ресурса.</summary>
     public TrafficResourceType ResourceType { get; set; }
@@ -296,6 +319,15 @@ public sealed class TrafficResourceEdgeRecord
 
     /// <summary>Порядок ребра внутри ресурса.</summary>
     public int Sequence { get; set; }
+
+    /// <summary>Профиль робота.</summary>
+    public string AgvProfile { get; set; } = string.Empty;
+
+    /// <summary>Класс коридора.</summary>
+    public int Class { get; set; }
+
+    /// <summary>Признак проходимости коридора для профиля.</summary>
+    public bool IsPassable { get; set; }
 }
 
 /// <summary>Строка таблицы <c>public."vrt_TrafficResourceNode"</c>.</summary>
@@ -306,6 +338,28 @@ public sealed class TrafficResourceNodeRecord
 
     /// <summary>Идентификатор узла.</summary>
     public Guid NodeId { get; set; }
+
+    /// <summary>Профиль робота.</summary>
+    public string AgvProfile { get; set; } = string.Empty;
+}
+
+/// <summary>Строка таблицы <c>public."vrt_EdgeWidth"</c>.</summary>
+public sealed class EdgeWidthRecord
+{
+    /// <summary>Идентификатор версии карты.</summary>
+    public Guid MapVersionId { get; set; }
+
+    /// <summary>Идентификатор ребра.</summary>
+    public Guid EdgeId { get; set; }
+
+    /// <summary>Ширина коридора, метры.</summary>
+    public double Width { get; set; }
+
+    /// <summary>Источник значения ширины.</summary>
+    public string WidthSource { get; set; } = string.Empty;
+
+    /// <summary>Уточнение источника.</summary>
+    public string? WidthSourceDetail { get; set; }
 }
 
 /// <summary>Строка таблицы <c>public."vrt_ResourceConflict"</c>.</summary>

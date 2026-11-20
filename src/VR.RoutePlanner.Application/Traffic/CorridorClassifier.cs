@@ -1,4 +1,5 @@
 using VR.RoutePlanner.Application.Configuration;
+using VR.RoutePlanner.Domain.Graph;
 using VR.RoutePlanner.Domain.Traffic;
 
 namespace VR.RoutePlanner.Application.Traffic;
@@ -72,6 +73,19 @@ public static class CorridorClassifier
         }
 
         return CorridorClass.C5;
+    }
+
+    /// <summary>
+    /// Проверяет проходимость коридора: <c>W >= B + 2 * S</c>.
+    /// </summary>
+    /// <param name="corridorWidth">Ширина коридора W в метрах.</param>
+    /// <param name="profile">Профиль робота.</param>
+    /// <param name="sideMargin">Боковой зазор S в метрах.</param>
+    /// <returns><c>true</c>, если робот профиля проходит коридор.</returns>
+    public static bool IsPassable(double corridorWidth, AgvProfile profile, double sideMargin)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        return corridorWidth >= profile.WidthMeters + (2.0 * sideMargin);
     }
 
     /// <summary>
