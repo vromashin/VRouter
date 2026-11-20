@@ -253,39 +253,30 @@ public sealed class TrafficResourceBuilder
         var degreeByNode = CountDegrees(edges);
         foreach (var node in nodes)
         {
-            var code = string.Create(CultureInfo.InvariantCulture, $"{graph.MapId}-{profile.Name}-NODE-{node.NodeId}");
+            var degree = degreeByNode.TryGetValue(node.Id, out var value) ? value : 0;
+
+            // Узел принадлежит ровно одному ресурсу на профиль
+            // (UQ_vrt_TrafficResourceNode_Node_Profile), поэтому узел со степенью больше двух
+            // получает только CONFLICT_ZONE и не получает NODE-ресурс.
+            var isConflictZone = degree > 2;
+            var kind = isConflictZone ? "CZ" : "NODE";
+
+            var code = string.Create(
+                CultureInfo.InvariantCulture,
+                $"{graph.MapId}-{profile.Name}-{kind}-{node.NodeId}");
+
             var resourceId = DeterministicId.FromString(code);
             resources.Add(new TrafficResource(
                 resourceId,
                 mapVersionId,
                 code,
                 profile.Name,
-                TrafficResourceType.EXCLUSIVE,
+                isConflictZone ? TrafficResourceType.CONFLICT_ZONE : TrafficResourceType.EXCLUSIVE,
                 Capacity: 1,
                 MinEntryInterval: 0,
                 MaxOccupancyTime: 0,
                 IsActive: true));
             resourceNodes.Add(new TrafficResourceNode(resourceId, node.Id, profile.Name));
-
-            var degree = degreeByNode.TryGetValue(node.Id, out var value) ? value : 0;
-            if (degree > 2)
-            {
-                var conflictZoneCode = string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"{graph.MapId}-{profile.Name}-CZ-{node.NodeId}");
-                var conflictZoneId = DeterministicId.FromString(conflictZoneCode);
-                resources.Add(new TrafficResource(
-                    conflictZoneId,
-                    mapVersionId,
-                    conflictZoneCode,
-                    profile.Name,
-                    TrafficResourceType.CONFLICT_ZONE,
-                    Capacity: 1,
-                    MinEntryInterval: 0,
-                    MaxOccupancyTime: 0,
-                    IsActive: true));
-                resourceNodes.Add(new TrafficResourceNode(conflictZoneId, node.Id, profile.Name));
-            }
         }
 
         EnsureUniqueMembership(resourceEdges, resourceNodes);

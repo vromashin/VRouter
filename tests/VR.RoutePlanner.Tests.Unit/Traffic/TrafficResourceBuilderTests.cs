@@ -174,6 +174,42 @@ public sealed class TrafficResourceBuilderTests
         var conflictZone = Assert.Single(result.Resources, resource => resource.ResourceType == TrafficResourceType.CONFLICT_ZONE);
         Assert.Contains("801-test-CZ-wa100", conflictZone.Code, StringComparison.Ordinal);
         Assert.Equal(1, conflictZone.Capacity);
+
+        // UQ_vrt_TrafficResourceNode_Node_Profile: узел принадлежит ровно одному ресурсу на профиль,
+        // поэтому у узла степени три есть только CONFLICT_ZONE и нет NODE-ресурса.
+        Assert.DoesNotContain(
+            result.Resources,
+            resource => resource.Code.Contains("-NODE-wa100", StringComparison.Ordinal));
+        var centerLink = Assert.Single(result.ResourceNodes, link => link.NodeId == center.Id);
+        Assert.Equal(conflictZone.Id, centerLink.TrafficResourceId);
+    }
+
+    [Fact]
+    public async Task BuildAsync_AnyGraph_KeepsOneNodeLinkPerProfile()
+    {
+        var center = GraphFixtures.Node("wa100", 0, 0);
+        var first = GraphFixtures.Node("wa101", 1, 0);
+        var second = GraphFixtures.Node("wa102", 0, 1);
+        var third = GraphFixtures.Node("wa103", -1, 0);
+        var graph = GraphFixtures.Graph(
+            new[] { center, first, second, third },
+            new[]
+            {
+                GraphFixtures.Edge(center, first),
+                GraphFixtures.Edge(center, second),
+                GraphFixtures.Edge(center, third),
+            });
+        var builder = CreateBuilder(FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")));
+
+        var result = await BuildAsync(builder, graph);
+
+        var duplicates = result.ResourceNodes
+            .GroupBy(link => (link.NodeId, link.AgvProfile))
+            .Where(group => group.Count() > 1)
+            .Select(group => $"{group.Key.NodeId}/{group.Key.AgvProfile}")
+            .ToList();
+
+        Assert.True(duplicates.Count == 0, $"Дубли пар (NodeId, AgvProfile): {string.Join(", ", duplicates)}");
     }
 
     [Fact]
