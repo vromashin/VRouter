@@ -34,6 +34,9 @@ public sealed class RoutePlannerDbContext : DbContext
     /// <summary>Ширины ребер по версиям карт.</summary>
     public DbSet<EdgeWidthRecord> EdgeWidths => Set<EdgeWidthRecord>();
 
+    /// <summary>Проходимость ребер по профилям роботов.</summary>
+    public DbSet<EdgePassabilityRecord> EdgePassabilities => Set<EdgePassabilityRecord>();
+
     /// <summary>Строки карт склада (только чтение).</summary>
     public DbSet<RmsMapRecord> Maps => Set<RmsMapRecord>();
 
@@ -56,7 +59,7 @@ public sealed class RoutePlannerDbContext : DbContext
             builder.Property(record => record.MapVersion).HasMaxLength(128).IsRequired();
             builder.Property(record => record.GraphVersion).HasMaxLength(128).IsRequired();
             builder.Property(record => record.CreatedAt).HasColumnName("CreatedAt");
-            builder.HasIndex(record => new { record.MapId, record.GraphVersion }).IsUnique();
+            builder.HasIndex(record => new { record.MapId, record.GraphVersion }).IsUnique().HasDatabaseName("UQ_vrt_MapVersion_MapId_GraphVersion");
         });
 
         modelBuilder.Entity<TrafficResourceRecord>(builder =>
@@ -67,7 +70,7 @@ public sealed class RoutePlannerDbContext : DbContext
             builder.Property(record => record.Code).HasMaxLength(256).IsRequired();
             builder.Property(record => record.AgvProfile).HasMaxLength(128).IsRequired();
             builder.Property(record => record.ResourceType).HasMaxLength(32).HasConversion<string>().IsRequired();
-            builder.HasIndex(record => new { record.MapVersionId, record.AgvProfile, record.Code }).IsUnique();
+            builder.HasIndex(record => new { record.MapVersionId, record.AgvProfile, record.Code }).IsUnique().HasDatabaseName("UQ_vrt_TrafficResource_MapVersion_Profile_Code");
         });
 
         modelBuilder.Entity<TrafficResourceEdgeRecord>(builder =>
@@ -76,8 +79,17 @@ public sealed class RoutePlannerDbContext : DbContext
             builder.HasKey(record => new { record.TrafficResourceId, record.EdgeId, record.Direction });
             builder.Property(record => record.Direction).HasMaxLength(16).IsRequired();
             builder.Property(record => record.AgvProfile).HasMaxLength(128).IsRequired();
-            builder.Property(record => record.IsPassable).HasColumnName("IsPassable");
-            builder.HasIndex(record => new { record.EdgeId, record.Direction, record.AgvProfile }).IsUnique();
+            builder.HasIndex(record => new { record.EdgeId, record.Direction, record.AgvProfile }).IsUnique().HasDatabaseName("UQ_vrt_TrafficResourceEdge_Edge_Direction_Profile");
+        });
+
+        modelBuilder.Entity<EdgePassabilityRecord>(builder =>
+        {
+            builder.ToTable("vrt_EdgePassability", "public");
+            builder.HasKey(record => new { record.MapVersionId, record.AgvProfile, record.EdgeId });
+            builder.Property(record => record.AgvProfile).HasMaxLength(128).IsRequired();
+            builder.Property(record => record.CorridorClass).HasColumnName("CorridorClass").HasMaxLength(8).IsRequired();
+            builder.Property(record => record.Reason).HasMaxLength(64);
+            builder.HasIndex(record => new { record.EdgeId, record.AgvProfile });
         });
 
         modelBuilder.Entity<TrafficResourceNodeRecord>(builder =>
@@ -85,7 +97,7 @@ public sealed class RoutePlannerDbContext : DbContext
             builder.ToTable("vrt_TrafficResourceNode", "public");
             builder.HasKey(record => new { record.TrafficResourceId, record.NodeId });
             builder.Property(record => record.AgvProfile).HasMaxLength(128).IsRequired();
-            builder.HasIndex(record => new { record.NodeId, record.AgvProfile }).IsUnique();
+            builder.HasIndex(record => new { record.NodeId, record.AgvProfile }).IsUnique().HasDatabaseName("UQ_vrt_TrafficResourceNode_Node_Profile");
         });
 
         modelBuilder.Entity<ResourceConflictRecord>(builder =>
@@ -322,12 +334,28 @@ public sealed class TrafficResourceEdgeRecord
 
     /// <summary>Профиль робота.</summary>
     public string AgvProfile { get; set; } = string.Empty;
+}
 
-    /// <summary>Класс коридора.</summary>
-    public int Class { get; set; }
+/// <summary>Строка таблицы <c>public."vrt_EdgePassability"</c>.</summary>
+public sealed class EdgePassabilityRecord
+{
+    /// <summary>Идентификатор версии карты.</summary>
+    public Guid MapVersionId { get; set; }
 
-    /// <summary>Признак проходимости коридора для профиля.</summary>
+    /// <summary>Идентификатор ребра.</summary>
+    public Guid EdgeId { get; set; }
+
+    /// <summary>Профиль робота.</summary>
+    public string AgvProfile { get; set; } = string.Empty;
+
+    /// <summary>Признак проходимости ребра для профиля.</summary>
     public bool IsPassable { get; set; }
+
+    /// <summary>Класс коридора, например <c>C3</c>.</summary>
+    public string CorridorClass { get; set; } = string.Empty;
+
+    /// <summary>Причина непроходимости.</summary>
+    public string? Reason { get; set; }
 }
 
 /// <summary>Строка таблицы <c>public."vrt_TrafficResourceNode"</c>.</summary>

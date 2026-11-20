@@ -176,24 +176,22 @@ public sealed class TrafficResourceBuilder
         var resourceByEdge = new Dictionary<Guid, Guid>();
 
         var passableInfos = new List<EdgeInfo>(edgeInfos.Count);
+        var passability = new List<EdgePassability>(edgeInfos.Count);
         foreach (var info in edgeInfos)
         {
-            if (CorridorClassifier.IsPassable(info.Width, profile, options.SideMargin))
+            var passable = CorridorClassifier.IsPassable(info.Width, profile, options.SideMargin);
+            passability.Add(new EdgePassability(
+                mapVersionId,
+                info.Edge.Id,
+                profile.Name,
+                passable,
+                info.Class,
+                passable ? null : "WIDTH_LIMIT"));
+
+            if (passable)
             {
                 passableInfos.Add(info);
-                continue;
             }
-
-            // Непроходимое ребро ресурса не получает: связь с IsPassable = false остается
-            // в наборе только для диагностики и в конфликты не участвует.
-            resourceEdges.Add(new TrafficResourceEdge(
-                Guid.Empty,
-                info.Edge.Id,
-                TrafficDirections.Forward,
-                0,
-                profile.Name,
-                info.Class,
-                IsPassable: false));
         }
 
         var groups = GroupEdges(passableInfos);
@@ -209,7 +207,7 @@ public sealed class TrafficResourceBuilder
                 CultureInfo.InvariantCulture,
                 $"{graph.MapId}-{profile.Name}-{corridorClass}-{number}");
 
-            var resourceId = DeterministicId.FromString(code);
+            var resourceId = DeterministicId.FromString(mapVersionId, code);
             resources.Add(new TrafficResource(
                 resourceId,
                 mapVersionId,
@@ -226,15 +224,12 @@ public sealed class TrafficResourceBuilder
             {
                 sequence++;
                 resourceByEdge[info.Edge.Id] = resourceId;
-                var passable = CorridorClassifier.IsPassable(info.Width, profile, options.SideMargin);
                 resourceEdges.Add(new TrafficResourceEdge(
                     resourceId,
                     info.Edge.Id,
                     TrafficDirections.Forward,
                     sequence,
-                    profile.Name,
-                    corridorClass,
-                    passable));
+                    profile.Name));
                 if (info.Edge.Bidirectional)
                 {
                     resourceEdges.Add(new TrafficResourceEdge(
@@ -242,9 +237,7 @@ public sealed class TrafficResourceBuilder
                         info.Edge.Id,
                         TrafficDirections.Backward,
                         sequence,
-                        profile.Name,
-                        corridorClass,
-                        passable));
+                        profile.Name));
                 }
             }
         }
@@ -265,7 +258,7 @@ public sealed class TrafficResourceBuilder
                 CultureInfo.InvariantCulture,
                 $"{graph.MapId}-{profile.Name}-{kind}-{node.NodeId}");
 
-            var resourceId = DeterministicId.FromString(code);
+            var resourceId = DeterministicId.FromString(mapVersionId, code);
             resources.Add(new TrafficResource(
                 resourceId,
                 mapVersionId,
@@ -301,7 +294,7 @@ public sealed class TrafficResourceBuilder
             resourceNodes.Count,
             conflicts.Count);
 
-        return new ProfileResourceSet(profile, resources, resourceEdges, resourceNodes, conflicts);
+        return new ProfileResourceSet(profile, resources, resourceEdges, resourceNodes, conflicts, passability);
     }
 
     private async Task<MapRaster?> LoadRasterAsync(string mapId, RoutePlannerOptions options, CancellationToken ct)
@@ -357,6 +350,9 @@ public sealed class TrafficResourceBuilder
                 robotCentimeters);
         }
     }
+
+    /// <summary>Настроенный источник ширины: по нему проверяется годность сохраненных строк.</summary>
+    public WidthSource WidthSource => _options.Value.WidthSource;
 
     /// <summary>
     /// Считает ширины и длины ребер по расту: одна и та же величина для всех профилей,
@@ -572,13 +568,23 @@ public sealed class TrafficResourceBuilder
 
         foreach (var nodeEdges in byNode.Values)
         {
-            for (var i = 1; i < nodeEdges.Count; i++)
+            // Объединение разрешено только через узел степени 2: перекресток, тупик
+            // и узел без ребер разрывают ресурс.
+            if (nodeEdges.Count != 2)
             {
-                if (edgeInfos[nodeEdges[0]].Class == edgeInfos[nodeEdges[i]].Class)
-                {
-                    Union(nodeEdges[0], nodeEdges[i]);
-                }
+                continue;
             }
+
+            var left = edgeInfos[nodeEdges[0]];
+            var right = edgeInfos[nodeEdges[1]];
+
+            // Стык версий карты и разный класс коридора тоже разрывают ресурс.
+            if (left.Class != right.Class || left.Edge.MapKey != right.Edge.MapKey)
+            {
+                continue;
+            }
+
+            Union(nodeEdges[0], nodeEdges[1]);
         }
 
         var groups = new Dictionary<int, List<EdgeInfo>>();
@@ -902,15 +908,21 @@ public static class TrafficDirections
 public static class DeterministicId
 {
     /// <summary>
-    /// Считает GUID из строкового ключа.
+    /// Считает GUID из ключа версии карты и кода ресурса: две версии одной карты
+    /// с одинаковым кодом получают разные идентификаторы.
     /// </summary>
+    /// <param name="mapVersionId">Идентификатор версии карты (<c>vrt_MapVersion."Id"</c>).</param>
     /// <param name="value">Ключ ресурса, например <c>801-C1-1</c>.</param>
     /// <returns>Детерминированный GUID.</returns>
-    public static Guid FromString(string value)
+    public static Guid FromString(Guid mapVersionId, string value)
     {
         ArgumentNullException.ThrowIfNull(value);
 
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+        var key = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{mapVersionId:N}:{value}");
+
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(key));
         var bytes = new byte[16];
         Array.Copy(hash, bytes, 16);
         bytes[7] = (byte)((bytes[7] & 0x0F) | 0x50);

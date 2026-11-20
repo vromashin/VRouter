@@ -329,9 +329,11 @@ public sealed class TrafficResourceBuilderTests
         var graph = TwoNodeGraph();
         var set = await BuildAsync(builder, graph);
 
-        Assert.DoesNotContain(set.Resources, resource => resource.Code.Contains("-C1-", StringComparison.Ordinal));
-        Assert.All(set.ResourceEdges, link => Assert.False(link.IsPassable));
-        Assert.All(set.ResourceEdges, link => Assert.Equal(Guid.Empty, link.TrafficResourceId));
+        Assert.DoesNotContain(set.Resources, resource => resource.Code.Contains("-C", StringComparison.Ordinal));
+        Assert.Empty(set.ResourceEdges);
+        var pass = Assert.Single(set.Passability);
+        Assert.False(pass.IsPassable);
+        Assert.Equal("WIDTH_LIMIT", pass.Reason);
 
         var widths = await builder.ComputeWidthsAsync(graph, MapVersionId);
         var width = Assert.Single(widths);
@@ -362,13 +364,12 @@ public sealed class TrafficResourceBuilderTests
 
         var narrow = sets.Single(set => set.AgvProfile == TestProfiles.Name);
         var narrowLink = Assert.Single(narrow.ResourceEdges, link => link.Direction == TransactionDirectionForward);
-        Assert.True(narrowLink.IsPassable);
         Assert.Contains(narrow.Resources, resource => resource.Id == narrowLink.TrafficResourceId);
+        Assert.True(Assert.Single(narrow.Passability).IsPassable);
 
         var wide = sets.Single(set => set.AgvProfile == "wide");
-        var wideLink = Assert.Single(wide.ResourceEdges, link => link.Direction == TransactionDirectionForward);
-        Assert.False(wideLink.IsPassable);
-        Assert.DoesNotContain(wide.Resources, resource => resource.Id == wideLink.TrafficResourceId);
+        Assert.Empty(wide.ResourceEdges);
+        Assert.False(Assert.Single(wide.Passability).IsPassable);
     }
 
     [Fact]
@@ -397,13 +398,10 @@ public sealed class TrafficResourceBuilderTests
         var narrow = sets.Single(set => set.AgvProfile == TestProfiles.Name);
         var wide = sets.Single(set => set.AgvProfile == "wide");
 
-        var narrowEdge = Assert.Single(narrow.ResourceEdges, link => link.Direction == TransactionDirectionForward);
-        var wideEdge = Assert.Single(wide.ResourceEdges, link => link.Direction == TransactionDirectionForward);
-        Assert.Equal(CorridorClass.C2, narrowEdge.Class);
-        Assert.Equal(CorridorClass.C1, wideEdge.Class);
-
-        var narrowResource = Assert.Single(narrow.Resources, resource => resource.Id == narrowEdge.TrafficResourceId);
-        var wideResource = Assert.Single(wide.Resources, resource => resource.Id == wideEdge.TrafficResourceId);
+        var narrowResource = Assert.Single(narrow.Resources, resource => resource.Code.Contains("-C2-", StringComparison.Ordinal));
+        var wideResource = Assert.Single(wide.Resources, resource => resource.Code.Contains("-C1-", StringComparison.Ordinal));
+        Assert.Equal(CorridorClass.C2, Assert.Single(narrow.Passability).Class);
+        Assert.Equal(CorridorClass.C1, Assert.Single(wide.Passability).Class);
         Assert.Equal(2, narrowResource.Capacity);
         Assert.Equal(1, wideResource.Capacity);
         Assert.Equal(TrafficResourceType.DIRECTIONAL, narrowResource.ResourceType);

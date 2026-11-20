@@ -49,8 +49,6 @@ public sealed class ResourceRepository : IResourceRepository
                     EdgeId = link.EdgeId,
                     Direction = link.Direction,
                     Sequence = link.Sequence,
-                    Class = (int)link.Class,
-                    IsPassable = link.IsPassable,
                 });
             }
         }
@@ -92,27 +90,52 @@ public sealed class ResourceRepository : IResourceRepository
         }
 
         await using var context = await _contextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+
+        var mapVersionExists = await context.MapVersions
+            .AsNoTracking()
+            .AnyAsync(row => row.Id == mapVersionId, ct)
+            .ConfigureAwait(false);
+
+        if (!mapVersionExists)
+        {
+            throw new InvalidOperationException(
+                $"Версия карты {mapVersionId} отсутствует в public.\"vrt_MapVersion\": сохранять ресурсы некуда.");
+        }
+
         await using var transaction = await context.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
 
-        if (ids.Count > 0)
-        {
-            await context.ResourceConflicts
-                .Where(row => ids.Contains(row.ResourceId) || ids.Contains(row.ConflictingResourceId))
-                .ExecuteDeleteAsync(ct)
-                .ConfigureAwait(false);
-            await context.TrafficResourceEdges
-                .Where(row => ids.Contains(row.TrafficResourceId))
-                .ExecuteDeleteAsync(ct)
-                .ConfigureAwait(false);
-            await context.TrafficResourceNodes
-                .Where(row => ids.Contains(row.TrafficResourceId))
-                .ExecuteDeleteAsync(ct)
-                .ConfigureAwait(false);
-            await context.TrafficResources
-                .Where(row => row.MapVersionId == mapVersionId)
-                .ExecuteDeleteAsync(ct)
-                .ConfigureAwait(false);
-        }
+        // Удаление строго от дочерних строк к родительским: внешние ключи без каскада.
+        // Отбор по версии карты, а не по новым идентификаторам: после смены формулы
+        // DeterministicId старые строки этой версии иначе останутся и заблокируют удаление.
+        var versionResourceIds = context.TrafficResources
+            .Where(row => row.MapVersionId == mapVersionId)
+            .Select(row => row.Id);
+
+        await context.ResourceConflicts
+            .Where(row => versionResourceIds.Contains(row.ResourceId)
+                || versionResourceIds.Contains(row.ConflictingResourceId))
+            .ExecuteDeleteAsync(ct)
+            .ConfigureAwait(false);
+        await context.TrafficResourceEdges
+            .Where(row => versionResourceIds.Contains(row.TrafficResourceId))
+            .ExecuteDeleteAsync(ct)
+            .ConfigureAwait(false);
+        await context.TrafficResourceNodes
+            .Where(row => versionResourceIds.Contains(row.TrafficResourceId))
+            .ExecuteDeleteAsync(ct)
+            .ConfigureAwait(false);
+        await context.EdgePassabilities
+            .Where(row => row.MapVersionId == mapVersionId)
+            .ExecuteDeleteAsync(ct)
+            .ConfigureAwait(false);
+        await context.TrafficResources
+            .Where(row => row.MapVersionId == mapVersionId)
+            .ExecuteDeleteAsync(ct)
+            .ConfigureAwait(false);
+        await context.EdgePassabilities
+            .Where(row => row.MapVersionId == mapVersionId)
+            .ExecuteDeleteAsync(ct)
+            .ConfigureAwait(false);
 
         foreach (var set in sets)
         {
@@ -162,6 +185,22 @@ public sealed class ResourceRepository : IResourceRepository
         }
 
         context.TrafficResourceEdges.AddRange(edges);
+
+        foreach (var set in sets)
+        {
+            foreach (var pass in set.Passability)
+            {
+                context.EdgePassabilities.Add(new EdgePassabilityRecord
+                {
+                    MapVersionId = pass.MapVersionId,
+                    EdgeId = pass.EdgeId,
+                    AgvProfile = pass.AgvProfile,
+                    IsPassable = pass.IsPassable,
+                    CorridorClass = pass.Class.ToString(),
+                    Reason = pass.Reason,
+                });
+            }
+        }
 
         await context.SaveChangesAsync(ct).ConfigureAwait(false);
         await transaction.CommitAsync(ct).ConfigureAwait(false);

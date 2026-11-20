@@ -67,8 +67,6 @@ public sealed class Stage1Graph : Migration
             "EdgeId" uuid NOT NULL REFERENCES public."Edges"("Id"),
             "Direction" varchar(16) NOT NULL,
             "Sequence" integer NOT NULL,
-            "Class" integer NOT NULL,
-            "IsPassable" boolean NOT NULL,
             PRIMARY KEY ("TrafficResourceId", "EdgeId", "Direction"),
             CONSTRAINT "FK_vrt_TrafficResourceEdge_Resource"
                 FOREIGN KEY ("TrafficResourceId", "AgvProfile")

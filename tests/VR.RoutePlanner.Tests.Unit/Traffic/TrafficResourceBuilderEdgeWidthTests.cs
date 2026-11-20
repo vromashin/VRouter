@@ -32,8 +32,10 @@ public sealed class TrafficResourceBuilderEdgeWidthTests
         Assert.Equal(0, raster.Calls);
         var set = Assert.Single(sets);
         var link = Assert.Single(set.ResourceEdges, item => item.Direction == "FORWARD");
-        Assert.True(link.IsPassable);
-        Assert.Equal(Domain.Traffic.CorridorClass.C2, link.Class);
+        Assert.NotEqual(Guid.Empty, link.TrafficResourceId);
+        var pass = Assert.Single(set.Passability);
+        Assert.True(pass.IsPassable);
+        Assert.Equal(Domain.Traffic.CorridorClass.C2, pass.Class);
     }
 
     private static IOptions<RoutePlannerOptions> CreateOptions()

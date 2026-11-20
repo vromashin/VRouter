@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using VR.RoutePlanner.Application.Graph;
 using VR.RoutePlanner.Application.Traffic;
 using VR.RoutePlanner.Domain.Graph;
@@ -48,8 +49,11 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
                 "Для чтения ширин нужен идентификатор версии карты vrt_MapVersion.Id.");
         }
 
+        var expectedSource = ExpectedSource();
+        var expectedCount = CountActiveEdges(graph);
+
         var stored = await ReadAsync(mapVersionId, ct).ConfigureAwait(false);
-        if (stored.Count > 0)
+        if (IsUsable(stored, expectedSource, expectedCount))
         {
             return stored;
         }
@@ -59,7 +63,6 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
         {
             return computed;
         }
-
         await InsertAsync(computed, ct).ConfigureAwait(false);
 
         var saved = await ReadAsync(mapVersionId, ct).ConfigureAwait(false);
@@ -74,8 +77,29 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
         return saved;
     }
 
-    private async Task<IReadOnlyList<EdgeWidth>> ReadAsync(Guid mapVersionId, CancellationToken ct)
+    private static bool IsUsable(
+        IReadOnlyList<EdgeWidth> stored,
+        WidthSource expectedSource,
+        int expectedCount)
     {
+        return stored.Count == expectedCount
+            && expectedCount > 0
+            && stored.All(width => width.WidthSource == expectedSource);
+    }
+
+    private WidthSource ExpectedSource() => _builder.WidthSource;
+
+    private static int CountActiveEdges(WarehouseGraph graph)
+    {
+        return graph.Edges.Values
+            .SelectMany(list => list)
+            .Where(edge => edge.IsActive)
+            .Select(edge => edge.Id)
+            .Distinct()
+            .Count();
+    }
+
+    private async Task<IReadOnlyList<EdgeWidth>> ReadAsync(Guid mapVersionId, CancellationToken ct)    {
         await using var context = await _contextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
         var rows = await context.EdgeWidths
@@ -103,6 +127,12 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
     {
         await using var context = await _contextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
+        // Пересчет: строки прошлого расчета с другим источником или неполным составом удаляются.
+        await context.EdgeWidths
+            .Where(record => record.MapVersionId == widths[0].MapVersionId)
+            .ExecuteDeleteAsync(ct)
+            .ConfigureAwait(false);
+
         foreach (var width in widths)
         {
             context.EdgeWidths.Add(new EdgeWidthRecord
@@ -119,7 +149,7 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
         {
             await context.SaveChangesAsync(ct).ConfigureAwait(false);
         }
-        catch (DbUpdateException exception)
+        catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.UniqueViolation)
         {
             // Гонка двух экземпляров сервиса: строки успел вставить другой процесс.
             // Первичный ключ (MapVersionId, EdgeId) не дал дубля, повторное чтение вернет данные из базы.
@@ -137,3 +167,4 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
         _ => WidthSource.Default,
     };
 }
+

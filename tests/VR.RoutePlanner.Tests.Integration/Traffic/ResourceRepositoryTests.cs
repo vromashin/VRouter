@@ -58,6 +58,14 @@ public sealed class ResourceRepositoryTests
         Assert.Equal(0, first.OrphanEdges);
         Assert.Equal(0, first.EmptyEdges);
 
+        // Проходимость: строка на каждое активное ребро карты для каждого профиля (365 * 2),
+        // включая непроходимые ребра, которых нет в ресурсах.
+        Assert.Equal(365 * first.Profiles, first.Passability);
+
+        // Ревизия 4: ресурс рвется на каждом перекрестке, поэтому на профиль их десятки-сотни,
+        // а не единицы и не тысячи.
+        Assert.InRange(first.Corridors, 10, 5000);
+
         // Конфликты не должны повторяться и не должны ссылаться на ресурс сам на себя.
         var selfPairs = await CountSelfConflictsAsync(factory);
         Assert.Equal(0, selfPairs);
@@ -120,6 +128,12 @@ public sealed class ResourceRepositoryTests
         var nodes = await context.TrafficResourceNodes.AsNoTracking().CountAsync().ConfigureAwait(false);
         var conflicts = await context.ResourceConflicts.AsNoTracking().CountAsync().ConfigureAwait(false);
 
+        var passability = await context.EdgePassabilities
+            .AsNoTracking()
+            .Where(record => record.MapVersionId == mapVersionId)
+            .CountAsync()
+            .ConfigureAwait(false);
+
         var resourceIds = context.TrafficResources
             .AsNoTracking()
             .Where(record => record.MapVersionId == mapVersionId)
@@ -137,7 +151,15 @@ public sealed class ResourceRepositoryTests
             .CountAsync(record => record.TrafficResourceId == Guid.Empty)
             .ConfigureAwait(false);
 
-        return new TableCounts(resources, profiles, edges, nodes, conflicts, orphanEdges, emptyEdges);
+        var corridors = await context.Database
+            .SqlQueryRaw<int>(
+                "SELECT count(*)::int AS \"Value\" FROM public.\"vrt_TrafficResource\" "
+                + "WHERE \"MapVersionId\" = {0} AND \"Code\" ~ '-C[0-9]+-'",
+                mapVersionId)
+            .SingleAsync()
+            .ConfigureAwait(false);
+
+        return new TableCounts(resources, profiles, edges, nodes, conflicts, orphanEdges, emptyEdges, passability, corridors);
     }
 
     private static RoutePlannerOptions BuildOptions() => new()
@@ -196,5 +218,7 @@ public sealed class ResourceRepositoryTests
         int Nodes,
         int Conflicts,
         int OrphanEdges,
-        int EmptyEdges);
+        int EmptyEdges,
+        int Passability,
+        int Corridors);
 }

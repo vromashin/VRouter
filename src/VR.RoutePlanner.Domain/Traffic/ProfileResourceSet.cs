@@ -16,7 +16,8 @@ public sealed record ProfileResourceSet(
     IReadOnlyList<TrafficResource> Resources,
     IReadOnlyList<TrafficResourceEdge> ResourceEdges,
     IReadOnlyList<TrafficResourceNode> ResourceNodes,
-    IReadOnlyList<ResourceConflict> Conflicts)
+    IReadOnlyList<ResourceConflict> Conflicts,
+    IReadOnlyList<EdgePassability> Passability)
 {
     /// <summary>Имя профиля, дублирует <c>Profile.Name</c> для удобства запросов.</summary>
     public string AgvProfile => Profile.Name;

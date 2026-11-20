@@ -22,6 +22,7 @@ public sealed class MigrationApplyTests
         "vrt_TrafficResourceEdge",
         "vrt_TrafficResourceNode",
         "vrt_ResourceConflict",
+        "vrt_EdgePassability",
     };
 
     [SkippableFact]
@@ -50,6 +51,7 @@ public sealed class MigrationApplyTests
         }
 
         var historyRows = await CountHistoryRowsAsync(context);
+        var known = context.Database.GetMigrations().Count();
 
         var appliedAgain = await MigrationRunner.MigrateAsync(
             context,
@@ -60,7 +62,7 @@ public sealed class MigrationApplyTests
 
         Assert.Equal(0, appliedAgain);
         Assert.Equal(historyRows, await CountHistoryRowsAsync(context));
-        Assert.Equal(1, historyRows);
+        Assert.Equal(known, historyRows);
     }
 
     private static async Task<int> CountHistoryRowsAsync(RoutePlannerDbContext context)
