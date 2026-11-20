@@ -10,7 +10,7 @@ namespace VR.RoutePlanner.Application.Startup;
 /// Оркестратор прогрева: выполняет шаги строго по порядку, ошибку шага логирует
 /// с его именем и пробрасывает наверх.
 /// </summary>
-public sealed class GraphWarmupService : IGraphWarmupService, IDisposable
+public sealed class GraphWarmupService : IGraphWarmupService
 {
     /// <summary>Шаг загрузки графа карты.</summary>
     public const string GraphStep = "загрузка графа";
@@ -32,11 +32,9 @@ public sealed class GraphWarmupService : IGraphWarmupService, IDisposable
     private readonly IEdgeWidthRepository _widthRepository;
     private readonly ITrafficResourceBuilder _resourceBuilder;
     private readonly IResourceRepository _resourceRepository;
+    private readonly IWarmupLock _warmupLock;
+    private readonly IWarmupStateRepository _stateRepository;
     private readonly ILogger<GraphWarmupService> _logger;
-
-    private readonly SemaphoreSlim _gate = new(1, 1);
-    private WarmupResult? _lastResult;
-    private int _completedRuns;
 
     /// <summary>
     /// Создает оркестратор прогрева.
@@ -46,6 +44,8 @@ public sealed class GraphWarmupService : IGraphWarmupService, IDisposable
     /// <param name="widthRepository">Ширины ребер.</param>
     /// <param name="resourceBuilder">Построитель ресурсов.</param>
     /// <param name="resourceRepository">Запись ресурсов.</param>
+    /// <param name="warmupLock">Межпроцессная блокировка прогрева.</param>
+    /// <param name="stateRepository">Хранилище последнего итога прогрева.</param>
     /// <param name="logger">Логгер.</param>
     public GraphWarmupService(
         IWarehouseGraphRepository graphRepository,
@@ -53,6 +53,8 @@ public sealed class GraphWarmupService : IGraphWarmupService, IDisposable
         IEdgeWidthRepository widthRepository,
         ITrafficResourceBuilder resourceBuilder,
         IResourceRepository resourceRepository,
+        IWarmupLock warmupLock,
+        IWarmupStateRepository stateRepository,
         ILogger<GraphWarmupService> logger)
     {
         ArgumentNullException.ThrowIfNull(graphRepository);
@@ -60,6 +62,8 @@ public sealed class GraphWarmupService : IGraphWarmupService, IDisposable
         ArgumentNullException.ThrowIfNull(widthRepository);
         ArgumentNullException.ThrowIfNull(resourceBuilder);
         ArgumentNullException.ThrowIfNull(resourceRepository);
+        ArgumentNullException.ThrowIfNull(warmupLock);
+        ArgumentNullException.ThrowIfNull(stateRepository);
         ArgumentNullException.ThrowIfNull(logger);
 
         _graphRepository = graphRepository;
@@ -67,47 +71,43 @@ public sealed class GraphWarmupService : IGraphWarmupService, IDisposable
         _widthRepository = widthRepository;
         _resourceBuilder = resourceBuilder;
         _resourceRepository = resourceRepository;
+        _warmupLock = warmupLock;
+        _stateRepository = stateRepository;
         _logger = logger;
     }
 
     /// <inheritdoc />
-    public WarmupResult? LastResult => Volatile.Read(ref _lastResult);
+    public async Task<WarmupResult?> GetLastResultAsync(string mapId, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(mapId);
+
+        return await _stateRepository.GetAsync(mapId, ct).ConfigureAwait(false);
+    }
 
     /// <inheritdoc />
     public async Task<WarmupResult> WarmupAsync(string mapId, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(mapId))
+        ArgumentException.ThrowIfNullOrWhiteSpace(mapId);
+
+        var completedBeforeWait = await _stateRepository.GetAsync(mapId, ct).ConfigureAwait(false);
+
+        await using var lease = await _warmupLock.AcquireAsync(mapId, ct).ConfigureAwait(false);
+
+        var completedByOtherProcess = await _stateRepository.GetAsync(mapId, ct).ConfigureAwait(false);
+        if (completedByOtherProcess is not null
+            && completedByOtherProcess.CompletedAt != completedBeforeWait?.CompletedAt)
         {
-            throw new ArgumentException("Не задан идентификатор карты для прогрева.", nameof(mapId));
+            _logger.LogInformation(
+                "Прогрев карты {MapId}: параллельный вызов дождался уже готового результата другого процесса.",
+                mapId);
+            return completedByOtherProcess;
         }
 
-        var completedBeforeWait = Volatile.Read(ref _completedRuns);
+        var result = await RunAsync(mapId, ct).ConfigureAwait(false);
+        await _stateRepository.SaveAsync(result, ct).ConfigureAwait(false);
 
-        await _gate.WaitAsync(ct).ConfigureAwait(false);
-        try
-        {
-            if (Volatile.Read(ref _completedRuns) != completedBeforeWait
-                && Volatile.Read(ref _lastResult) is { } shared)
-            {
-                _logger.LogInformation(
-                    "Прогрев карты {MapId}: параллельный вызов дождался уже готового результата.",
-                    mapId);
-                return shared;
-            }
-
-            var result = await RunAsync(mapId, ct).ConfigureAwait(false);
-            Volatile.Write(ref _lastResult, result);
-            Interlocked.Increment(ref _completedRuns);
-            return result;
-        }
-        finally
-        {
-            _gate.Release();
-        }
+        return result;
     }
-
-    /// <inheritdoc />
-    public void Dispose() => _gate.Dispose();
 
     private async Task<WarmupResult> RunAsync(string mapId, CancellationToken ct)
     {

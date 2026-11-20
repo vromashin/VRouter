@@ -37,6 +37,9 @@ public sealed class RoutePlannerDbContext : DbContext
     /// <summary>Проходимость ребер по профилям роботов.</summary>
     public DbSet<EdgePassabilityRecord> EdgePassabilities => Set<EdgePassabilityRecord>();
 
+    /// <summary>Итог последнего прогрева по картам.</summary>
+    public DbSet<WarmupStateRecord> WarmupStates => Set<WarmupStateRecord>();
+
     /// <summary>Строки карт склада (только чтение).</summary>
     public DbSet<RmsMapRecord> Maps => Set<RmsMapRecord>();
 
@@ -115,6 +118,17 @@ public sealed class RoutePlannerDbContext : DbContext
             builder.Property(record => record.WidthSource).HasMaxLength(16).IsRequired();
             builder.Property(record => record.WidthSourceDetail).HasMaxLength(256).IsRequired();
             builder.HasIndex(record => record.EdgeId);
+        });
+
+        modelBuilder.Entity<WarmupStateRecord>(builder =>
+        {
+            builder.ToTable("vrt_WarmupState", "public");
+            builder.HasKey(record => record.MapId);
+            builder.Property(record => record.MapId).HasMaxLength(128).IsRequired();
+            builder.Property(record => record.GraphVersion).HasMaxLength(128).IsRequired();
+            builder.Property(record => record.WidthSource).HasMaxLength(16).IsRequired();
+            builder.Property(record => record.ResourceCount).IsRequired();
+            builder.Property(record => record.ImpassableCount).IsRequired();
         });
 
         modelBuilder.Entity<RmsMapRecord>(builder =>
@@ -401,4 +415,41 @@ public sealed class ResourceConflictRecord
 
     /// <summary>Тип конфликта.</summary>
     public string ConflictType { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Строка таблицы <c>public."vrt_WarmupState"</c>: последний завершенный прогрев карты,
+/// общий для Api и Workers.
+/// </summary>
+public sealed class WarmupStateRecord
+{
+    /// <summary>Идентификатор карты, одна строка на карту.</summary>
+    public string MapId { get; set; } = string.Empty;
+
+    /// <summary>Идентификатор версии карты.</summary>
+    public Guid MapVersionId { get; set; }
+
+    /// <summary>Версия графа, для которой считались ресурсы.</summary>
+    public string GraphVersion { get; set; } = string.Empty;
+
+    /// <summary>Число активных ребер карты.</summary>
+    public int EdgeCount { get; set; }
+
+    /// <summary>Источник ширин коридоров.</summary>
+    public string WidthSource { get; set; } = string.Empty;
+
+    /// <summary>Число ресурсов по профилям роботов, JSON объект.</summary>
+    public string ResourceCount { get; set; } = "{}";
+
+    /// <summary>Число непроходимых ребер по профилям роботов, JSON объект.</summary>
+    public string ImpassableCount { get; set; } = "{}";
+
+    /// <summary>Длительность прогрева в миллисекундах.</summary>
+    public long DurationMs { get; set; }
+
+    /// <summary>Ширины взяты из <c>vrt_EdgeWidth</c> без пересчета по растру.</summary>
+    public bool ReusedWidths { get; set; }
+
+    /// <summary>Момент завершения прогрева, UTC.</summary>
+    public DateTimeOffset CompletedAt { get; set; }
 }

@@ -72,6 +72,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<TrafficResourceBuilder>();
         services.AddSingleton<ITrafficResourceBuilder>(provider => provider.GetRequiredService<TrafficResourceBuilder>());
         services.AddSingleton<IMapVersionRepository, MapVersionRepository>();
+        services.AddSingleton<IWarmupLock, PostgresWarmupLock>();
+        services.AddSingleton<IWarmupStateRepository, WarmupStateRepository>();
         services.AddSingleton<IGraphWarmupService, GraphWarmupService>();
         services.AddHostedService<DatabaseStartupService>();
 

@@ -52,12 +52,14 @@ public sealed class GraphController : ControllerBase
     }
 
     /// <summary>
-    /// Отдает итог последнего прогрева.
+    /// Отдает итог последнего прогрева, записанный в базу любым процессом сервиса.
     /// </summary>
+    /// <param name="ct">Токен отмены запроса.</param>
     /// <returns>Итог прогрева либо <c>404</c>, если прогрева еще не было.</returns>
     [HttpGet("status")]
-    public ActionResult<WarmupResult> GetStatus()
+    public async Task<ActionResult<WarmupResult>> GetStatusAsync(CancellationToken ct)
     {
-        return _warmup.LastResult is { } result ? Ok(result) : NotFound();
+        var result = await _warmup.GetLastResultAsync(_options.Value.MapId, ct).ConfigureAwait(false);
+        return result is null ? NotFound() : Ok(result);
     }
 }

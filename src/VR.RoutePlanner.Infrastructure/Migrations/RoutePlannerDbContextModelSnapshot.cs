@@ -386,6 +386,50 @@ namespace VR.RoutePlanner.Infrastructure.Migrations
 
                     b.ToTable("vrt_TrafficResource", "public");
                 });
+
+            modelBuilder.Entity("VR.RoutePlanner.Infrastructure.Persistence.WarmupStateRecord", b =>
+                {
+                    b.Property<string>("MapId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("DurationMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("EdgeCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GraphVersion")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("ImpassableCount")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("MapVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResourceCount")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("ReusedWidths")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("WidthSource")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("MapId");
+
+                    b.ToTable("vrt_WarmupState", "public");
+                });
 #pragma warning restore 612, 618
         }
     }

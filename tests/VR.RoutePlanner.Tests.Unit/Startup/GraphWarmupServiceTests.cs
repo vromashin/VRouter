@@ -12,11 +12,11 @@ namespace VR.RoutePlanner.Tests.Unit.Startup;
 public sealed class GraphWarmupServiceTests
 {
     [Fact]
-    public void LastResult_IsNullBeforeFirstRun()
+    public async Task GetLastResultAsync_IsNullBeforeFirstRun()
     {
         var service = Create(new WarmupCallLog(), new RecordingLogger<GraphWarmupService>());
 
-        Assert.Null(service.LastResult);
+        Assert.Null(await service.GetLastResultAsync(GraphFixtures.MapId, CancellationToken.None));
     }
 
     [Fact]
@@ -38,8 +38,9 @@ public sealed class GraphWarmupServiceTests
         Assert.Equal(2, result.ImpassableCount["wide"]);
         Assert.False(result.ReusedWidths);
         Assert.True(result.DurationMs >= 0);
-        Assert.Same(result, service.LastResult);
+        Assert.Same(result, await service.GetLastResultAsync(GraphFixtures.MapId, CancellationToken.None));
     }
+
     [Fact]
     public async Task WarmupAsync_GraphFailure_WrapsStepName()
     {
@@ -57,7 +58,7 @@ public sealed class GraphWarmupServiceTests
             logger.Entries,
             entry => entry.Level == LogLevel.Error
                 && entry.Message.Contains(GraphWarmupService.GraphStep, StringComparison.Ordinal));
-        Assert.Null(service.LastResult);
+        Assert.Null(await service.GetLastResultAsync(GraphFixtures.MapId, CancellationToken.None));
     }
 
     [Fact]
@@ -86,6 +87,8 @@ public sealed class GraphWarmupServiceTests
             new FakeEdgeWidthRepository(WarmupFixtures.Widths(), reused: false, log),
             new FakeTrafficResourceBuilder(WarmupFixtures.Sets(), log),
             new FakeResourceRepository(log),
+            new FakeWarmupLock(),
+            new FakeWarmupStateRepository(),
             NullLogger<GraphWarmupService>.Instance);
 
         var first = service.WarmupAsync(GraphFixtures.MapId, CancellationToken.None);
@@ -104,6 +107,39 @@ public sealed class GraphWarmupServiceTests
         Assert.Equal(1, log.Count("build"));
         Assert.Equal(1, log.Count("save"));
         Assert.Same(results[0], results[1]);
+    }
+
+    [Fact]
+    public async Task WarmupAsync_CompletedWhileWaiting_ReusesResultOfOtherProcess()
+    {
+        var log = new WarmupCallLog();
+        var state = new FakeWarmupStateRepository();
+        var other = WarmupFixtures.Result(GraphFixtures.MapId) with
+        {
+            CompletedAt = DateTimeOffset.UnixEpoch.AddMinutes(1),
+        };
+        var warmupLock = new FakeWarmupLock(() =>
+        {
+            state.Put(other);
+            return Task.CompletedTask;
+        });
+
+        var service = new GraphWarmupService(
+            new FakeWarehouseGraphRepository(Graph(), log),
+            new FakeMapVersionRepository(WarmupFixtures.MapVersionId, log),
+            new FakeEdgeWidthRepository(WarmupFixtures.Widths(), reused: false, log),
+            new FakeTrafficResourceBuilder(WarmupFixtures.Sets(), log),
+            new FakeResourceRepository(log),
+            warmupLock,
+            state,
+            new RecordingLogger<GraphWarmupService>());
+
+        var result = await service.WarmupAsync(GraphFixtures.MapId, CancellationToken.None);
+
+        Assert.Same(other, result);
+        Assert.Equal(0, log.Count("graph"));
+        Assert.Equal(0, log.Count("save"));
+        Assert.Equal(1, warmupLock.Acquires);
     }
 
     [Fact]
@@ -142,6 +178,8 @@ public sealed class GraphWarmupServiceTests
             new FakeEdgeWidthRepository(WarmupFixtures.Widths(), reused, log),
             new FakeTrafficResourceBuilder(WarmupFixtures.Sets(), log),
             new FakeResourceRepository(log, saveError),
+            new FakeWarmupLock(),
+            new FakeWarmupStateRepository(),
             logger);
     }
 

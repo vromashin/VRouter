@@ -9,6 +9,7 @@ using VR.RoutePlanner.Application.Traffic;
 using VR.RoutePlanner.Domain.Traffic;
 using VR.RoutePlanner.Infrastructure.Graph;
 using VR.RoutePlanner.Infrastructure.Persistence;
+using VR.RoutePlanner.Infrastructure.Startup;
 using VR.RoutePlanner.Tests.Integration.Support;
 using Xunit;
 
@@ -127,6 +128,33 @@ public sealed class GraphWarmupServiceTests
         Assert.Equal(context.Database.GetMigrations().Count(), applied.Count());
         Assert.Contains(applied, id => id.EndsWith("_Baseline", StringComparison.Ordinal));
     }
+    [SkippableFact]
+    public async Task GetLastResultAsync_ReadsResultWrittenByAnotherProcess()
+    {
+        var connectionString = TestDatabase.RequireConnection();
+        var rasterDirectory = RequireRasterDirectory();
+
+        await CleanAsync(connectionString);
+        var first = await CreateService(connectionString, rasterDirectory)
+            .WarmupAsync(TestDatabase.MapId, CancellationToken.None);
+
+        var other = CreateService(connectionString, rasterDirectory);
+        var stored = await other.GetLastResultAsync(TestDatabase.MapId, CancellationToken.None);
+
+        Assert.NotNull(stored);
+        Assert.Equal(first.MapId, stored.MapId);
+        Assert.Equal(first.MapVersionId, stored.MapVersionId);
+        Assert.Equal(first.GraphVersion, stored.GraphVersion);
+        Assert.Equal(first.EdgeCount, stored.EdgeCount);
+        Assert.Equal(first.WidthSource, stored.WidthSource);
+        Assert.Equal(first.DurationMs, stored.DurationMs);
+        Assert.True(
+            Math.Abs((first.CompletedAt - stored.CompletedAt).TotalMilliseconds) < 1,
+            $"момент завершения прогрева изменился при записи: {first.CompletedAt:O} -> {stored.CompletedAt:O}");
+        Assert.Equal(first.ResourceCount[PrimaryProfile], stored.ResourceCount[PrimaryProfile]);
+        Assert.Equal(first.ImpassableCount[SecondaryProfile], stored.ImpassableCount[SecondaryProfile]);
+    }
+
     private static string RequireRasterDirectory()
     {
         var rasterPath = Environment.GetEnvironmentVariable(RasterVariable);
@@ -164,6 +192,8 @@ public sealed class GraphWarmupServiceTests
             new EdgeWidthRepository(factory, builder, NullLogger<EdgeWidthRepository>.Instance),
             builder,
             new ResourceRepository(factory),
+            new PostgresWarmupLock(factory, NullLogger<PostgresWarmupLock>.Instance),
+            new WarmupStateRepository(factory),
             NullLogger<GraphWarmupService>.Instance);
     }
 
@@ -251,6 +281,10 @@ public sealed class GraphWarmupServiceTests
         }
 
         await context.MapVersions
+            .Where(record => record.MapId == TestDatabase.MapId)
+            .ExecuteDeleteAsync();
+
+        await context.WarmupStates
             .Where(record => record.MapId == TestDatabase.MapId)
             .ExecuteDeleteAsync();
     }

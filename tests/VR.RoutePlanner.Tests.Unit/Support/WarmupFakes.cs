@@ -238,6 +238,7 @@ internal sealed class FakeResourceRepository : IResourceRepository
 internal sealed class FakeWarmupService : IGraphWarmupService
 {
     private readonly Exception? _error;
+    private WarmupResult? _lastResult;
 
     public FakeWarmupService(Exception? error = null)
     {
@@ -246,7 +247,12 @@ internal sealed class FakeWarmupService : IGraphWarmupService
 
     public int Calls { get; private set; }
 
-    public WarmupResult? LastResult { get; private set; }
+    public WarmupResult? LastResult => _lastResult;
+
+    public Task<WarmupResult?> GetLastResultAsync(string mapId, CancellationToken ct)
+    {
+        return Task.FromResult(_lastResult);
+    }
 
     public Task<WarmupResult> WarmupAsync(string mapId, CancellationToken ct)
     {
@@ -257,8 +263,82 @@ internal sealed class FakeWarmupService : IGraphWarmupService
             throw _error;
         }
 
-        LastResult = WarmupFixtures.Result(mapId);
-        return Task.FromResult(LastResult);
+        _lastResult = WarmupFixtures.Result(mapId);
+        return Task.FromResult(_lastResult);
+    }
+}
+
+/// <summary>
+/// Подставная блокировка прогрева: сериализует вызовы внутри процесса тестов
+/// и считает захваты.
+/// </summary>
+internal sealed class FakeWarmupLock : IWarmupLock
+{
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly Func<Task>? _onAcquire;
+
+    public FakeWarmupLock(Func<Task>? onAcquire = null)
+    {
+        _onAcquire = onAcquire;
+    }
+
+    public int Acquires { get; private set; }
+
+    public async Task<IAsyncDisposable> AcquireAsync(string mapId, CancellationToken ct)
+    {
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        Acquires++;
+
+        if (_onAcquire is not null)
+        {
+            await _onAcquire().ConfigureAwait(false);
+        }
+
+        return new Lease(_gate);
+    }
+
+    private sealed class Lease : IAsyncDisposable
+    {
+        private readonly SemaphoreSlim _gate;
+        private bool _released;
+
+        public Lease(SemaphoreSlim gate)
+        {
+            _gate = gate;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            if (!_released)
+            {
+                _released = true;
+                _gate.Release();
+            }
+
+            return ValueTask.CompletedTask;
+        }
+    }
+}
+
+/// <summary>Подставное хранилище итога прогрева: словарь в памяти процесса.</summary>
+internal sealed class FakeWarmupStateRepository : IWarmupStateRepository
+{
+    private readonly Dictionary<string, WarmupResult> _results = new(StringComparer.Ordinal);
+
+    public void Put(WarmupResult result)
+    {
+        _results[result.MapId] = result;
+    }
+
+    public Task<WarmupResult?> GetAsync(string mapId, CancellationToken ct)
+    {
+        return Task.FromResult(_results.TryGetValue(mapId, out var result) ? result : null);
+    }
+
+    public Task SaveAsync(WarmupResult result, CancellationToken ct)
+    {
+        Put(result);
+        return Task.CompletedTask;
     }
 }
 
