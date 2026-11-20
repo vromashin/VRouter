@@ -77,7 +77,7 @@ public sealed class RoutePlannerDbContext : DbContext
         {
             builder.ToTable("vrt_TrafficResourceNode", "public");
             builder.HasKey(record => new { record.TrafficResourceId, record.NodeId });
-            builder.HasIndex(record => record.NodeId);
+            builder.HasIndex(record => record.NodeId).IsUnique();
         });
 
         modelBuilder.Entity<ResourceConflictRecord>(builder =>
@@ -85,24 +85,24 @@ public sealed class RoutePlannerDbContext : DbContext
             builder.ToTable("vrt_ResourceConflict", "public");
             builder.HasKey(record => new { record.ResourceId, record.ConflictingResourceId });
             builder.Property(record => record.ConflictType).HasMaxLength(64).IsRequired();
-            builder.HasIndex(record => record.ConflictingResourceId);
+            builder.HasIndex(record => record.ResourceId);
         });
 
         modelBuilder.Entity<RmsMapRecord>(builder =>
         {
-            builder.ToTable("Maps", "public");
+            builder.ToTable("Maps", "public", table => table.ExcludeFromMigrations());
             builder.HasKey(record => record.Id);
         });
 
         modelBuilder.Entity<RmsNodeRecord>(builder =>
         {
-            builder.ToTable("Nodes", "public");
+            builder.ToTable("Nodes", "public", table => table.ExcludeFromMigrations());
             builder.HasKey(record => record.Id);
         });
 
         modelBuilder.Entity<RmsEdgeRecord>(builder =>
         {
-            builder.ToTable("Edges", "public");
+            builder.ToTable("Edges", "public", table => table.ExcludeFromMigrations());
             builder.HasKey(record => record.Id);
             builder.Property(record => record.Trajectory).HasColumnType("jsonb");
         });

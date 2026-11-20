@@ -76,7 +76,34 @@ public sealed class NurbsDiscretizerTests
     }
 
     [Fact]
-    public void Discretize_DegreeOne_ReturnsEndpoints()
+    public void Discretize_DegreeOne_ReturnsPolylineThroughAllControlPoints()
+    {
+        var curve = new TrajectoryCurve(
+            Degree: 1,
+            KnotVector: new[] { 0.0, 0.0, 0.5, 1.0, 1.0 },
+            ControlPoints: new[]
+            {
+                new ControlPoint(0, 0, 1),
+                new ControlPoint(1, 0, 1),
+                new ControlPoint(1, 1, 1),
+            },
+            Raw: null);
+
+        var points = NurbsDiscretizer.Discretize(curve, 0.25);
+
+        Assert.True(points.Count > 3);
+        foreach (var control in curve.ControlPoints)
+        {
+            Assert.Contains(
+                points,
+                point => Math.Abs(point.X - control.X) < 1e-9 && Math.Abs(point.Y - control.Y) < 1e-9);
+        }
+
+        Assert.Equal(2.0, NurbsDiscretizer.PolylineLength(points), 1e-9);
+    }
+
+    [Fact]
+    public void Discretize_DegreeOneTwoPoints_ReturnsSegmentSplitByStep()
     {
         var curve = new TrajectoryCurve(
             Degree: 1,
@@ -88,10 +115,15 @@ public sealed class NurbsDiscretizerTests
             },
             Raw: null);
 
-        var points = NurbsDiscretizer.Discretize(curve, 0.05);
+        var points = NurbsDiscretizer.Discretize(curve, 0.5);
 
-        Assert.Equal(2, points.Count);
+        Assert.Equal(5, points.Count);
         Assert.Equal(2.0, points[^1].X, 1e-12);
+
+        for (var i = 1; i < points.Count; i++)
+        {
+            Assert.True(points[i].X - points[i - 1].X <= 0.5 + 1e-9);
+        }
     }
 
     [Fact]

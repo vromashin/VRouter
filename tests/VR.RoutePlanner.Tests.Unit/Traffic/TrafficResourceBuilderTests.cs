@@ -184,6 +184,41 @@ public sealed class TrafficResourceBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_PointsInNeighbourCells_ProducesGeometricOverlap()
+    {
+        // Ребра геометрически рядом (0.1 м при ширине робота 0.8 м), но точки попадают
+        // в соседние ячейки сетки: пересечение должно находиться и между ячейками.
+        var first = GraphFixtures.Node("wa200", 0.0, 0.0);
+        var second = GraphFixtures.Node("wa201", 0.75, 0.0);
+        var third = GraphFixtures.Node("wa202", 0.85, 0.0);
+        var fourth = GraphFixtures.Node("wa203", 1.6, 0.0);
+
+        var left = GraphFixtures.Edge(first, second, bidirectional: false, length: 0.75);
+        var right = GraphFixtures.Edge(third, fourth, bidirectional: false, length: 0.75);
+        var graph = GraphFixtures.Graph(
+            new[] { first, second, third, fourth },
+            new[] { left, right });
+
+        var builder = CreateBuilder(FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")));
+
+        var result = await builder.BuildAsync(graph);
+
+        var leftResource = Assert.Single(
+            result.ResourceEdges,
+            link => link.EdgeId == left.Id).TrafficResourceId;
+        var rightResource = Assert.Single(
+            result.ResourceEdges,
+            link => link.EdgeId == right.Id).TrafficResourceId;
+
+        var conflict = Assert.Single(
+            result.Conflicts,
+            pair => (pair.ResourceId == leftResource && pair.ConflictingResourceId == rightResource)
+                || (pair.ResourceId == rightResource && pair.ConflictingResourceId == leftResource));
+
+        Assert.Equal("GEOMETRIC_OVERLAP", conflict.ConflictType);
+    }
+
+    [Fact]
     public async Task BuildAsync_InvalidOptions_Throws()
     {
         var builder = CreateBuilder(

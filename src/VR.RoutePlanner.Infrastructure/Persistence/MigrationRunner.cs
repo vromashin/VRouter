@@ -18,8 +18,8 @@ public static class MigrationRunner
     /// <summary>Ключ advisory lock, сериализующего миграции сервиса.</summary>
     public const string LockKey = "rms:migrations:routeplanner";
 
-    /// <summary>Имя таблицы истории, которую могли создать ранние сборки сервиса.</summary>
-    public const string LegacyHistoryTable = "RoutePlannerMigrationsHistory";
+    /// <summary>Общая таблица истории других сервисов базы <c>rms</c>: только чтение, не изменяется.</summary>
+    public const string LegacyHistoryTable = "__EFMigrationsHistory";
 
     /// <summary>
     /// Вычисляет 64-битный ключ advisory lock из строкового ключа.

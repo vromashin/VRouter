@@ -66,10 +66,27 @@ public sealed class RoutePlannerOptionsTests
     }
 
     [Fact]
-    public void Validate_NonPositiveInflationRadius_ReturnsError()
+    public void Validate_NegativeInflationRadius_ReturnsError()
     {
-        var options = new RoutePlannerOptions { InflationRadius = 0 };
+        var options = new RoutePlannerOptions { InflationRadius = -0.1 };
 
         Assert.NotNull(options.Validate());
+    }
+
+    [Fact]
+    public void EffectiveInflationRadius_NotSet_FallsBackToHalfRobotWidth()
+    {
+        var options = new RoutePlannerOptions { RobotWidth = 1.2, InflationRadius = 0 };
+
+        Assert.Equal(0.6, options.EffectiveInflationRadius, 1e-9);
+        Assert.Null(options.Validate());
+    }
+
+    [Fact]
+    public void EffectiveInflationRadius_ExplicitValue_Wins()
+    {
+        var options = new RoutePlannerOptions { RobotWidth = 1.2, InflationRadius = 0.45 };
+
+        Assert.Equal(0.45, options.EffectiveInflationRadius, 1e-9);
     }
 }

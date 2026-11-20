@@ -327,7 +327,7 @@ public sealed class TrafficResourceBuilder
             return options.DefaultCorridorWidth;
         }
 
-        return 2.0 * (narrowest + options.InflationRadius);
+        return 2.0 * (narrowest + options.EffectiveInflationRadius);
     }
 
     private static double DistanceByNodes(WarehouseGraph graph, WarehouseEdge edge)
@@ -546,14 +546,45 @@ public sealed class TrafficResourceBuilder
         }
 
         var geometric = new HashSet<(Guid, Guid)>();
-        foreach (var inCell in grid.Values)
+
+        // Пары ресурсов проверяются по ячейке и восьми ее соседям: точки двух ресурсов
+        // могут оказаться в разных ячейках, но ближе ширины робота.
+        var cellKeys = grid.Keys
+            .OrderBy(cell => cell.Item1)
+            .ThenBy(cell => cell.Item2)
+            .ToList();
+
+        foreach (var cell in cellKeys)
         {
-            if (inCell.Count < 2)
+            var vicinity = new Dictionary<Guid, List<MapPoint>>();
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                for (var dy = -1; dy <= 1; dy++)
+                {
+                    if (!grid.TryGetValue((cell.Item1 + dx, cell.Item2 + dy), out var neighbour))
+                    {
+                        continue;
+                    }
+
+                    foreach (var (resourceId, points) in neighbour)
+                    {
+                        if (!vicinity.TryGetValue(resourceId, out var merged))
+                        {
+                            merged = new List<MapPoint>();
+                            vicinity[resourceId] = merged;
+                        }
+
+                        merged.AddRange(points);
+                    }
+                }
+            }
+
+            if (vicinity.Count < 2)
             {
                 continue;
             }
 
-            var ids = inCell.Keys.ToList();
+            var ids = vicinity.Keys.ToList();
             ids.Sort();
             for (var i = 0; i < ids.Count; i++)
             {
@@ -565,7 +596,7 @@ public sealed class TrafficResourceBuilder
                         continue;
                     }
 
-                    if (MinDistance(inCell[ids[i]], inCell[ids[j]]) < robotWidth)
+                    if (MinDistance(vicinity[ids[i]], vicinity[ids[j]]) < robotWidth)
                     {
                         geometric.Add(pair);
                     }

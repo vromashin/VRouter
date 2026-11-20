@@ -98,7 +98,7 @@ public sealed class Stage1Graph : Migration
             ON public."vrt_TrafficResourceEdge" ("EdgeId");
         """,
         """
-        CREATE INDEX IF NOT EXISTS "IX_vrt_TrafficResourceNode_NodeId"
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_vrt_TrafficResourceNode_NodeId"
             ON public."vrt_TrafficResourceNode" ("NodeId");
         """,
         """

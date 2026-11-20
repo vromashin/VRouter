@@ -29,8 +29,14 @@ public sealed class RoutePlannerOptions
     /// <summary>Боковой зазор S в метрах между роботами в коридоре.</summary>
     public double SideMargin { get; set; } = 0.2;
 
-    /// <summary>Радиус инфляции растра в метрах: ширина коридора W = 2 * (d + InflationRadius).</summary>
-    public double InflationRadius { get; set; } = 0.4;
+    /// <summary>
+    /// Радиус инфляции растра в метрах: ширина коридора W = 2 * (d + InflationRadius).
+    /// Значение <c>0</c> означает «не задан»: берется половина <see cref="RobotWidth"/>.
+    /// </summary>
+    public double InflationRadius { get; set; }
+
+    /// <summary>Фактический радиус инфляции: заданное значение либо <see cref="RobotWidth"/> / 2.</summary>
+    public double EffectiveInflationRadius => InflationRadius > 0 ? InflationRadius : RobotWidth / 2;
 
     /// <summary>Ширина коридора по умолчанию, если траектория ребра недоступна.</summary>
     public double DefaultCorridorWidth { get; set; } = 2.0;
@@ -80,9 +86,14 @@ public sealed class RoutePlannerOptions
             return "Routing:RobotWidth + Routing:SideMargin должны быть больше нуля.";
         }
 
-        if (InflationRadius <= 0)
+        if (InflationRadius < 0)
         {
-            return $"Routing:InflationRadius должен быть больше нуля, получено {InflationRadius}.";
+            return $"Routing:InflationRadius не может быть отрицательным, получено {InflationRadius}.";
+        }
+
+        if (EffectiveInflationRadius <= 0)
+        {
+            return $"Routing:InflationRadius должен быть больше нуля, получено {EffectiveInflationRadius}.";
         }
 
         if (DefaultCorridorWidth <= 0)

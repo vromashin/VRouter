@@ -89,9 +89,7 @@ public sealed class WarehouseGraphRepository : IWarehouseGraphRepository
             .CreateDbContextAsync(ct)
             .ConfigureAwait(false);
 
-        var maps = await context.Maps
-            .AsNoTracking()
-            .Where(record => record.MapId == mapId && record.IsActive)
+        var maps = await ActiveMapsQuery(context, mapId)
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
@@ -105,15 +103,11 @@ public sealed class WarehouseGraphRepository : IWarehouseGraphRepository
 
         var map = ActiveMapSelector.Select(maps, mapId);
 
-        var nodeRows = await context.Nodes
-            .AsNoTracking()
-            .Where(record => record.MapId == map.Id && record.IsActive)
+        var nodeRows = await ActiveNodesQuery(context, map.Id)
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        var edgeRows = await context.Edges
-            .AsNoTracking()
-            .Where(record => record.MapId == map.Id && record.IsActive)
+        var edgeRows = await ActiveEdgesQuery(context, map.Id)
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
@@ -175,7 +169,10 @@ public sealed class WarehouseGraphRepository : IWarehouseGraphRepository
             pair => pair.Key,
             pair => (IReadOnlyList<WarehouseEdge>)pair.Value.AsReadOnly());
 
-        var graphVersion = BuildGraphVersion(map.MapVersion, nodeRows.Select(row => row.Id), edgeRows.Select(row => row.Id));
+        var graphVersion = BuildGraphVersion(
+            map.MapVersion,
+            nodeRows.Select(row => row.NodeId),
+            edgeRows.Select(row => row.EdgeId));
 
         _logger.LogInformation(
             "Граф карты {MapId} загружен: узлов {NodeCount}, ребер {EdgeCount}, версия графа {GraphVersion}, версия карты {MapVersion}.",
@@ -211,23 +208,78 @@ public sealed class WarehouseGraphRepository : IWarehouseGraphRepository
     }
 
     /// <summary>
+    /// Активные строки карты с детерминированным порядком: от свежей версии к старой.
+    /// </summary>
+    /// <param name="context">Контекст базы <c>rms</c>.</param>
+    /// <param name="mapId">Идентификатор карты.</param>
+    /// <returns>Упорядоченная выборка.</returns>
+    public static IQueryable<RmsMapRecord> ActiveMapsQuery(RoutePlannerDbContext context, string mapId)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentException.ThrowIfNullOrWhiteSpace(mapId);
+
+        return context.Maps
+            .AsNoTracking()
+            .Where(record => record.MapId == mapId && record.IsActive)
+            .OrderBy(record => record.MapVersion)
+            .ThenBy(record => record.Id);
+    }
+
+    /// <summary>
+    /// Активные узлы карты с детерминированным порядком обхода.
+    /// </summary>
+    /// <param name="context">Контекст базы <c>rms</c>.</param>
+    /// <param name="mapKey">Первичный ключ строки <c>Maps</c>.</param>
+    /// <returns>Упорядоченная выборка.</returns>
+    public static IQueryable<RmsNodeRecord> ActiveNodesQuery(RoutePlannerDbContext context, Guid mapKey)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return context.Nodes
+            .AsNoTracking()
+            .Where(record => record.MapId == mapKey && record.IsActive)
+            .OrderBy(record => record.NodeId)
+            .ThenBy(record => record.Id);
+    }
+
+    /// <summary>
+    /// Активные ребра карты с детерминированным порядком обхода.
+    /// </summary>
+    /// <param name="context">Контекст базы <c>rms</c>.</param>
+    /// <param name="mapKey">Первичный ключ строки <c>Maps</c>.</param>
+    /// <returns>Упорядоченная выборка.</returns>
+    public static IQueryable<RmsEdgeRecord> ActiveEdgesQuery(RoutePlannerDbContext context, Guid mapKey)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        return context.Edges
+            .AsNoTracking()
+            .Where(record => record.MapId == mapKey && record.IsActive)
+            .OrderBy(record => record.EdgeId)
+            .ThenBy(record => record.Id);
+    }
+
+    /// <summary>
     /// Собирает версию графа: версия карты плюс короткий хеш состава узлов и ребер.
     /// </summary>
     /// <param name="mapVersion">Версия карты из справочника.</param>
-    /// <param name="nodeIds">Идентификаторы узлов.</param>
-    /// <param name="edgeIds">Идентификаторы ребер.</param>
+    /// <param name="nodeIds">Бизнес-идентификаторы узлов (<c>Nodes.NodeId</c>).</param>
+    /// <param name="edgeIds">Бизнес-идентификаторы ребер (<c>Edges.EdgeId</c>).</param>
     /// <returns>Строка версии графа.</returns>
-    public static string BuildGraphVersion(string mapVersion, IEnumerable<Guid> nodeIds, IEnumerable<Guid> edgeIds)
+    public static string BuildGraphVersion(
+        string mapVersion,
+        IEnumerable<string> nodeIds,
+        IEnumerable<string> edgeIds)
     {
         var builder = new StringBuilder();
-        foreach (var id in nodeIds.Order())
+        foreach (var id in nodeIds.OrderBy(value => value, StringComparer.Ordinal))
         {
-            builder.Append("N:").Append(id.ToString("N", CultureInfo.InvariantCulture)).Append('\n');
+            builder.Append("N:").Append(id).Append('\n');
         }
 
-        foreach (var id in edgeIds.Order())
+        foreach (var id in edgeIds.OrderBy(value => value, StringComparer.Ordinal))
         {
-            builder.Append("E:").Append(id.ToString("N", CultureInfo.InvariantCulture)).Append('\n');
+            builder.Append("E:").Append(id).Append('\n');
         }
 
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString()));

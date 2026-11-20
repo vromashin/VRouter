@@ -29,21 +29,22 @@ public static class NurbsDiscretizer
 
         var points = curve.ControlPoints;
 
-        if (curve.Degree == 1)
-        {
-            // Для степени 1 кривая совпадает с отрезком между крайними контрольными точками.
-            var first = points[0];
-            var last = points[^1];
-            return new[]
-            {
-                new MapPoint(first.X, first.Y, null),
-                new MapPoint(last.X, last.Y, null),
-            };
-        }
-
         if (step <= 0 || double.IsNaN(step) || double.IsInfinity(step))
         {
             step = 0.05;
+        }
+
+        if (curve.Degree == 1)
+        {
+            // Для степени 1 кривая это ломаная по всем контрольным точкам: промежуточные
+            // контрольные точки не отбрасываются, отрезки длиннее шага дополнительно делятся.
+            var linePoints = new List<MapPoint> { new(points[0].X, points[0].Y, null) };
+            for (var i = 1; i < points.Count; i++)
+            {
+                AppendSegment(linePoints, points[i - 1], points[i], step);
+            }
+
+            return linePoints;
         }
 
         var chord = 0.0;
@@ -148,6 +149,30 @@ public static class NurbsDiscretizer
         }
 
         return length;
+    }
+
+    private static void AppendSegment(
+        List<MapPoint> target,
+        ControlPoint start,
+        ControlPoint end,
+        double step)
+    {
+        var dx = end.X - start.X;
+        var dy = end.Y - start.Y;
+        var length = Math.Sqrt((dx * dx) + (dy * dy));
+        var parts = Math.Max(1, (int)Math.Ceiling(length / step));
+
+        for (var i = 1; i <= parts; i++)
+        {
+            if (i == parts)
+            {
+                target.Add(new MapPoint(end.X, end.Y, null));
+                continue;
+            }
+
+            var t = (double)i / parts;
+            target.Add(new MapPoint(start.X + (dx * t), start.Y + (dy * t), null));
+        }
     }
 
     private static IReadOnlyList<MapPoint> Sample(TrajectoryCurve curve, int segments)

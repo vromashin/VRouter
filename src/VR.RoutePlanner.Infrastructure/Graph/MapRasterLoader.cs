@@ -87,7 +87,7 @@ public static class MapRasterLoader
             return;
         }
 
-        throw new InvalidDataException(
+        throw new InvalidOperationException(
             $"Растр '{sourceName}' имеет размер {image.Width} x {image.Height} пикселей, "
             + $"а карта {mapWidth} x {mapHeight} м при разрешении {resolution} м/пиксель "
             + $"требует {expectedWidth:0.##} x {expectedHeight:0.##}. Похоже, файл от другой версии карты.");

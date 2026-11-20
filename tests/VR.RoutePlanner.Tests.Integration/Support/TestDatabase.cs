@@ -38,4 +38,10 @@ internal static class TestDatabase
                 npgsql => npgsql.MigrationsHistoryTable(MigrationRunner.HistoryTable))
             .Options;
     }
+
+    /// <summary>
+    /// Контекст без подключения к базе: годится для построения SQL запросов.
+    /// </summary>
+    public static RoutePlannerDbContext CreateOfflineContext() => new(
+        BuildOptions("Host=127.0.0.1;Port=5432;Database=rms;Username=placeholder;Password=placeholder"));
 }

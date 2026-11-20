@@ -28,10 +28,12 @@ public sealed class MapRasterLoaderTests
     {
         var png = PngWriter.CreateGrayscale(8, 4, (_, _) => 255);
 
-        var exception = Assert.Throws<InvalidDataException>(
+        var exception = Assert.Throws<InvalidOperationException>(
             () => MapRasterLoader.Load(png, "inflation_map.png", 0.1, 0, 0, 5.0, 0.4, 128));
 
         Assert.Contains("пикселей", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("8 x 4", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("50 x 4", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
