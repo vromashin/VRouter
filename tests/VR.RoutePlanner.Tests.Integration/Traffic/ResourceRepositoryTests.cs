@@ -9,6 +9,7 @@ using VR.RoutePlanner.Domain.Graph;
 using VR.RoutePlanner.Domain.Traffic;
 using VR.RoutePlanner.Infrastructure.Graph;
 using VR.RoutePlanner.Infrastructure.Persistence;
+using VR.RoutePlanner.Tests.Integration.Graph;
 using VR.RoutePlanner.Tests.Integration.Support;
 using Xunit;
 
@@ -28,7 +29,11 @@ namespace VR.RoutePlanner.Tests.Integration.Traffic;
     public async Task SaveAsync_TwoProfiles_WritesRowsOnce()
     {
         var connectionString = TestDatabase.RequireConnection();
-        var options = BuildOptions();
+        var rasterPath = Environment.GetEnvironmentVariable(RealRasterWidthTests.RasterVariable);
+        var rasterDirectory = string.IsNullOrWhiteSpace(rasterPath) || !File.Exists(rasterPath)
+            ? null
+            : Path.GetDirectoryName(Path.GetFullPath(rasterPath));
+        var options = BuildOptions(rasterDirectory);
         var graphRepository = CreateGraphRepository(connectionString, options);
         var graph = await graphRepository.LoadAsync(TestDatabase.MapId, CancellationToken.None);
         var mapVersionId = await MapVersionSeed.EnsureAsync(connectionString, graph, CancellationToken.None);
@@ -62,6 +67,15 @@ namespace VR.RoutePlanner.Tests.Integration.Traffic;
         // Проходимость: строка на каждое активное ребро карты для каждого профиля (365 * 2),
         // включая непроходимые ребра, которых нет в ресурсах.
         Assert.Equal(365 * first.Profiles, first.Passability);
+
+        // По реальному растру часть ребер уже габарита робота: широкий профиль (1.102 м)
+        // обязан получить строки IsPassable = false, иначе проходимость считается не по расту.
+        if (rasterDirectory is not null)
+        {
+            Assert.True(
+                first.Impassable > 0,
+                "По растру H80 ожидались непроходимые ребра, но все строки IsPassable = true.");
+        }
 
         // Ревизия 4: ресурс рвется на каждом перекрестке, поэтому на профиль их десятки-сотни,
         // а не единицы и не тысячи.
@@ -135,6 +149,12 @@ namespace VR.RoutePlanner.Tests.Integration.Traffic;
             .CountAsync()
             .ConfigureAwait(false);
 
+        var impassable = await context.EdgePassabilities
+            .AsNoTracking()
+            .Where(record => record.MapVersionId == mapVersionId && !record.IsPassable)
+            .CountAsync()
+            .ConfigureAwait(false);
+
         var resourceIds = context.TrafficResources
             .AsNoTracking()
             .Where(record => record.MapVersionId == mapVersionId)
@@ -160,12 +180,13 @@ namespace VR.RoutePlanner.Tests.Integration.Traffic;
             .SingleAsync()
             .ConfigureAwait(false);
 
-        return new TableCounts(resources, profiles, edges, nodes, conflicts, orphanEdges, emptyEdges, passability, corridors);
+        return new TableCounts(resources, profiles, edges, nodes, conflicts, orphanEdges, emptyEdges, passability, corridors, impassable);
     }
 
-    private static RoutePlannerOptions BuildOptions() => new()
+    private static RoutePlannerOptions BuildOptions(string? rasterDirectory = null) => new()
     {
-        WidthSource = WidthSource.Default,
+        WidthSource = rasterDirectory is null ? WidthSource.Default : WidthSource.Raster,
+        MapRasterPath = rasterDirectory,
         DefaultCorridorWidth = 2.0,
         SideMargin = 0.2,
         AgvProfiles = new Dictionary<string, AgvProfileOptions>(StringComparer.Ordinal)
@@ -221,5 +242,6 @@ namespace VR.RoutePlanner.Tests.Integration.Traffic;
         int OrphanEdges,
         int EmptyEdges,
         int Passability,
-        int Corridors);
+        int Corridors,
+        int Impassable);
 }
