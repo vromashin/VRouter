@@ -59,6 +59,8 @@ public static class ServiceCollectionExtensions
                 .MigrationsHistoryTable(MigrationRunner.HistoryTable)));
 
         services.AddSingleton<IWarehouseGraphRepository, WarehouseGraphRepository>();
+        services.AddSingleton<IEdgeWidthRepository, EdgeWidthRepository>();
+        services.AddSingleton<IResourceRepository, ResourceRepository>();
         services.AddSingleton<IMapRasterProvider, MapRasterProvider>();
         services.AddSingleton<TrafficResourceBuilder>();
         services.AddHostedService<DatabaseStartupService>();

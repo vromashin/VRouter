@@ -83,6 +83,54 @@ public sealed class TrafficResourceBuilder
     }
 
     /// <summary>
+    /// Строит ресурсы по готовому набору ширин: растр не читается, ширина берется из набора.
+    /// Путь используется в сервисе, где ширины уже посчитаны и сохранены в <c>vrt_EdgeWidth</c>.
+    /// </summary>
+    /// <param name="graph">Загруженный граф карты.</param>
+    /// <param name="widths">Ширины ребер версии карты.</param>
+    /// <param name="mapVersionId">Идентификатор строки <c>vrt_MapVersion</c>.</param>
+    /// <param name="ct">Токен отмены.</param>
+    /// <returns>Набор ресурсов на каждый профиль из конфигурации.</returns>
+    public Task<IReadOnlyList<ProfileResourceSet>> BuildAsync(
+        WarehouseGraph graph,
+        IReadOnlyList<EdgeWidth> widths,
+        Guid mapVersionId,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(widths);
+
+        if (mapVersionId == Guid.Empty)
+        {
+            throw new InvalidOperationException(
+                "Для построения ресурсов нужен идентификатор версии карты vrt_MapVersion.Id.");
+        }
+
+        var options = _options.Value;
+        var configError = options.Validate();
+        if (configError is not null)
+        {
+            throw new InvalidOperationException(configError);
+        }
+
+        var widthByEdge = new Dictionary<Guid, double>(widths.Count);
+        foreach (var width in widths)
+        {
+            widthByEdge[width.EdgeId] = width.WidthMeters;
+        }
+
+        var profiles = CreateProfiles(options);
+        var sets = new List<ProfileResourceSet>(profiles.Count);
+        foreach (var profile in profiles)
+        {
+            ct.ThrowIfCancellationRequested();
+            sets.Add(BuildProfileSet(graph, mapVersionId, options, profile, raster: null, widthByEdge));
+        }
+
+        return Task.FromResult<IReadOnlyList<ProfileResourceSet>>(sets);
+    }
+
+    /// <summary>
     /// Профили из конфигурации в стабильном порядке: по имени.
     /// </summary>
     private static List<AgvProfile> CreateProfiles(RoutePlannerOptions options)
@@ -102,7 +150,8 @@ public sealed class TrafficResourceBuilder
         Guid mapVersionId,
         RoutePlannerOptions options,
         AgvProfile profile,
-        MapRaster? raster)
+        MapRaster? raster,
+        IReadOnlyDictionary<Guid, double>? widthByEdge = null)
     {
 
         var edges = EdgesOf(graph);
@@ -113,7 +162,7 @@ public sealed class TrafficResourceBuilder
             .ToList();
 
         var edgeInfos = edges
-            .Select(edge => BuildEdgeInfo(graph, edge, raster, options))
+            .Select(edge => BuildEdgeInfo(graph, edge, raster, options, widthByEdge))
             .Select(info =>
             {
                 var nmax = CorridorClassifier.ComputeNmax(info.Width, profile.WidthMeters, options.SideMargin);
@@ -358,10 +407,17 @@ public sealed class TrafficResourceBuilder
             .ToList();
     }
 
-    private EdgeInfo BuildEdgeInfo(WarehouseGraph graph, WarehouseEdge edge, MapRaster? raster, RoutePlannerOptions options)
+    private EdgeInfo BuildEdgeInfo(
+        WarehouseGraph graph,
+        WarehouseEdge edge,
+        MapRaster? raster,
+        RoutePlannerOptions options,
+        IReadOnlyDictionary<Guid, double>? widthByEdge = null)
     {
         var points = edge.TrajectoryPoints;
-        var width = ResolveWidth(edge, points, raster, options);
+        var width = widthByEdge is not null && widthByEdge.TryGetValue(edge.Id, out var presetWidth)
+            ? presetWidth
+            : ResolveWidth(edge, points, raster, options);
 
         var lengthMeters = points.Count > 0
             ? NurbsDiscretizer.PolylineLength(points)
