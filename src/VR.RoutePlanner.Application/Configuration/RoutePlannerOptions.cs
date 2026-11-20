@@ -1,0 +1,162 @@
+using Microsoft.Extensions.Options;
+using VR.RoutePlanner.Domain.Traffic;
+
+namespace VR.RoutePlanner.Application.Configuration;
+
+/// <summary>
+/// Параметры маршрутизации из секции конфигурации <c>Routing</c>.
+/// </summary>
+public sealed class RoutePlannerOptions
+{
+    /// <summary>Имя секции конфигурации.</summary>
+    public const string SectionName = "Routing";
+
+    /// <summary>Количество базовых узлов маршрута. Заполняется этапом 2.</summary>
+    public int BaseNodesCount { get; set; } = 40;
+
+    /// <summary>Горизонт резервирования в секундах. Заполняется этапом 3.</summary>
+    public double ReservationHorizonSeconds { get; set; } = 30;
+
+    /// <summary>Горизонт освобождения в узлах. Заполняется этапом 3.</summary>
+    public int ReleaseHorizonNodes { get; set; } = 15;
+
+    /// <summary>Горизонт освобождения в секундах. Заполняется этапом 3.</summary>
+    public double ReleaseHorizonSeconds { get; set; } = 60;
+
+    /// <summary>Ширина робота B в метрах. Габарит не подтвержден, значение из конфигурации.</summary>
+    public double RobotWidth { get; set; } = 0.8;
+
+    /// <summary>Боковой зазор S в метрах между роботами в коридоре.</summary>
+    public double SideMargin { get; set; } = 0.2;
+
+    /// <summary>Радиус инфляции растра в метрах: ширина коридора W = 2 * (d + InflationRadius).</summary>
+    public double InflationRadius { get; set; } = 0.4;
+
+    /// <summary>Ширина коридора по умолчанию, если траектория ребра недоступна.</summary>
+    public double DefaultCorridorWidth { get; set; } = 2.0;
+
+    /// <summary>Ширина коридора для режима <see cref="WidthSource.Manual"/>.</summary>
+    public double ManualCorridorWidth { get; set; } = 2.0;
+
+    /// <summary>Ширины коридоров по значению поля <c>Edges.Corridor</c> для режима <see cref="WidthSource.Manual"/>.</summary>
+    public Dictionary<string, double> ManualCorridorWidths { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Источник ширины коридора.</summary>
+    public WidthSource WidthSource { get; set; } = WidthSource.Raster;
+
+    /// <summary>Каталог растров карт. Имя файла берется из <c>Maps.ImageUrl</c>.</summary>
+    public string? MapRasterPath { get; set; } = "/var/data/rms-map-files";
+
+    /// <summary>Запасной HTTP-адрес растров, используется только если <see cref="MapRasterPath"/> пуст.</summary>
+    public string? MapRasterUrl { get; set; } = "http://localhost:5247/map-files";
+
+    /// <summary>Порог препятствия на растре, 0..255.</summary>
+    public int ObstacleThreshold { get; set; } = 128;
+
+    /// <summary>Шаг дискретизации траектории ребра в метрах.</summary>
+    public double TrajectorySampleStep { get; set; } = 0.05;
+
+    /// <summary>Пороги классов коридоров по значению Nmax.</summary>
+    public CorridorClassThresholds CorridorClassThresholds { get; set; } = new();
+
+    /// <summary>
+    /// Проверяет параметры на старте сервиса.
+    /// </summary>
+    /// <returns>Текст ошибки либо <c>null</c>, если параметры корректны.</returns>
+    public string? Validate()
+    {
+        if (RobotWidth <= 0)
+        {
+            return $"Routing:RobotWidth должен быть больше нуля, получено {RobotWidth}.";
+        }
+
+        if (SideMargin < 0)
+        {
+            return $"Routing:SideMargin не может быть отрицательным, получено {SideMargin}.";
+        }
+
+        if (RobotWidth + SideMargin <= 0)
+        {
+            return "Routing:RobotWidth + Routing:SideMargin должны быть больше нуля.";
+        }
+
+        if (InflationRadius <= 0)
+        {
+            return $"Routing:InflationRadius должен быть больше нуля, получено {InflationRadius}.";
+        }
+
+        if (DefaultCorridorWidth <= 0)
+        {
+            return $"Routing:DefaultCorridorWidth должен быть больше нуля, получено {DefaultCorridorWidth}.";
+        }
+
+        if (ManualCorridorWidth <= 0)
+        {
+            return $"Routing:ManualCorridorWidth должен быть больше нуля, получено {ManualCorridorWidth}.";
+        }
+
+        if (TrajectorySampleStep <= 0)
+        {
+            return $"Routing:TrajectorySampleStep должен быть больше нуля, получено {TrajectorySampleStep}.";
+        }
+
+        if (ObstacleThreshold is < 0 or > 255)
+        {
+            return $"Routing:ObstacleThreshold должен быть в диапазоне 0..255, получено {ObstacleThreshold}.";
+        }
+
+        var thresholds = CorridorClassThresholds;
+        if (thresholds is null)
+        {
+            return "Routing:CorridorClassThresholds не задан.";
+        }
+
+        var values = new[] { thresholds.C1, thresholds.C2, thresholds.C3, thresholds.C4, thresholds.C5 };
+        for (var i = 1; i < values.Length; i++)
+        {
+            if (values[i] <= values[i - 1])
+            {
+                return "Routing:CorridorClassThresholds должны строго возрастать: "
+                    + $"C1={thresholds.C1}, C2={thresholds.C2}, C3={thresholds.C3}, C4={thresholds.C4}, C5={thresholds.C5}.";
+            }
+        }
+
+        return null;
+    }
+}
+
+/// <summary>
+/// Пороги классов коридоров по значению Nmax. Значения должны строго возрастать.
+/// </summary>
+public sealed class CorridorClassThresholds
+{
+    /// <summary>Верхняя граница Nmax для класса C1.</summary>
+    public int C1 { get; set; } = 1;
+
+    /// <summary>Верхняя граница Nmax для класса C2.</summary>
+    public int C2 { get; set; } = 2;
+
+    /// <summary>Верхняя граница Nmax для класса C3.</summary>
+    public int C3 { get; set; } = 3;
+
+    /// <summary>Верхняя граница Nmax для класса C4.</summary>
+    public int C4 { get; set; } = 4;
+
+    /// <summary>Нижняя граница Nmax для класса C5.</summary>
+    public int C5 { get; set; } = 5;
+}
+
+/// <summary>
+/// Проверка <see cref="RoutePlannerOptions"/> при старте сервиса.
+/// </summary>
+public sealed class RoutePlannerOptionsValidator : IValidateOptions<RoutePlannerOptions>
+{
+    /// <inheritdoc />
+    public ValidateOptionsResult Validate(string? name, RoutePlannerOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        var error = options.Validate();
+        return error is null ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(error);
+    }
+}

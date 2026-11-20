@@ -1,0 +1,20 @@
+include:
+  - project: 'RMS/ci-templates'
+    ref: 'master'
+    file: '/dotnet-publish.yml'
+
+variables:
+  PROJECTS: |
+    src/VR.RoutePlanner.Api/VR.RoutePlanner.Api.csproj
+    src/VR.RoutePlanner.Workers/VR.RoutePlanner.Workers.csproj
+
+stages:
+  - publish
+
+publish:
+  only:
+    - main
+    - master
+    - tags
+    - develop
+    - ci-test
