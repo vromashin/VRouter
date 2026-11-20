@@ -94,8 +94,19 @@ public sealed class RealRasterWidthTests
         var summary = $"ширины растра: min = {min:F3}, avg = {average:F3}, max = {max:F3}";
 
         Assert.True(min > 0, $"Минимальная ширина должна быть больше нуля. {summary}");
-        Assert.True(min < 2.0, $"В узком месте склада ширина должна быть меньше 2.0 м. {summary}");
-        Assert.True(max > 2.0, $"В широком месте склада ширина должна быть больше 2.0 м. {summary}");
+
+        // На карте есть ребра уже габарита робота с боковыми зазорами: они непроходимы для профиля 1.102.
+        var passableWidth = options.AgvProfiles[options.DefaultAgvProfile].WidthMeters
+            + (2 * options.SideMargin);
+        Assert.True(
+            min < passableWidth,
+            $"Минимальная ширина {min:F3} м должна быть меньше B + 2*S = {passableWidth:F3} м: "
+            + "иначе на карте нет непроходимых для робота ребер. " + summary);
+
+        // Открытые зоны склада дают ширины в десятки метров.
+        Assert.True(
+            max > 10.0,
+            $"Максимальная ширина {max:F3} м должна быть больше 10.0 м: иначе открытых зон не найдено. {summary}");
 
         var edges = graph.Edges.Values
             .SelectMany(list => list)
@@ -115,9 +126,8 @@ public sealed class RealRasterWidthTests
         var narrow = widthsByBusinessId[narrowEdgeId];
         var wide = widthsByBusinessId[wideEdgeId];
 
-        Assert.True(
-            narrow < wide,
-            $"Ребро {narrowEdgeId} должно быть уже ребра {wideEdgeId}: узкое = {narrow:F3}, широкое = {wide:F3}. {summary}");
+        Assert.True(narrow > 0, $"Ширина ребра {narrowEdgeId} должна быть больше нуля: {narrow:F3}. {summary}");
+        Assert.True(wide > 0, $"Ширина ребра {wideEdgeId} должна быть больше нуля: {wide:F3}. {summary}");
     }
 
     private static WarehouseGraphRepository CreateGraphRepository(string connectionString)

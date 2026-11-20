@@ -58,6 +58,26 @@ public sealed class ResourceRepositoryTests
         Assert.Equal(0, first.OrphanEdges);
         Assert.Equal(0, first.EmptyEdges);
 
+        // Конфликты не должны повторяться и не должны ссылаться на ресурс сам на себя.
+        var selfPairs = await CountSelfConflictsAsync(factory);
+        Assert.Equal(0, selfPairs);
+
+        var duplicatePairs = sets
+            .SelectMany(set => set.Conflicts)
+            .GroupBy(conflict => (conflict.ResourceId, conflict.ConflictingResourceId, conflict.ConflictType))
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToList();
+        Assert.True(duplicatePairs.Count == 0, $"В конфликтах есть дубли пар: {duplicatePairs.Count}.");
+
+        var conflictsInSets = sets.Sum(set => set.Conflicts.Count);
+        var distinctPairsInSets = sets
+            .SelectMany(set => set.Conflicts)
+            .Select(conflict => (conflict.ResourceId, conflict.ConflictingResourceId))
+            .Distinct()
+            .Count();
+        Assert.Equal(conflictsInSets, distinctPairsInSets);
+
         await repository.SaveAsync(mapVersionId, sets, CancellationToken.None);
 
         var second = await ReadCountsAsync(factory, mapVersionId);
@@ -65,6 +85,16 @@ public sealed class ResourceRepositoryTests
         Assert.Equal(first.Edges, second.Edges);
         Assert.Equal(first.Nodes, second.Nodes);
         Assert.Equal(first.Conflicts, second.Conflicts);
+    }
+
+    private static async Task<int> CountSelfConflictsAsync(IDbContextFactory<RoutePlannerDbContext> factory)
+    {
+        await using var context = await factory.CreateDbContextAsync().ConfigureAwait(false);
+
+        return await context.ResourceConflicts
+            .AsNoTracking()
+            .CountAsync(row => row.ResourceId == row.ConflictingResourceId)
+            .ConfigureAwait(false);
     }
 
     private static async Task<TableCounts> ReadCountsAsync(

@@ -75,6 +75,22 @@ public sealed class ResourceRepository : IResourceRepository
             .Select(resource => resource.Id)
             .ToList();
 
+        var savedIds = ids.ToHashSet();
+        var conflicts = sets.SelectMany(set => set.Conflicts).ToList();
+        var orphans = conflicts
+            .Where(conflict => !savedIds.Contains(conflict.ResourceId)
+                || !savedIds.Contains(conflict.ConflictingResourceId))
+            .ToList();
+
+        if (orphans.Count > 0)
+        {
+            var sample = orphans[0];
+            throw new InvalidOperationException(
+                $"Конфликты ссылаются на несохраняемые ресурсы: {orphans.Count} из {conflicts.Count}; "
+                + $"ресурсов в наборах {ids.Count}, уникальных {savedIds.Count}; пример "
+                + $"{sample.ConflictType}: {sample.ResourceId} -> {sample.ConflictingResourceId}.");
+        }
+
         await using var context = await _contextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
         await using var transaction = await context.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
 
@@ -115,7 +131,15 @@ public sealed class ResourceRepository : IResourceRepository
                     IsActive = resource.IsActive,
                 });
             }
+        }
 
+        // Связи ресурсов и конфликты ссылаются на vrt_TrafficResource, а EF Core не знает об этих FK
+        // (в модели связи не настроены) и вставляет их в том же батче, что и ресурсы, из-за чего
+        // PostgreSQL отвечает 23503. Поэтому ресурсы сохраняются отдельным шагом.
+        await context.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        foreach (var set in sets)
+        {
             foreach (var node in set.ResourceNodes)
             {
                 context.TrafficResourceNodes.Add(new TrafficResourceNodeRecord
