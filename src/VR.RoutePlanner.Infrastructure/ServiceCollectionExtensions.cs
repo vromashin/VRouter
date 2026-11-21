@@ -9,6 +9,7 @@ using VR.RoutePlanner.Application.Planning;
 using VR.RoutePlanner.Application.Startup;
 using VR.RoutePlanner.Application.Traffic;
 using VR.RoutePlanner.Infrastructure.Graph;
+using VR.RoutePlanner.Infrastructure.Legacy;
 using VR.RoutePlanner.Infrastructure.Persistence;
 using VR.RoutePlanner.Infrastructure.Startup;
 
@@ -76,6 +77,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMapRasterProvider, MapRasterProvider>();
         services.AddSingleton<TrafficResourceBuilder>();
         services.AddSingleton<ITrafficResourceBuilder>(provider => provider.GetRequiredService<TrafficResourceBuilder>());
+        services.AddDbContextFactory<LegacyReadDbContext>((_, options) => options.UseNpgsql(connectionString));
+        services.AddSingleton<ILegacyAgvRepository, LegacyAgvRepository>();
         services.AddSingleton<IMapVersionRepository, MapVersionRepository>();
         services.AddSingleton<IWarmupLock, PostgresWarmupLock>();
         services.AddSingleton<IWarmupStateRepository, WarmupStateRepository>();
