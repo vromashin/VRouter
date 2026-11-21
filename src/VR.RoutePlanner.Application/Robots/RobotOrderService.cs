@@ -132,10 +132,6 @@ public sealed class RobotOrderService
         }
 
         var snapshot = _states.GetLatest(serialNumber);
-        if (snapshot?.LastNodeId is null)
-        {
-            throw new OrderRejectedException(RoutePlanReason.NodeNotFound, "Нет последнего узла робота для старта маршрута.");
-        }
 
         var graph = await _graphs.LoadAsync(mapId, ct).ConfigureAwait(false);
         if (graph is null)
@@ -143,7 +139,7 @@ public sealed class RobotOrderService
             throw new OrderRejectedException(RoutePlanReason.MapNotFound, $"Карта '{mapId}' не найдена.");
         }
 
-        var from = graph.Nodes.Values.FirstOrDefault(node => node.NodeId == snapshot.LastNodeId);
+        var from = RobotStartNodeResolver.Resolve(graph, snapshot);
         var to = graph.Nodes.Values.FirstOrDefault(node => node.NodeId == targetNodeId);
         if (from is null || to is null)
         {
