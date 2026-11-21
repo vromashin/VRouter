@@ -38,4 +38,7 @@ public static class RoutePlanReason
 
     /// <summary>Безопасного объезда без узких мест нет.</summary>
     public const string NoSafeDetour = "NO_SAFE_DETOUR";
+
+    /// <summary>У ребра маршрута нет ресурса профиля в наборе ресурсов версии карты.</summary>
+    public const string ResourceMissing = "RESOURCE_MISSING";
 }

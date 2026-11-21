@@ -47,6 +47,11 @@ public sealed class RoutePlannerRealMapTests
         Assert.True(result.Found, "маршрут между узлами карты 801 не найден");
         Assert.NotNull(result.Route);
 
+        var resources = (await fixture.Resources.GetAsync(
+                fixture.MapVersionId,
+                PlanningTestFixture.Profile,
+                CancellationToken.None))
+            .ToDictionary(row => (row.EdgeId, row.Direction));
         var passability = (await fixture.Passability.GetAsync(
                 fixture.MapVersionId,
                 PlanningTestFixture.Profile,
@@ -61,6 +66,12 @@ public sealed class RoutePlannerRealMapTests
         foreach (var segment in result.Route.Segments)
         {
             var edge = fixture.EdgesByCode[segment.EdgeCode];
+
+            Assert.NotEqual(Guid.Empty, segment.TrafficResourceId);
+            Assert.True(segment.Passable, $"сегмент {segment.EdgeCode} помечен непроходимым");
+            Assert.True(
+                resources.ContainsKey((edge.Id, DirectionName(segment.Direction))),
+                $"ресурс ребра {segment.EdgeCode} в направлении {segment.Direction} не найден в наборе профиля");
 
             Assert.True(
                 passability.TryGetValue(edge.Id, out var row),
@@ -82,7 +93,7 @@ public sealed class RoutePlannerRealMapTests
     public async Task PlanAsync_RealMap_SafetyRuleHolds()
     {
         var fixture = await PlanningTestFixture.CreateAsync(CancellationToken.None);
-        var threshold = fixture.Options.Value.Cost.SafeClearanceMeters;
+        var threshold = fixture.Options.Value.Cost.NarrowClearanceMeters;
         var profileWidth = fixture.Options.Value.AgvProfiles[PlanningTestFixture.Profile].WidthMeters;
         var floor = fixture.Options.Value.Cost.ClearanceFloorMeters;
 
@@ -105,7 +116,7 @@ public sealed class RoutePlannerRealMapTests
 
         Skip.If(narrowEdges.Count == 0, $"на карте нет проходимых ребер с запасом меньше {threshold:F2} м");
 
-        var planner = fixture.PlannerWithNarrowClearance(threshold);
+        var planner = fixture.Planner;
         var risky = 0;
         var checkedRoutes = 0;
 
@@ -143,4 +154,7 @@ public sealed class RoutePlannerRealMapTests
         Assert.True(checkedRoutes > 0, "не нашлось ни одного маршрута для проверки правила безопасности");
         Assert.True(risky > 0, "ни один маршрут не прошел через узкое ребро, правило не проверено");
     }
+
+    private static string DirectionName(RouteEdgeDirection direction) =>
+        direction == RouteEdgeDirection.Forward ? "FORWARD" : "BACKWARD";
 }

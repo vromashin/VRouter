@@ -26,7 +26,9 @@ public sealed record RouteSegmentBody(
     double ClearanceMeters,
     double CostSeconds,
     double CumulativeSeconds,
-    bool IsNarrow);
+    bool IsNarrow,
+    Guid TrafficResourceId,
+    bool Passable);
 
 /// <summary>
 /// Разложение цены сегмента в ответе.

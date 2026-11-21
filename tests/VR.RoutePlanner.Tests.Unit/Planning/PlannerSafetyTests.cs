@@ -170,11 +170,16 @@ public sealed class PlannerSafetyTests
             .Select(item => PlanningFixtures.Passability(item.Edge, PlanningFixtures.Profile))
             .ToList();
 
+        var resourceRows = widths
+            .SelectMany(item => PlanningFixtures.ResourceEdges(item.Edge, PlanningFixtures.Profile))
+            .ToList();
+
         return new AStarPathPlanner(
             new FakeGraphRepository(graph),
             new FakeMapVersionRepository(PlanningFixtures.MapVersionId),
             new FakeEdgeWidthRepository(widthRows),
             new FakeEdgePassabilityRepository(passabilityRows),
+            new FakeResourceEdgeRepository(resourceRows),
             new ZeroWaitEstimator(),
             new FixedOptions<RoutePlannerOptions>(options ?? PlanningFixtures.Options()),
             NullLogger<AStarPathPlanner>.Instance);

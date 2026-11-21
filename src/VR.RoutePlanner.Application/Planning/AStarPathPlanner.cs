@@ -5,6 +5,7 @@ using VR.RoutePlanner.Application.Graph;
 using VR.RoutePlanner.Application.Startup;
 using VR.RoutePlanner.Domain.Graph;
 using VR.RoutePlanner.Domain.Planning;
+using VR.RoutePlanner.Domain.Traffic;
 
 namespace VR.RoutePlanner.Application.Planning;
 
@@ -18,6 +19,7 @@ public sealed class AStarPathPlanner : IPathPlanner
     private readonly IMapVersionRepository _versions;
     private readonly IEdgeWidthRepository _widths;
     private readonly IEdgePassabilityRepository _passability;
+    private readonly IResourceEdgeRepository _resources;
     private readonly IWaitEstimator _wait;
     private readonly IOptions<RoutePlannerOptions> _options;
     private readonly ILogger<AStarPathPlanner> _logger;
@@ -29,6 +31,7 @@ public sealed class AStarPathPlanner : IPathPlanner
     /// <param name="versions">Версии карт.</param>
     /// <param name="widths">Ширины ребер.</param>
     /// <param name="passability">Проходимость по профилям.</param>
+    /// <param name="resources">Ресурсы ребер профиля.</param>
     /// <param name="wait">Оценка ожидания.</param>
     /// <param name="options">Параметры <c>Routing</c>.</param>
     /// <param name="logger">Журнал.</param>
@@ -37,6 +40,7 @@ public sealed class AStarPathPlanner : IPathPlanner
         IMapVersionRepository versions,
         IEdgeWidthRepository widths,
         IEdgePassabilityRepository passability,
+        IResourceEdgeRepository resources,
         IWaitEstimator wait,
         IOptions<RoutePlannerOptions> options,
         ILogger<AStarPathPlanner> logger)
@@ -45,6 +49,7 @@ public sealed class AStarPathPlanner : IPathPlanner
         _versions = versions;
         _widths = widths;
         _passability = passability;
+        _resources = resources;
         _wait = wait;
         _options = options;
         _logger = logger;
@@ -83,7 +88,11 @@ public sealed class AStarPathPlanner : IPathPlanner
 
         if (request.FromNodeId == request.ToNodeId)
         {
-            var empty = assembler.Build(new SearchOutcome(Array.Empty<EdgeTraversal>(), 0), null, false);
+            var empty = assembler.Build(
+                new SearchOutcome(Array.Empty<EdgeTraversal>(), 0),
+                null,
+                false,
+                new Dictionary<(Guid EdgeId, RouteEdgeDirection Direction), Guid>());
             return RoutePlanResult.Success(empty.Route, empty.Explanation);
         }
 
@@ -122,7 +131,17 @@ public sealed class AStarPathPlanner : IPathPlanner
             return RoutePlanResult.NotFound(RoutePlanReason.NoPath);
         }
 
-        var fast = assembler.Build(first, null, false);
+        var resourceRows = await _resources
+            .GetAsync(mapVersionId.Value, request.Profile, ct)
+            .ConfigureAwait(false);
+
+        var fastResources = ResolveResources(first, resourceRows);
+        if (fastResources is null)
+        {
+            return RoutePlanResult.NotFound(RoutePlanReason.ResourceMissing);
+        }
+
+        var fast = assembler.Build(first, null, false, fastResources);
         var hasNarrow = fast.Route.Segments.Any(segment => segment.IsNarrow);
         if (!hasNarrow)
         {
@@ -133,18 +152,56 @@ public sealed class AStarPathPlanner : IPathPlanner
         var safe = search.Find(request.FromNodeId, request.ToNodeId, avoidNarrow: true);
         if (safe is null)
         {
-            var risky = assembler.Build(first, RoutePlanReason.NoSafeDetour, true);
+            var risky = assembler.Build(first, RoutePlanReason.NoSafeDetour, true, fastResources);
             return RoutePlanResult.Success(risky.Route, risky.Explanation);
         }
 
-        var safeRoute = assembler.Build(safe, null, false);
+        var safeResources = ResolveResources(safe, resourceRows);
+        if (safeResources is null)
+        {
+            return RoutePlanResult.NotFound(RoutePlanReason.ResourceMissing);
+        }
+
+        var safeRoute = assembler.Build(safe, null, false, safeResources);
         if (safeRoute.Route.TotalCost <= costs.SafetyOverrideRatio * fast.Route.TotalCost)
         {
             return RoutePlanResult.Success(safeRoute.Route, safeRoute.Explanation);
         }
 
-        var fallback = assembler.Build(first, RoutePlanReason.SafeDetourTooExpensive, true);
+        var fallback = assembler.Build(first, RoutePlanReason.SafeDetourTooExpensive, true, fastResources);
         return RoutePlanResult.Success(fallback.Route, fallback.Explanation);
+    }
+
+    /// <summary>
+    /// Сопоставляет ребра выбранного маршрута с ресурсами профиля.
+    /// </summary>
+    private Dictionary<(Guid EdgeId, RouteEdgeDirection Direction), Guid>? ResolveResources(
+        SearchOutcome outcome,
+        IReadOnlyList<TrafficResourceEdge> resources)
+    {
+        var byEdgeAndDirection = new Dictionary<(Guid EdgeId, string Direction), Guid>();
+        foreach (var resource in resources)
+        {
+            byEdgeAndDirection[(resource.EdgeId, resource.Direction)] = resource.TrafficResourceId;
+        }
+
+        var map = new Dictionary<(Guid EdgeId, RouteEdgeDirection Direction), Guid>();
+        foreach (var traversal in outcome.Path)
+        {
+            var direction = traversal.Direction == RouteEdgeDirection.Forward ? "FORWARD" : "BACKWARD";
+            if (!byEdgeAndDirection.TryGetValue((traversal.Edge.Id, direction), out var resourceId))
+            {
+                _logger.LogWarning(
+                    "У ребра {EdgeCode} направления {Direction} нет ресурса профиля: проверьте набор ресурсов версии карты",
+                    traversal.Edge.EdgeId,
+                    direction);
+                return null;
+            }
+
+            map[(traversal.Edge.Id, traversal.Direction)] = resourceId;
+        }
+
+        return map;
     }
 
     private async Task<List<EdgeTraversal>> PrepareAsync(

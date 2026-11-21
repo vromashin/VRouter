@@ -52,6 +52,17 @@ internal sealed class FakeEdgePassabilityRepository(IReadOnlyList<EdgePassabilit
         Task.FromResult(rows);
 }
 
+internal sealed class FakeResourceEdgeRepository(IReadOnlyList<Domain.Traffic.TrafficResourceEdge> rows)
+    : IResourceEdgeRepository
+{
+    public Task<IReadOnlyList<Domain.Traffic.TrafficResourceEdge>> GetAsync(
+        Guid mapVersionId,
+        string agvProfile,
+        CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Domain.Traffic.TrafficResourceEdge>>(
+            rows.Where(row => string.Equals(row.AgvProfile, agvProfile, StringComparison.Ordinal)).ToList());
+}
+
 internal sealed class ZeroWaitEstimator : IWaitEstimator
 {
     public ValueTask<double> EstimateAsync(RoutePlanRequest request, Guid edgeId, CancellationToken ct) =>

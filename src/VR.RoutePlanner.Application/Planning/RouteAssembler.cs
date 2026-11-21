@@ -32,13 +32,18 @@ internal sealed class RouteAssembler
     /// <param name="outcome">Найденный путь.</param>
     /// <param name="reason">Код причины либо <c>null</c>.</param>
     /// <param name="predictedRisk">Признак риска по узкому коридору.</param>
+    /// <param name="resources">
+    /// Ресурсы ребер выбранного маршрута по паре «ребро, направление».
+    /// </param>
     /// <returns>Маршрут и разложение цены.</returns>
     public (PlannedRoute Route, RouteExplanation Explanation) Build(
         SearchOutcome outcome,
         string? reason,
-        bool predictedRisk)
+        bool predictedRisk,
+        IReadOnlyDictionary<(Guid EdgeId, RouteEdgeDirection Direction), Guid> resources)
     {
         ArgumentNullException.ThrowIfNull(outcome);
+        ArgumentNullException.ThrowIfNull(resources);
 
         var segments = new List<RouteSegment>(outcome.Path.Count);
         var explanations = new List<SegmentExplanation>(outcome.Path.Count);
@@ -82,7 +87,9 @@ internal sealed class RouteAssembler
                 breakdown.ClearanceMeters,
                 cost,
                 cumulative,
-                _costs.IsNarrow(breakdown.ClearanceMeters)));
+                _costs.IsNarrow(breakdown.ClearanceMeters),
+                resources[(traversal.Edge.Id, traversal.Direction)],
+                true));
 
             explanations.Add(new SegmentExplanation(
                 traversal.Edge.EdgeId,

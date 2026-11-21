@@ -11,6 +11,14 @@ namespace VR.RoutePlanner.Domain.Planning;
 /// <param name="CostSeconds">Полная цена ребра в секундах, включая поворот и ожидание.</param>
 /// <param name="CumulativeSeconds">Накопленное время от старта маршрута до конца ребра.</param>
 /// <param name="IsNarrow">Запас меньше <c>Routing:Cost:NarrowClearanceMeters</c>.</param>
+/// <param name="TrafficResourceId">
+/// Ресурс ребра этого профиля и направления: <c>vrt_TrafficResourceEdge.TrafficResourceId</c>.
+/// По нему этап 3 резервирует ребро на робота.
+/// </param>
+/// <param name="Passable">
+/// Признак проходимости ребра: у выбранных сегментов всегда <c>true</c>, поле нужно для
+/// симметрии с диагностикой.
+/// </param>
 public sealed record RouteSegment(
     string EdgeCode,
     RouteEdgeDirection Direction,
@@ -19,4 +27,6 @@ public sealed record RouteSegment(
     double ClearanceMeters,
     double CostSeconds,
     double CumulativeSeconds,
-    bool IsNarrow);
+    bool IsNarrow,
+    Guid TrafficResourceId,
+    bool Passable);

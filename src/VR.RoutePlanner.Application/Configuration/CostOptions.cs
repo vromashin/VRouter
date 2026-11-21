@@ -22,10 +22,10 @@ public sealed class CostOptions
     public double LengthWeight { get; set; }
 
     /// <summary>Запас, ниже которого ребро считается узким, метры.</summary>
-    public double NarrowClearanceMeters { get; set; } = 0.4;
+    public double NarrowClearanceMeters { get; set; } = 0.6;
 
     /// <summary>Запас, начиная с которого коридор считается безопасным, метры.</summary>
-    public double SafeClearanceMeters { get; set; } = 0.7;
+    public double SafeClearanceMeters { get; set; } = 1.0;
 
     /// <summary>Допустимое превышение цены безопасного объезда над ценой первого маршрута.</summary>
     public double SafetyOverrideRatio { get; set; } = 2.0;
@@ -80,9 +80,9 @@ public sealed class CostOptions
             return $"{Prefix(nameof(LengthWeight))} не может быть отрицательным, получено {LengthWeight}.";
         }
 
-        if (ClearanceFloorMeters > NarrowClearanceMeters || NarrowClearanceMeters >= SafeClearanceMeters)
+        if (ClearanceFloorMeters >= NarrowClearanceMeters || NarrowClearanceMeters >= SafeClearanceMeters)
         {
-            return $"{Prefix("")}должно выполняться ClearanceFloorMeters <= NarrowClearanceMeters < SafeClearanceMeters, "
+            return $"{Prefix("")}должно выполняться ClearanceFloorMeters < NarrowClearanceMeters < SafeClearanceMeters, "
                 + $"получено ClearanceFloorMeters={ClearanceFloorMeters}, "
                 + $"NarrowClearanceMeters={NarrowClearanceMeters}, SafeClearanceMeters={SafeClearanceMeters}.";
         }

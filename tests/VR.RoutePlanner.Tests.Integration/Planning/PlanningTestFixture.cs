@@ -36,7 +36,8 @@ internal sealed class PlanningTestFixture
         IEdgePassabilityRepository passability,
         IEdgeWidthRepository widths,
         IWarehouseGraphRepository graphs,
-        IMapVersionRepository versions)
+        IMapVersionRepository versions,
+        IResourceEdgeRepository resources)
     {
         Options = options;
         Graph = graph;
@@ -46,6 +47,7 @@ internal sealed class PlanningTestFixture
         Widths = widths;
         Graphs = graphs;
         Versions = versions;
+        Resources = resources;
     }
 
     public IOptions<RoutePlannerOptions> Options { get; }
@@ -71,6 +73,9 @@ internal sealed class PlanningTestFixture
 
     /// <summary>Репозиторий версий карты.</summary>
     public IMapVersionRepository Versions { get; }
+
+    /// <summary>Ресурсы ребер профиля: сегменты маршрута ссылаются на них.</summary>
+    public IResourceEdgeRepository Resources { get; }
 
     private Dictionary<string, WarehouseEdge>? _edgesByCode;
 
@@ -100,6 +105,7 @@ internal sealed class PlanningTestFixture
             Versions,
             Widths,
             Passability,
+            Resources,
             new ZeroWaitEstimator(),
             Microsoft.Extensions.Options.Options.Create(options),
             NullLogger<AStarPathPlanner>.Instance);
@@ -164,13 +170,14 @@ internal sealed class PlanningTestFixture
         var widths = new EdgeWidthRepository(factory, builder, NullLogger<EdgeWidthRepository>.Instance);
         var passability = new EdgePassabilityRepository(factory);
         var versions = new MapVersionRepository(factory);
+        var resources = new ResourceEdgeRepository(factory);
 
         var graph = await graphs.LoadAsync(TestDatabase.MapId, ct);
         Assert.NotNull(graph);
         Assert.NotEmpty(graph.Nodes);
 
         var version = await versions.TryGetAsync(TestDatabase.MapId, graph.GraphVersion, ct);
-        if (version is null || !await HasPlanningRowsAsync(widths, passability, version.Value, ct))
+        if (version is null || !await HasPlanningRowsAsync(widths, passability, resources, version.Value, ct))
         {
             version = await WarmupAsync(graphs, builder, widths, versions, ct);
         }
@@ -180,11 +187,12 @@ internal sealed class PlanningTestFixture
             versions,
             widths,
             passability,
+            resources,
             new ZeroWaitEstimator(),
             options,
             NullLogger<AStarPathPlanner>.Instance);
 
-        return new PlanningTestFixture(options, graph, version.Value, planner, passability, widths, graphs, versions);
+        return new PlanningTestFixture(options, graph, version.Value, planner, passability, widths, graphs, versions, resources);
     }
 
     private static async Task<Guid> WarmupAsync(
@@ -221,6 +229,7 @@ internal sealed class PlanningTestFixture
     private static async Task<bool> HasPlanningRowsAsync(
         IEdgeWidthRepository widths,
         IEdgePassabilityRepository passability,
+        IResourceEdgeRepository resources,
         Guid mapVersionId,
         CancellationToken ct)
     {
@@ -231,7 +240,13 @@ internal sealed class PlanningTestFixture
         }
 
         var rows = await passability.GetAsync(mapVersionId, Profile, ct);
-        return rows.Count > 0;
+        if (rows.Count == 0)
+        {
+            return false;
+        }
+
+        var edges = await resources.GetAsync(mapVersionId, Profile, ct);
+        return edges.Count > 0;
     }
 
     private static IOptions<RoutePlannerOptions> BuildOptions() => Microsoft.Extensions.Options.Options.Create(new RoutePlannerOptions

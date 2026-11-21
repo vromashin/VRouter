@@ -65,6 +65,34 @@ public sealed class PlannerSearchTests
     }
 
     [Fact]
+    public async Task PlanAsync_NoResourceForEdge_ReturnsResourceMissing()
+    {
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        var edge = PlanningFixtures.Edge(a, b, 1.0, 0, 0, 1, 0);
+        var graph = PlanningFixtures.Graph(
+            [PlanningFixtures.Node(a, "A", 0, 0), PlanningFixtures.Node(b, "B", 1, 0)],
+            [edge]);
+
+        var planner = new AStarPathPlanner(
+            new FakeGraphRepository(graph),
+            new FakeMapVersionRepository(PlanningFixtures.MapVersionId),
+            new FakeEdgeWidthRepository([PlanningFixtures.Width(edge, 2.0)]),
+            new FakeEdgePassabilityRepository(
+                [PlanningFixtures.Passability(edge, PlanningFixtures.Profile, true)]),
+            new FakeResourceEdgeRepository([]),
+            new ZeroWaitEstimator(),
+            new FixedOptions<RoutePlannerOptions>(PlanningFixtures.Options()),
+            NullLogger<AStarPathPlanner>.Instance);
+
+        var result = await planner.PlanAsync(Request(a, b), CancellationToken.None);
+
+        Assert.False(result.Found);
+        Assert.Equal(RoutePlanReason.ResourceMissing, result.Reason);
+        Assert.Null(result.Route);
+    }
+
+    [Fact]
     public async Task PlanAsync_NoPath_ReturnsNotFoundWithReason()
     {
         var a = Guid.NewGuid();
@@ -125,11 +153,16 @@ public sealed class PlannerSearchTests
             .Select(item => PlanningFixtures.Passability(item.Edge, PlanningFixtures.Profile))
             .ToList();
 
+        var resourceRows = widths
+            .SelectMany(item => PlanningFixtures.ResourceEdges(item.Edge, PlanningFixtures.Profile))
+            .ToList();
+
         return new AStarPathPlanner(
             new FakeGraphRepository(graph),
             new FakeMapVersionRepository(PlanningFixtures.MapVersionId),
             new FakeEdgeWidthRepository(widthRows),
             new FakeEdgePassabilityRepository(passabilityRows),
+            new FakeResourceEdgeRepository(resourceRows),
             new ZeroWaitEstimator(),
             new FixedOptions<RoutePlannerOptions>(options ?? PlanningFixtures.Options()),
             NullLogger<AStarPathPlanner>.Instance);

@@ -69,6 +69,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IWarehouseGraphRepository, WarehouseGraphRepository>();
         services.AddSingleton<IEdgeWidthRepository, EdgeWidthRepository>();
         services.AddSingleton<IEdgePassabilityRepository, EdgePassabilityRepository>();
+        services.AddSingleton<IResourceEdgeRepository, ResourceEdgeRepository>();
         services.AddSingleton<IWaitEstimator, ZeroWaitEstimator>();
         services.AddSingleton<IPathPlanner, AStarPathPlanner>();
         services.AddSingleton<IResourceRepository, ResourceRepository>();

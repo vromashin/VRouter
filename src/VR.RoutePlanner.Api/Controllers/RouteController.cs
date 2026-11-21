@@ -175,7 +175,9 @@ public sealed class RouteController : ControllerBase
                 segment.ClearanceMeters,
                 segment.CostSeconds,
                 segment.CumulativeSeconds,
-                segment.IsNarrow))
+                segment.IsNarrow,
+                segment.TrafficResourceId,
+                segment.Passable))
             .ToList();
 
         RouteExplainBody? explanation = null;

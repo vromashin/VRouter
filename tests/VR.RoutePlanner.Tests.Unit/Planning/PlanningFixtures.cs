@@ -115,4 +115,13 @@ internal static class PlanningFixtures
         isPassable,
         Domain.Traffic.CorridorClass.C1,
         null);
+
+    /// <summary>Строки ресурсов ребра для обоих направлений: резервирование идет по направлению.</summary>
+    public static IReadOnlyList<Domain.Traffic.TrafficResourceEdge> ResourceEdges(
+        WarehouseEdge edge,
+        string profile) => new[]
+    {
+        new Domain.Traffic.TrafficResourceEdge(Guid.NewGuid(), edge.Id, "FORWARD", 1, profile),
+        new Domain.Traffic.TrafficResourceEdge(Guid.NewGuid(), edge.Id, "BACKWARD", 1, profile),
+    };
 }

@@ -90,11 +90,39 @@ public sealed class CostFormulaTests
         Assert.Equal(5.0, cost.ClearanceWeight);
         Assert.Equal(0.4, cost.ClearanceFloorMeters);
         Assert.Equal(0.0, cost.LengthWeight);
-        Assert.Equal(0.4, cost.NarrowClearanceMeters);
-        Assert.Equal(0.7, cost.SafeClearanceMeters);
+        Assert.Equal(0.6, cost.NarrowClearanceMeters);
+        Assert.Equal(1.0, cost.SafeClearanceMeters);
         Assert.Equal(2.0, cost.SafetyOverrideRatio);
         Assert.Equal(0.7, cost.LoadSpeedFactor);
         Assert.Equal(2.0, cost.ProfileTopSpeedMetersPerSecond);
         Assert.Equal(3, cost.SpeedBands.Count);
+        Assert.Null(cost.Validate());
+    }
+
+    [Fact]
+    public void Defaults_NarrowClearanceReachable()
+    {
+        var cost = new CostOptions();
+        var costs = new EdgeCostCalculator(cost);
+
+        // Ширина коридора 1.65 м при профиле 1.102 м: запас 0.548 м — выше пола и ниже порога тесноты.
+        var clearance = Math.Max(1.65 - 1.102, cost.ClearanceFloorMeters);
+
+        Assert.True(clearance > cost.ClearanceFloorMeters);
+        Assert.True(clearance < cost.NarrowClearanceMeters);
+        Assert.True(costs.IsNarrow(clearance), "при дефолтах правило тесноты должно срабатывать");
+    }
+
+    [Fact]
+    public void Validation_RejectsNonIncreasingClearance()
+    {
+        var equalFloorAndNarrow = new CostOptions { ClearanceFloorMeters = 0.6, NarrowClearanceMeters = 0.6 };
+        Assert.NotNull(equalFloorAndNarrow.Validate());
+
+        var equalNarrowAndSafe = new CostOptions { NarrowClearanceMeters = 1.0, SafeClearanceMeters = 1.0 };
+        Assert.NotNull(equalNarrowAndSafe.Validate());
+
+        var increasing = new CostOptions { ClearanceFloorMeters = 0.4, NarrowClearanceMeters = 0.6, SafeClearanceMeters = 1.0 };
+        Assert.Null(increasing.Validate());
     }
 }
