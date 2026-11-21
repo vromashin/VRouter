@@ -34,6 +34,19 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
     }
 
     /// <inheritdoc />
+    public async Task<EdgeWidthLoad> ReadAsync(Guid mapVersionId, CancellationToken ct)
+    {
+        if (mapVersionId == Guid.Empty)
+        {
+            throw new InvalidOperationException(
+                "Для чтения ширин нужен идентификатор версии карты vrt_MapVersion.Id.");
+        }
+
+        var stored = await ReadRowsAsync(mapVersionId, ct).ConfigureAwait(false);
+        return new EdgeWidthLoad(stored, stored.Count > 0);
+    }
+
+    /// <inheritdoc />
     public async Task<EdgeWidthLoad> GetOrCreateAsync(
         Guid mapVersionId,
         WarehouseGraph graph,
@@ -52,7 +65,7 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
         var expectedSource = ExpectedSource();
         var expectedCount = CountActiveEdges(graph);
 
-        var stored = await ReadAsync(mapVersionId, ct).ConfigureAwait(false);
+        var stored = await ReadRowsAsync(mapVersionId, ct).ConfigureAwait(false);
         if (IsUsable(stored, expectedSource, expectedCount))
         {
             return new EdgeWidthLoad(stored, Reused: true);
@@ -65,7 +78,7 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
         }
         await InsertAsync(computed, ct).ConfigureAwait(false);
 
-        var saved = await ReadAsync(mapVersionId, ct).ConfigureAwait(false);
+        var saved = await ReadRowsAsync(mapVersionId, ct).ConfigureAwait(false);
         if (saved.Count == 0)
         {
             _logger.LogWarning(
@@ -99,7 +112,7 @@ public sealed class EdgeWidthRepository : IEdgeWidthRepository
             .Count();
     }
 
-    private async Task<IReadOnlyList<EdgeWidth>> ReadAsync(Guid mapVersionId, CancellationToken ct)    {
+    private async Task<IReadOnlyList<EdgeWidth>> ReadRowsAsync(Guid mapVersionId, CancellationToken ct)    {
         await using var context = await _contextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
         var rows = await context.EdgeWidths

@@ -69,6 +69,9 @@ public sealed class RoutePlannerOptions
     /// <summary>Пороги классов коридоров по значению Nmax.</summary>
     public CorridorClassThresholds CorridorClassThresholds { get; set; } = new();
 
+    /// <summary>Параметры функции стоимости маршрута из секции <c>Routing:Cost</c>.</summary>
+    public CostOptions Cost { get; set; } = new();
+
     /// <summary>
     /// Проверяет параметры на старте сервиса.
     /// </summary>
@@ -115,6 +118,17 @@ public sealed class RoutePlannerOptions
         if (thresholds is null)
         {
             return "Routing:CorridorClassThresholds не задан.";
+        }
+
+        if (Cost is null)
+        {
+            return "Routing:Cost не задан.";
+        }
+
+        var costError = Cost.Validate();
+        if (costError is not null)
+        {
+            return costError;
         }
 
         var values = new[] { thresholds.C1, thresholds.C2, thresholds.C3, thresholds.C4, thresholds.C5 };

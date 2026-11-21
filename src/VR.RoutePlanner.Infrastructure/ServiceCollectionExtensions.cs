@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using VR.RoutePlanner.Application.Configuration;
 using VR.RoutePlanner.Application.Graph;
+using VR.RoutePlanner.Application.Planning;
 using VR.RoutePlanner.Application.Startup;
 using VR.RoutePlanner.Application.Traffic;
 using VR.RoutePlanner.Infrastructure.Graph;
@@ -67,6 +68,9 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IWarehouseGraphRepository, WarehouseGraphRepository>();
         services.AddSingleton<IEdgeWidthRepository, EdgeWidthRepository>();
+        services.AddSingleton<IEdgePassabilityRepository, EdgePassabilityRepository>();
+        services.AddSingleton<IWaitEstimator, ZeroWaitEstimator>();
+        services.AddSingleton<IPathPlanner, AStarPathPlanner>();
         services.AddSingleton<IResourceRepository, ResourceRepository>();
         services.AddSingleton<IMapRasterProvider, MapRasterProvider>();
         services.AddSingleton<TrafficResourceBuilder>();

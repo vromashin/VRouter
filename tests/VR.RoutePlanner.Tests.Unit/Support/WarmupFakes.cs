@@ -109,6 +109,9 @@ internal sealed class FakeMapVersionRepository : IMapVersionRepository
 
         return Task.FromResult(_mapVersionId);
     }
+
+    public Task<Guid?> TryGetAsync(string mapId, string graphVersion, CancellationToken ct) =>
+        Task.FromResult<Guid?>(_mapVersionId);
 }
 
 /// <summary>
@@ -146,6 +149,12 @@ internal sealed class FakeEdgeWidthRepository : IEdgeWidthRepository
             throw _error;
         }
 
+        return Task.FromResult(new EdgeWidthLoad(_widths, _reused));
+    }
+
+    public Task<EdgeWidthLoad> ReadAsync(Guid mapVersionId, CancellationToken ct)
+    {
+        _log.Add("widths-read");
         return Task.FromResult(new EdgeWidthLoad(_widths, _reused));
     }
 }

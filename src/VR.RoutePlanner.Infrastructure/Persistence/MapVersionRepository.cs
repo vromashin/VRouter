@@ -67,6 +67,16 @@ public sealed class MapVersionRepository : IMapVersionRepository
         }
     }
 
+    /// <inheritdoc />
+    public async Task<Guid?> TryGetAsync(string mapId, string graphVersion, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(mapId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(graphVersion);
+
+        await using var context = await _contextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+        return await FindAsync(context, mapId, graphVersion, ct).ConfigureAwait(false);
+    }
+
     private static Task<Guid?> FindAsync(
         RoutePlannerDbContext context,
         string mapId,

@@ -21,4 +21,12 @@ public interface IEdgeWidthRepository
         WarehouseGraph graph,
         string mapId,
         CancellationToken ct);
+
+    /// <summary>
+    /// Читает уже посчитанные ширины без расчета и записи: планировщик этапа 2 в базу не пишет.
+    /// </summary>
+    /// <param name="mapVersionId">Идентификатор строки <c>vrt_MapVersion</c>.</param>
+    /// <param name="ct">Токен отмены.</param>
+    /// <returns>Ширины из базы; пустой список, если прогрев еще не считал их.</returns>
+    Task<EdgeWidthLoad> ReadAsync(Guid mapVersionId, CancellationToken ct);
 }
