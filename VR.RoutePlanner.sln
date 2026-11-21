@@ -25,6 +25,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VR.RoutePlanner.Tests.Simul
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VR.RoutePlanner.Tests.Unit", "tests\VR.RoutePlanner.Tests.Unit\VR.RoutePlanner.Tests.Unit.csproj", "{192A24E7-ED95-4C14-89FD-B129BAE00506}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VR.RoutePlanner.Tests.Contracts", "tests\VR.RoutePlanner.Tests.Contracts\VR.RoutePlanner.Tests.Contracts.csproj", "{6B4C2963-81CD-43B9-A9AC-1F0BAA499130}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -143,6 +145,18 @@ Global
 		{192A24E7-ED95-4C14-89FD-B129BAE00506}.Release|x64.Build.0 = Release|Any CPU
 		{192A24E7-ED95-4C14-89FD-B129BAE00506}.Release|x86.ActiveCfg = Release|Any CPU
 		{192A24E7-ED95-4C14-89FD-B129BAE00506}.Release|x86.Build.0 = Release|Any CPU
+		{6B4C2963-81CD-43B9-A9AC-1F0BAA499130}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6B4C2963-81CD-43B9-A9AC-1F0BAA499130}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6B4C2963-81CD-43B9-A9AC-1F0BAA499130}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6B4C2963-81CD-43B9-A9AC-1F0BAA499130}.Debug|x64.Build.0 = Debug|Any CPU
+		{6B4C2963-81CD-43B9-A9AC-1F0BAA499130}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6B4C2963-81CD-43B9-A9AC-1F0BAA499130}.Debug|x86.Build.0 = Debug|Any CPU
+		{6B4C2963-81CD-43B9-A9AC-1F0BAA499130}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6B4C2963-81CD-43B9-A9AC-1F0BAA499130}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6B4C2963-81CD-43B9-A9AC-1F0BAA499130}.Release|x64.ActiveCfg = Release|Any CPU
+		{6B4C2963-81CD-43B9-A9AC-1F0BAA499130}.Release|x64.Build.0 = Release|Any CPU
+		{6B4C2963-81CD-43B9-A9AC-1F0BAA499130}.Release|x86.ActiveCfg = Release|Any CPU
+		{6B4C2963-81CD-43B9-A9AC-1F0BAA499130}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -157,5 +171,6 @@ Global
 		{DD37A2EF-5849-4883-B5EB-555522D280C4} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{245A1CAC-185F-486C-8F82-7F9065EBDCB9} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{192A24E7-ED95-4C14-89FD-B129BAE00506} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{6B4C2963-81CD-43B9-A9AC-1F0BAA499130} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
