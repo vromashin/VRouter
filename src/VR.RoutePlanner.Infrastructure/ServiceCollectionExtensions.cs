@@ -6,10 +6,12 @@ using Microsoft.Extensions.Options;
 using VR.RoutePlanner.Application.Configuration;
 using VR.RoutePlanner.Application.Graph;
 using VR.RoutePlanner.Application.Planning;
+using VR.RoutePlanner.Application.Robots;
 using VR.RoutePlanner.Application.Startup;
 using VR.RoutePlanner.Application.Traffic;
 using VR.RoutePlanner.Infrastructure.Graph;
 using VR.RoutePlanner.Infrastructure.Legacy;
+using VR.RoutePlanner.Infrastructure.Mqtt;
 using VR.RoutePlanner.Infrastructure.Persistence;
 using VR.RoutePlanner.Infrastructure.Startup;
 
@@ -61,6 +63,12 @@ public static class ServiceCollectionExtensions
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<WarmupOptions>, WarmupOptionsValidator>());
 
+        services.AddOptions<MqttOptions>()
+            .Bind(configuration.GetSection(RoutePlannerOptions.SectionName).GetSection(MqttOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<MqttOptions>, MqttOptionsValidator>());
+
         services.AddMemoryCache();
 
         services.AddDbContextFactory<RoutePlannerDbContext>((_, options) => options
@@ -74,6 +82,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IWaitEstimator, ZeroWaitEstimator>();
         services.AddSingleton<IPathPlanner, AStarPathPlanner>();
         services.AddSingleton<IResourceRepository, ResourceRepository>();
+        services.AddSingleton<MqttRobotStateReader>();
+        services.AddSingleton<IRobotStateReader>(provider => provider.GetRequiredService<MqttRobotStateReader>());
         services.AddSingleton<IMapRasterProvider, MapRasterProvider>();
         services.AddSingleton<TrafficResourceBuilder>();
         services.AddSingleton<ITrafficResourceBuilder>(provider => provider.GetRequiredService<TrafficResourceBuilder>());
