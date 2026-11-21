@@ -159,7 +159,8 @@ public static class RobotStateParser
                 ?? ReadString(item, "errorType");
             if (!string.IsNullOrWhiteSpace(description))
             {
-                result.Add(description!);
+                var level = ReadString(item, "errorLevel") ?? ReadString(item, "level");
+                result.Add(string.IsNullOrWhiteSpace(level) ? description! : $"{level}|{description}");
             }
         }
 

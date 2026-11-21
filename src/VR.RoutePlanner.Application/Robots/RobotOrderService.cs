@@ -232,7 +232,7 @@ public sealed class RobotOrderService
             return order;
         }
 
-        if (snapshot.Errors.Count > 0 && ActiveStatuses.Contains(status))
+        if (RobotErrorClassifier.HasBlockingError(snapshot) && ActiveStatuses.Contains(status))
         {
             status = RobotOrderStatuses.Failed;
             failure = ReasonRobotError;
