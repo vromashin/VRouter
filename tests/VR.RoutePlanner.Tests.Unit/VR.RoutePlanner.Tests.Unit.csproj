@@ -33,6 +33,8 @@
     <None Include="..\..\docs\contracts\samples\mqtt-state.json" Link="Robots\Assets\mqtt-state-robot.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- Второй образец state версии 2.0.0 из план-набора этапа 2.5 (копия байт-в-байт). -->
     <None Include="Robots\Assets\vda-state-after.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Образец заказа с робота: копия байт-в-байт из план-набора этапа 2.5. -->
+    <None Include="Robots\Assets\vda-order.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
