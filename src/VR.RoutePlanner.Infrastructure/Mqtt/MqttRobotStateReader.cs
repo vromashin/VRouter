@@ -19,6 +19,7 @@ public sealed class MqttRobotStateReader : IRobotStateReader, IAsyncDisposable
     private readonly IOptions<MqttOptions> _options;
     private readonly ILogger<MqttRobotStateReader> _logger;
     private readonly ConcurrentDictionary<string, RobotSnapshot> _snapshots = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, string> _payloads = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     private IMqttClient? _client;
@@ -40,12 +41,24 @@ public sealed class MqttRobotStateReader : IRobotStateReader, IAsyncDisposable
     /// <summary>Событие нового разобранного состояния робота.</summary>
     public event EventHandler<RobotSnapshot>? SnapshotReceived;
 
-    /// <inheritdoc />
-    public RobotSnapshot? GetLatest(string serialNumber) =>
-        string.IsNullOrWhiteSpace(serialNumber) ? null : _snapshots.GetValueOrDefault(serialNumber);
+    /// <summary>Последние тела сообщений <c>state</c> по серийному номеру.</summary>
+    public string? GetLatestPayload(string serialNumber) =>
+        string.IsNullOrWhiteSpace(serialNumber) ? null : _payloads.GetValueOrDefault(serialNumber);
 
     /// <inheritdoc />
-    public IReadOnlyCollection<RobotSnapshot> GetAll() => _snapshots.Values.ToArray();
+    public Task<RobotSnapshot?> GetLatestAsync(string serialNumber, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(
+            string.IsNullOrWhiteSpace(serialNumber) ? null : _snapshots.GetValueOrDefault(serialNumber));
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyCollection<RobotSnapshot>> GetAllAsync(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult<IReadOnlyCollection<RobotSnapshot>>(_snapshots.Values.ToArray());
+    }
 
     /// <summary>
     /// Подключается к брокеру и подписывается на состояние роботов; при обрыве переподключается.
@@ -176,6 +189,11 @@ public sealed class MqttRobotStateReader : IRobotStateReader, IAsyncDisposable
         }
 
         _snapshots[snapshot.SerialNumber] = snapshot;
+        if (payload is not null)
+        {
+            _payloads[snapshot.SerialNumber] = payload;
+        }
+
         _logger.LogDebug("MQTT: состояние {State}", RobotStateParser.Describe(snapshot));
         SnapshotReceived?.Invoke(this, snapshot);
         return true;

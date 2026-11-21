@@ -43,9 +43,11 @@ internal sealed class FakeStateReader : IRobotStateReader
 {
     public Dictionary<string, RobotSnapshot> Snapshots { get; } = new(StringComparer.Ordinal);
 
-    public RobotSnapshot? GetLatest(string serialNumber) => Snapshots.GetValueOrDefault(serialNumber);
+    public Task<RobotSnapshot?> GetLatestAsync(string serialNumber, CancellationToken ct) =>
+        Task.FromResult(Snapshots.GetValueOrDefault(serialNumber));
 
-    public IReadOnlyCollection<RobotSnapshot> GetAll() => Snapshots.Values.ToList();
+    public Task<IReadOnlyCollection<RobotSnapshot>> GetAllAsync(CancellationToken ct) =>
+        Task.FromResult<IReadOnlyCollection<RobotSnapshot>>(Snapshots.Values.ToList());
 }
 
 internal sealed class FakeNumberSource : IRobotOrderNumberSource

@@ -131,7 +131,7 @@ public sealed class RobotOrderService
             throw new OrderInProgressException(current.OrderId, current.Status);
         }
 
-        var snapshot = _states.GetLatest(serialNumber);
+        var snapshot = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false);
 
         var graph = await _graphs.LoadAsync(mapId, ct).ConfigureAwait(false);
         if (graph is null)
@@ -291,7 +291,7 @@ public sealed class RobotOrderService
 
         foreach (var order in await _orders.GetActiveAsync(ct).ConfigureAwait(false))
         {
-            var snapshot = _states.GetLatest(order.AgvSerialNumber);
+            var snapshot = await _states.GetLatestAsync(order.AgvSerialNumber, ct).ConfigureAwait(false);
             string? reason = null;
 
             if (order.Status == RobotOrderStatuses.Sent
@@ -339,7 +339,7 @@ public sealed class RobotOrderService
         var failed = 0;
         foreach (var order in await _orders.GetActiveAsync(ct).ConfigureAwait(false))
         {
-            var snapshot = _states.GetLatest(order.AgvSerialNumber);
+            var snapshot = await _states.GetLatestAsync(order.AgvSerialNumber, ct).ConfigureAwait(false);
             if (snapshot is not null && snapshot.OrderId == order.OrderId && snapshot.Driving)
             {
                 _logger.LogInformation("Заказ {OrderId} продолжен после рестарта", order.OrderId);

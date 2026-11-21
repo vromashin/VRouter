@@ -54,6 +54,11 @@ public static class ServiceCollectionExtensions
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<RoutePlannerOptions>, RoutePlannerOptionsValidator>());
 
+        services.AddOptions<AgvMonitoringOptions>()
+            .Bind(configuration.GetSection(AgvMonitoringOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<AgvMonitoringOptions>, AgvMonitoringOptionsValidator>());
         services.AddOptions<DatabaseOptions>()
             .Bind(configuration.GetSection(DatabaseOptions.SectionName));
 
@@ -83,7 +88,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPathPlanner, AStarPathPlanner>();
         services.AddSingleton<IResourceRepository, ResourceRepository>();
         services.AddSingleton<MqttRobotStateReader>();
-        services.AddSingleton<IRobotStateReader>(provider => provider.GetRequiredService<MqttRobotStateReader>());
+        services.AddSingleton<IRobotStateReader, DatabaseRobotStateReader>();
+        services.AddSingleton<RobotSessionService>();
         services.AddSingleton<IRobotOrderTransport, MqttOrderTransport>();
         services.AddSingleton<IRobotOrderPublisher, VdaOrderPublisher>();
         services.AddSingleton<IRobotOrderNumberSource, VrtRobotOrderNumberSource>();

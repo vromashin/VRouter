@@ -109,19 +109,19 @@ public sealed class RobotStateParserTests
 public sealed class MqttRobotStateReaderTests
 {
     [Fact]
-    public void GetLatest_BeforeMessages_IsNull()
+    public async Task GetLatest_BeforeMessages_IsNull()
     {
         var reader = new MqttRobotStateReader(
             Options.Create(new MqttOptions { Enabled = false }),
             NullLogger<MqttRobotStateReader>.Instance);
 
-        Assert.Null(reader.GetLatest("98001"));
-        Assert.Empty(reader.GetAll());
+        Assert.Null(await reader.GetLatestAsync("98001", CancellationToken.None));
+        Assert.Empty(await reader.GetAllAsync(CancellationToken.None));
         Assert.Equal("APR/v2/+/+/state", MqttRobotStateReader.StateTopicFilter);
     }
 
     [Fact]
-    public void ProcessPayload_BrokenJson_DoesNotThrowAndLogsWarning()
+    public async Task ProcessPayload_BrokenJson_DoesNotThrowAndLogsWarning()
     {
         var logger = new RecordingLogger<MqttRobotStateReader>();
         var reader = new MqttRobotStateReader(Options.Create(new MqttOptions { Enabled = false }), logger);
@@ -129,12 +129,12 @@ public sealed class MqttRobotStateReaderTests
         var stored = reader.ProcessPayload("APR/v2/Tuskrobots/98001/state", "{ \"version\": \"2.0.0\", ");
 
         Assert.False(stored);
-        Assert.Empty(reader.GetAll());
+        Assert.Empty(await reader.GetAllAsync(CancellationToken.None));
         Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Warning && entry.Message.Contains("не разобрано"));
     }
 
     [Fact]
-    public void ProcessPayload_ValidSample_StoresSnapshot()
+    public async Task ProcessPayload_ValidSample_StoresSnapshot()
     {
         var reader = new MqttRobotStateReader(
             Options.Create(new MqttOptions { Enabled = false }),
@@ -145,10 +145,10 @@ public sealed class MqttRobotStateReaderTests
         var stored = reader.ProcessPayload("APR/v2/Tuskrobots/98001/state", payload);
 
         Assert.True(stored);
-        var snapshot = reader.GetLatest("98001");
+        var snapshot = await reader.GetLatestAsync("98001", CancellationToken.None);
         Assert.NotNull(snapshot);
         Assert.Equal("ORD_04330", snapshot!.OrderId);
-        Assert.Single(reader.GetAll());
+        Assert.Single(await reader.GetAllAsync(CancellationToken.None));
     }
 
     [Fact]

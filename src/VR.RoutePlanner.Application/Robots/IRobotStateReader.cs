@@ -1,7 +1,8 @@
 namespace VR.RoutePlanner.Application.Robots;
 
 /// <summary>
-/// Чтение последнего состояния роботов. Данные приходят из MQTT, база не используется.
+/// Чтение последнего состояния роботов. Реализация может смотреть в память процесса
+/// и в таблицу <c>vrt_RobotSession</c>, чтобы API и Workers видели одно состояние.
 /// </summary>
 public interface IRobotStateReader
 {
@@ -9,12 +10,14 @@ public interface IRobotStateReader
     /// Отдает последнее состояние робота.
     /// </summary>
     /// <param name="serialNumber">Серийный номер робота.</param>
-    /// <returns>Снимок состояния либо <c>null</c>, если сообщений от робота еще не было.</returns>
-    RobotSnapshot? GetLatest(string serialNumber);
+    /// <param name="ct">Токен отмены.</param>
+    /// <returns>Снимок состояния либо <c>null</c>, если свежих данных нет.</returns>
+    Task<RobotSnapshot?> GetLatestAsync(string serialNumber, CancellationToken ct);
 
     /// <summary>
-    /// Отдает последние состояния всех роботов, от которых приходили сообщения.
+    /// Отдает последние состояния всех роботов.
     /// </summary>
+    /// <param name="ct">Токен отмены.</param>
     /// <returns>Снимки по серийному номеру.</returns>
-    IReadOnlyCollection<RobotSnapshot> GetAll();
+    Task<IReadOnlyCollection<RobotSnapshot>> GetAllAsync(CancellationToken ct);
 }

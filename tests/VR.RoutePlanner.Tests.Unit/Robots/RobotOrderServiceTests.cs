@@ -230,15 +230,15 @@ public sealed class AgvControllerTests
     }
 
     [Fact]
-    public void GetState_Unknown_Returns404_Known_ReturnsState()
+    public async Task GetState_Unknown_Returns404_Known_ReturnsState()
     {
         var (controller, _, states, _) = Create();
 
-        var missing = controller.GetState("98099");
+        var missing = await controller.GetStateAsync("98099", CancellationToken.None);
         Assert.Equal(404, Assert.IsType<ObjectResult>(missing).StatusCode);
 
         states.Snapshots[OrderTestData.Serial] = OrderTestData.Snapshot("ORD_04331", driving: true);
-        var found = controller.GetState(OrderTestData.Serial);
+        var found = await controller.GetStateAsync(OrderTestData.Serial, CancellationToken.None);
         var body = Assert.IsType<AgvStateResponse>(Assert.IsType<OkObjectResult>(found).Value);
         Assert.True(body.Driving);
         Assert.Equal("ORD_04331", body.OrderId);

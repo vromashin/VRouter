@@ -123,9 +123,9 @@ public sealed class AgvController : ControllerBase
     /// <param name="serial">Серийный номер робота.</param>
     /// <returns>Состояние либо 404.</returns>
     [HttpGet("state")]
-    public IActionResult GetState(string serial)
+    public async Task<IActionResult> GetStateAsync(string serial, CancellationToken ct)
     {
-        var snapshot = _states.GetLatest(serial);
+        var snapshot = await _states.GetLatestAsync(serial, ct).ConfigureAwait(false);
         return snapshot is null
             ? NotFoundProblem("STATE_NOT_FOUND", $"Состояния робота '{serial}' нет.")
             : Ok(AgvDtoMapper.ToResponse(snapshot));

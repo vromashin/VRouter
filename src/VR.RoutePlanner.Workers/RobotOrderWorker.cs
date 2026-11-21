@@ -14,6 +14,7 @@ public sealed class RobotOrderWorker : BackgroundService
     private static readonly TimeSpan Tick = TimeSpan.FromSeconds(2);
 
     private readonly RobotOrderService _orders;
+    private readonly RobotSessionService _sessions;
     private readonly MqttRobotStateReader _reader;
     private readonly ILogger<RobotOrderWorker> _logger;
 
@@ -21,18 +22,22 @@ public sealed class RobotOrderWorker : BackgroundService
     /// Создает сервис ведения заказов.
     /// </summary>
     /// <param name="orders">Сервис заказов.</param>
+    /// <param name="sessions">Запись состояния роботов в базу.</param>
     /// <param name="reader">Чтение состояния роботов.</param>
     /// <param name="logger">Журнал.</param>
     public RobotOrderWorker(
         RobotOrderService orders,
+        RobotSessionService sessions,
         MqttRobotStateReader reader,
         ILogger<RobotOrderWorker> logger)
     {
         ArgumentNullException.ThrowIfNull(orders);
+        ArgumentNullException.ThrowIfNull(sessions);
         ArgumentNullException.ThrowIfNull(reader);
         ArgumentNullException.ThrowIfNull(logger);
 
         _orders = orders;
+        _sessions = sessions;
         _reader = reader;
         _logger = logger;
     }
@@ -94,6 +99,8 @@ public sealed class RobotOrderWorker : BackgroundService
             {
                 try
                 {
+                    var payload = _reader.GetLatestPayload(snapshot.SerialNumber);
+                    await _sessions.SaveAsync(snapshot, payload, CancellationToken.None).ConfigureAwait(false);
                     await _orders.ApplyStateAsync(snapshot, CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (Exception exception)
