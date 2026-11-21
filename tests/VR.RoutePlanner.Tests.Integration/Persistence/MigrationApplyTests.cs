@@ -23,6 +23,9 @@ public sealed class MigrationApplyTests
         "vrt_TrafficResourceNode",
         "vrt_ResourceConflict",
         "vrt_EdgePassability",
+        "vrt_RobotSession",
+        "vrt_RobotOrder",
+        "vrt_RobotOrderNode",
     };
 
     [SkippableFact]

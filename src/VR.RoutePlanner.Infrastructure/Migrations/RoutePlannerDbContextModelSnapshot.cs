@@ -291,6 +291,123 @@ namespace VR.RoutePlanner.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("VR.RoutePlanner.Infrastructure.Persistence.RobotOrderNodeRecord", b =>
+                {
+                    b.Property<string>("OrderId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<int>("SequenceId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ActionCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("NodeId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<bool>("Reached")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("Released")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("OrderId", "SequenceId");
+
+                    b.ToTable("vrt_RobotOrderNode", "public");
+                });
+
+            modelBuilder.Entity("VR.RoutePlanner.Infrastructure.Persistence.RobotOrderRecord", b =>
+                {
+                    b.Property<string>("OrderId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AgvSerialNumber")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ApproachNodeId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("OrderUpdateId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PlanJson")
+                        .HasColumnType("text");
+
+                    b.Property<int>("ReleasedNodeCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("TargetNodeId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("OrderId");
+
+                    b.HasIndex("AgvSerialNumber")
+                        .HasDatabaseName("IX_vrt_RobotOrder_AgvSerialNumber");
+
+                    b.ToTable("vrt_RobotOrder", "public");
+                });
+
+            modelBuilder.Entity("VR.RoutePlanner.Infrastructure.Persistence.RobotSessionRecord", b =>
+                {
+                    b.Property<string>("AgvSerialNumber")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ConnectionState")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Manufacturer")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ProtocolVersion")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("StateJson")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("AgvSerialNumber");
+
+                    b.ToTable("vrt_RobotSession", "public");
+                });
+
             modelBuilder.Entity("VR.RoutePlanner.Infrastructure.Persistence.TrafficResourceEdgeRecord", b =>
                 {
                     b.Property<Guid>("TrafficResourceId")
@@ -430,6 +547,15 @@ namespace VR.RoutePlanner.Infrastructure.Migrations
                     b.HasKey("MapId");
 
                     b.ToTable("vrt_WarmupState", "public");
+                });
+
+            modelBuilder.Entity("VR.RoutePlanner.Infrastructure.Persistence.RobotOrderNodeRecord", b =>
+                {
+                    b.HasOne("VR.RoutePlanner.Infrastructure.Persistence.RobotOrderRecord", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

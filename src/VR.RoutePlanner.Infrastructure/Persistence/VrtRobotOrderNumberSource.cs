@@ -12,7 +12,9 @@ namespace VR.RoutePlanner.Infrastructure.Persistence;
 public sealed class VrtRobotOrderNumberSource : IRobotOrderNumberSource
 {
     private const string Sql = """
-        SELECT COALESCE(MAX("OrderNumber"), 0) FROM public."vrt_RobotOrder"
+        SELECT COALESCE(MAX(CAST(SUBSTRING("OrderId" FROM 5) AS BIGINT)), 0)
+        FROM public."vrt_RobotOrder"
+        WHERE "OrderId" LIKE 'ORD_%'
         """;
 
     private readonly IDbContextFactory<RoutePlannerDbContext> _contextFactory;

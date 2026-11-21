@@ -40,6 +40,15 @@ public sealed class RoutePlannerDbContext : DbContext
     /// <summary>Итог последнего прогрева по картам.</summary>
     public DbSet<WarmupStateRecord> WarmupStates => Set<WarmupStateRecord>();
 
+    /// <summary>Последнее состояние роботов по MQTT.</summary>
+    public DbSet<RobotSessionRecord> RobotSessions => Set<RobotSessionRecord>();
+
+    /// <summary>Отправленные роботам заказы.</summary>
+    public DbSet<RobotOrderRecord> RobotOrders => Set<RobotOrderRecord>();
+
+    /// <summary>Узлы заказов роботам.</summary>
+    public DbSet<RobotOrderNodeRecord> RobotOrderNodes => Set<RobotOrderNodeRecord>();
+
     /// <summary>Строки карт склада (только чтение).</summary>
     public DbSet<RmsMapRecord> Maps => Set<RmsMapRecord>();
 
@@ -83,6 +92,44 @@ public sealed class RoutePlannerDbContext : DbContext
             builder.Property(record => record.Direction).HasMaxLength(16).IsRequired();
             builder.Property(record => record.AgvProfile).HasMaxLength(128).IsRequired();
             builder.HasIndex(record => new { record.EdgeId, record.Direction, record.AgvProfile }).IsUnique().HasDatabaseName("UQ_vrt_TrafficResourceEdge_Edge_Direction_Profile");
+        });
+
+        modelBuilder.Entity<RobotSessionRecord>(builder =>
+        {
+            builder.ToTable("vrt_RobotSession", "public");
+            builder.HasKey(record => record.AgvSerialNumber);
+            builder.Property(record => record.AgvSerialNumber).HasMaxLength(64).IsRequired();
+            builder.Property(record => record.Manufacturer).HasMaxLength(64);
+            builder.Property(record => record.ProtocolVersion).HasMaxLength(16);
+            builder.Property(record => record.ConnectionState).HasMaxLength(32);
+            builder.Property(record => record.StateJson);
+        });
+
+        modelBuilder.Entity<RobotOrderRecord>(builder =>
+        {
+            builder.ToTable("vrt_RobotOrder", "public");
+            builder.HasKey(record => record.OrderId);
+            builder.Property(record => record.OrderId).HasMaxLength(32).IsRequired();
+            builder.Property(record => record.AgvSerialNumber).HasMaxLength(64).IsRequired();
+            builder.Property(record => record.Status).HasMaxLength(32).IsRequired();
+            builder.Property(record => record.PlanJson);
+            builder.Property(record => record.TargetNodeId).HasMaxLength(64);
+            builder.Property(record => record.ApproachNodeId).HasMaxLength(64);
+            builder.Property(record => record.FailureReason).HasMaxLength(256);
+            builder.HasIndex(record => record.AgvSerialNumber)
+                .HasDatabaseName("IX_vrt_RobotOrder_AgvSerialNumber");
+        });
+
+        modelBuilder.Entity<RobotOrderNodeRecord>(builder =>
+        {
+            builder.ToTable("vrt_RobotOrderNode", "public");
+            builder.HasKey(record => new { record.OrderId, record.SequenceId });
+            builder.Property(record => record.OrderId).HasMaxLength(32).IsRequired();
+            builder.Property(record => record.NodeId).HasMaxLength(64).IsRequired();
+            builder.HasOne<RobotOrderRecord>()
+                .WithMany()
+                .HasForeignKey(record => record.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<EdgePassabilityRecord>(builder =>
@@ -453,4 +500,100 @@ public sealed class WarmupStateRecord
 
     /// <summary>Момент завершения прогрева, UTC.</summary>
     public DateTimeOffset CompletedAt { get; set; }
+}
+
+/// <summary>
+/// Строка таблицы <c>public."vrt_RobotSession"</c>: последнее состояние робота из MQTT.
+/// </summary>
+public sealed class RobotSessionRecord
+{
+    /// <summary>Серийный номер робота, он же ключ.</summary>
+    public string AgvSerialNumber { get; set; } = string.Empty;
+
+    /// <summary>Производитель из сообщения.</summary>
+    public string? Manufacturer { get; set; }
+
+    /// <summary>Версия протокола из сообщения.</summary>
+    public string? ProtocolVersion { get; set; }
+
+    /// <summary>Состояние связи по последнему сообщению.</summary>
+    public string? ConnectionState { get; set; }
+
+    /// <summary>Момент последнего сообщения, UTC.</summary>
+    public DateTimeOffset LastSeenAt { get; set; }
+
+    /// <summary>Тело последнего сообщения <c>state</c>.</summary>
+    public string? StateJson { get; set; }
+
+    /// <summary>Момент записи строки, UTC.</summary>
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Строка таблицы <c>public."vrt_RobotOrder"</c>: заказ, отправленный роботу.
+/// </summary>
+public sealed class RobotOrderRecord
+{
+    /// <summary>Идентификатор заказа вида <c>ORD_04330</c>, он же ключ.</summary>
+    public string OrderId { get; set; } = string.Empty;
+
+    /// <summary>Серийный номер робота.</summary>
+    public string AgvSerialNumber { get; set; } = string.Empty;
+
+    /// <summary>Версия заказа для робота.</summary>
+    public int OrderUpdateId { get; set; }
+
+    /// <summary>Статус заказа.</summary>
+    public string Status { get; set; } = string.Empty;
+
+    /// <summary>План маршрута или готовый заказ в JSON.</summary>
+    public string? PlanJson { get; set; }
+
+    /// <summary>Сколько узлов заказа отмечено выпущенными.</summary>
+    public int ReleasedNodeCount { get; set; }
+
+    /// <summary>Целевой узел маршрута.</summary>
+    public string? TargetNodeId { get; set; }
+
+    /// <summary>Узел подхода к цели.</summary>
+    public string? ApproachNodeId { get; set; }
+
+    /// <summary>Момент создания заказа, UTC.</summary>
+    public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>Момент отправки заказа, UTC.</summary>
+    public DateTimeOffset? SentAt { get; set; }
+
+    /// <summary>Момент подтверждения заказа роботом, UTC.</summary>
+    public DateTimeOffset? AcceptedAt { get; set; }
+
+    /// <summary>Момент завершения заказа, UTC.</summary>
+    public DateTimeOffset? CompletedAt { get; set; }
+
+    /// <summary>Причина отказа или провала.</summary>
+    public string? FailureReason { get; set; }
+}
+
+/// <summary>
+/// Строка таблицы <c>public."vrt_RobotOrderNode"</c>: узел заказа и его состояние.
+/// </summary>
+public sealed class RobotOrderNodeRecord
+{
+    /// <summary>Идентификатор заказа.</summary>
+    public string OrderId { get; set; } = string.Empty;
+
+    /// <summary>Порядковый номер узла в заказе.</summary>
+    public int SequenceId { get; set; }
+
+    /// <summary>Идентификатор узла карты.</summary>
+    public string NodeId { get; set; } = string.Empty;
+
+    /// <summary>Узел выпущен роботу.</summary>
+    public bool Released { get; set; }
+
+    /// <summary>Узел достигнут роботом.</summary>
+    public bool Reached { get; set; }
+
+    /// <summary>Число действий в узле.</summary>
+    public int ActionCount { get; set; }
 }
