@@ -76,11 +76,12 @@ public static class CorridorClassifier
     }
 
     /// <summary>
-    /// Проверяет проходимость коридора: <c>W >= B + 2 * S</c>.
+    /// Проверяет проходимость коридора по физическому минимуму: <c>W >= B + 2 * C</c>,
+    /// где C это минимальный зазор с каждой стороны, ниже которого робот не влезает.
     /// </summary>
     /// <param name="corridorWidth">Ширина коридора W в метрах.</param>
     /// <param name="profile">Профиль робота.</param>
-    /// <param name="sideMargin">Боковой зазор S в метрах.</param>
+    /// <param name="minClearance">Физический минимум зазора с каждой стороны в метрах.</param>
     /// <returns><c>true</c>, если робот профиля проходит коридор.</returns>
     public static bool IsPassable(double corridorWidth, AgvProfile profile, double minClearance)
     {

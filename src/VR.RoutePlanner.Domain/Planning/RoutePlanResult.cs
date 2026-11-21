@@ -8,6 +8,8 @@ namespace VR.RoutePlanner.Domain.Planning;
 /// <param name="PredictedRisk">Маршрут построен по узкому месту вопреки правилу безопасности.</param>
 /// <param name="Route">Найденный маршрут либо <c>null</c>.</param>
 /// <param name="Explanation">Разложение цены; заполняется только по запросу.</param>
+/// <param name="ApproachNodeId">Узел подхода, если целевой узел не проезжий; иначе <c>null</c>.</param>
+/// <param name="ApproachDistanceMeters">Расстояние от узла подхода до цели в метрах.</param>
 public sealed record RoutePlanResult(
     bool Found,
     string? Reason,
