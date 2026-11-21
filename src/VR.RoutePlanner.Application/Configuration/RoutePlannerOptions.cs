@@ -84,6 +84,9 @@ public sealed class RoutePlannerOptions
     /// <summary>Параметры функции стоимости маршрута из секции <c>Routing:Cost</c>.</summary>
     public CostOptions Cost { get; set; } = new();
 
+    /// <summary>Параметры отправки заказов из секции <c>Routing:Order</c>.</summary>
+    public OrderOptions Order { get; set; } = new();
+
     /// <summary>
     /// Проверяет параметры на старте сервиса.
     /// </summary>
@@ -150,6 +153,12 @@ public sealed class RoutePlannerOptions
         if (costError is not null)
         {
             return costError;
+        }
+
+        var orderError = Order.Validate();
+        if (orderError is not null)
+        {
+            return orderError;
         }
 
         var values = new[] { thresholds.C1, thresholds.C2, thresholds.C3, thresholds.C4, thresholds.C5 };

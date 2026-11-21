@@ -1,0 +1,105 @@
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using VR.RoutePlanner.Application.Robots;
+using VR.RoutePlanner.Infrastructure.Mqtt;
+
+namespace VR.RoutePlanner.Workers;
+
+/// <summary>
+/// Ведение заказов: восстановление после рестарта, обновление статуса по <c>state</c>
+/// и проверка таймаутов. Включается вместе с чтением MQTT.
+/// </summary>
+public sealed class RobotOrderWorker : BackgroundService
+{
+    private static readonly TimeSpan Tick = TimeSpan.FromSeconds(2);
+
+    private readonly RobotOrderService _orders;
+    private readonly MqttRobotStateReader _reader;
+    private readonly ILogger<RobotOrderWorker> _logger;
+
+    /// <summary>
+    /// Создает сервис ведения заказов.
+    /// </summary>
+    /// <param name="orders">Сервис заказов.</param>
+    /// <param name="reader">Чтение состояния роботов.</param>
+    /// <param name="logger">Журнал.</param>
+    public RobotOrderWorker(
+        RobotOrderService orders,
+        MqttRobotStateReader reader,
+        ILogger<RobotOrderWorker> logger)
+    {
+        ArgumentNullException.ThrowIfNull(orders);
+        ArgumentNullException.ThrowIfNull(reader);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _orders = orders;
+        _reader = reader;
+        _logger = logger;
+    }
+
+    /// <inheritdoc />
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _reader.SnapshotReceived += OnSnapshotReceived;
+
+        try
+        {
+            await RecoverAsync(stoppingToken).ConfigureAwait(false);
+
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await _orders.CheckTimeoutsAsync(stoppingToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(exception, "Ошибка проверки таймаутов заказов");
+                }
+
+                await Task.Delay(Tick, stoppingToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // штатная остановка
+        }
+        finally
+        {
+            _reader.SnapshotReceived -= OnSnapshotReceived;
+        }
+    }
+
+    private async Task RecoverAsync(CancellationToken ct)
+    {
+        try
+        {
+            var failed = await _orders.RecoverAsync(ct).ConfigureAwait(false);
+            _logger.LogInformation("Заказы после рестарта: провалено {Failed}", failed);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Ошибка восстановления заказов");
+        }
+    }
+
+    private void OnSnapshotReceived(object? sender, Application.Robots.RobotSnapshot snapshot)
+    {
+        _ = Task.Run(
+            async () =>
+            {
+                try
+                {
+                    await _orders.ApplyStateAsync(snapshot, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(exception, "Ошибка обновления заказа по state робота {Serial}", snapshot.SerialNumber);
+                }
+            });
+    }
+}

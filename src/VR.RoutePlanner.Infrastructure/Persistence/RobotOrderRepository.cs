@@ -105,6 +105,36 @@ public sealed class RobotOrderRepository : IRobotOrderRepository
             : await ReadAsync(context, item => item.OrderId == orderId, ct).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<RobotOrder>> GetActiveAsync(CancellationToken ct)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+        var rows = await context.RobotOrders
+            .AsNoTracking()
+            .Where(row => row.Status == "Draft" || row.Status == "Sent" || row.Status == "Accepted" || row.Status == "Executing")
+            .OrderBy(row => row.CreatedAt)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        return rows
+            .Select(row => new RobotOrder(
+                row.OrderId,
+                row.AgvSerialNumber,
+                row.OrderUpdateId,
+                row.Status,
+                row.PlanJson,
+                row.ReleasedNodeCount,
+                row.TargetNodeId,
+                row.ApproachNodeId,
+                row.CreatedAt,
+                row.SentAt,
+                row.AcceptedAt,
+                row.CompletedAt,
+                row.FailureReason,
+                Array.Empty<RobotOrderNode>()))
+            .ToList();
+    }
+
     private static async Task<RobotOrder?> ReadAsync(
         RoutePlannerDbContext context,
         System.Linq.Expressions.Expression<Func<RobotOrderRecord, bool>> filter,

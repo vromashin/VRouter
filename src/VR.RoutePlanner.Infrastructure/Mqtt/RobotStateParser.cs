@@ -82,7 +82,8 @@ public static class RobotStateParser
                 ReadErrors(root),
                 ReadNodeStates(root),
                 DateTimeOffset.UtcNow,
-                version);
+                version,
+                ReadString(root, "lastNodeId"));
 
             return true;
         }

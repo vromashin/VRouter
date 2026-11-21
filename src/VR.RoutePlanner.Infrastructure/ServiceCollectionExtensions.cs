@@ -89,6 +89,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRobotOrderNumberSource, VrtRobotOrderNumberSource>();
         services.AddSingleton<IRobotSessionRepository, RobotSessionRepository>();
         services.AddSingleton<IRobotOrderRepository, RobotOrderRepository>();
+        services.AddSingleton<IVdaOrderComposer, VdaOrderComposer>();
+        services.AddSingleton<IHeaderIdSource, TimerHeaderIdSource>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<RobotOrderService>();
         services.AddSingleton<IMapRasterProvider, MapRasterProvider>();
         services.AddSingleton<TrafficResourceBuilder>();
         services.AddSingleton<ITrafficResourceBuilder>(provider => provider.GetRequiredService<TrafficResourceBuilder>());

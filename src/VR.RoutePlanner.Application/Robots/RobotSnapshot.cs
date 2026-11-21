@@ -39,4 +39,5 @@ public sealed record RobotSnapshot(
     IReadOnlyList<string> Errors,
     IReadOnlyList<RobotNodeState> NodeStates,
     DateTimeOffset ReceivedAt,
-    string Version);
+    string Version,
+    string? LastNodeId = null);

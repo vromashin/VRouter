@@ -37,6 +37,9 @@ public sealed class MqttRobotStateReader : IRobotStateReader, IAsyncDisposable
         _logger = logger;
     }
 
+    /// <summary>Событие нового разобранного состояния робота.</summary>
+    public event EventHandler<RobotSnapshot>? SnapshotReceived;
+
     /// <inheritdoc />
     public RobotSnapshot? GetLatest(string serialNumber) =>
         string.IsNullOrWhiteSpace(serialNumber) ? null : _snapshots.GetValueOrDefault(serialNumber);
@@ -174,6 +177,7 @@ public sealed class MqttRobotStateReader : IRobotStateReader, IAsyncDisposable
 
         _snapshots[snapshot.SerialNumber] = snapshot;
         _logger.LogDebug("MQTT: состояние {State}", RobotStateParser.Describe(snapshot));
+        SnapshotReceived?.Invoke(this, snapshot);
         return true;
     }
 

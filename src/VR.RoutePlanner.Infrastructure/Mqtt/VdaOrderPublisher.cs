@@ -13,6 +13,9 @@ public sealed class VdaOrderPublisher : IRobotOrderPublisher
     /// <summary>Шаблон топика заказа.</summary>
     public const string TopicTemplate = "APR/v2/{0}/{1}/order";
 
+    /// <summary>Шаблон топика мгновенных действий.</summary>
+    public const string InstantActionTopicTemplate = "APR/v2/{0}/{1}/instantActions";
+
     private static long _lastHeaderId;
 
     private readonly IRobotOrderTransport _transport;
@@ -73,5 +76,21 @@ public sealed class VdaOrderPublisher : IRobotOrderPublisher
         var topic = TopicFor(manufacturer, serialNumber);
         await _transport.PublishAsync(topic, orderJson, ct).ConfigureAwait(false);
         _logger.LogInformation("Заказ отправлен в {Topic}, байт: {Length}", topic, orderJson.Length);
+    }
+
+    /// <inheritdoc />
+    public async Task PublishInstantActionAsync(
+        string manufacturer,
+        string serialNumber,
+        string payload,
+        CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(manufacturer);
+        ArgumentException.ThrowIfNullOrWhiteSpace(serialNumber);
+        ArgumentException.ThrowIfNullOrWhiteSpace(payload);
+
+        var topic = string.Format(CultureInfo.InvariantCulture, InstantActionTopicTemplate, manufacturer, serialNumber);
+        await _transport.PublishAsync(topic, payload, ct).ConfigureAwait(false);
+        _logger.LogInformation("Мгновенное действие отправлено в {Topic}", topic);
     }
 }

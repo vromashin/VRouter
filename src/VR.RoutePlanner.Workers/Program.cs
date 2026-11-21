@@ -19,6 +19,7 @@ var mqttOptions = builder.Configuration
 if (mqttOptions.Enabled)
 {
     builder.Services.AddHostedService<MqttRobotStateWorker>();
+    builder.Services.AddHostedService<RobotOrderWorker>();
 }
 
 var host = builder.Build();

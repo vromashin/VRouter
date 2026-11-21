@@ -26,6 +26,19 @@ public interface IRobotOrderPublisher
     /// <param name="orderJson">Тело заказа.</param>
     /// <param name="ct">Токен отмены.</param>
     Task PublishAsync(string manufacturer, string serialNumber, string orderJson, CancellationToken ct);
+
+    /// <summary>
+    /// Публикует мгновенное действие в топик <c>instantActions</c> робота.
+    /// </summary>
+    /// <param name="manufacturer">Производитель.</param>
+    /// <param name="serialNumber">Серийный номер робота.</param>
+    /// <param name="payload">Тело сообщения.</param>
+    /// <param name="ct">Токен отмены.</param>
+    Task PublishInstantActionAsync(
+        string manufacturer,
+        string serialNumber,
+        string payload,
+        CancellationToken ct);
 }
 
 /// <summary>

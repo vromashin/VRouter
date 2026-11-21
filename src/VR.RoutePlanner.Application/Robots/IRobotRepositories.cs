@@ -50,4 +50,11 @@ public interface IRobotOrderRepository
     /// <param name="ct">Токен отмены.</param>
     /// <returns>Заказ либо <c>null</c>.</returns>
     Task<RobotOrder?> GetLatestAsync(string agvSerialNumber, CancellationToken ct);
+
+    /// <summary>
+    /// Читает заказы в незавершенных статусах: <c>Draft</c>, <c>Sent</c>, <c>Accepted</c>, <c>Executing</c>.
+    /// </summary>
+    /// <param name="ct">Токен отмены.</param>
+    /// <returns>Заказы без узлов либо пустой список.</returns>
+    Task<IReadOnlyList<RobotOrder>> GetActiveAsync(CancellationToken ct);
 }
