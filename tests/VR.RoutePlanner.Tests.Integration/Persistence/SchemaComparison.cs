@@ -61,7 +61,11 @@ internal static class SchemaComparison
         Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
     }
 
-    public static async Task AssertUniqueIndexesAsync(
+    /// <summary>
+    /// Сверяет с базой все индексы модели у таблиц <c>vrt_*</c>: и уникальные, и обычные.
+    /// Неуникальные индексы раньше не сверялись, поэтому их отсутствие в базе проходило незамеченным.
+    /// </summary>
+    public static async Task AssertIndexesAsync(
         RoutePlannerDbContext context,
         CancellationToken ct = default)
     {
@@ -73,8 +77,7 @@ internal static class SchemaComparison
         {
             var table = entity.GetTableName()!;
             var expected = entity.GetIndexes()
-                .Where(index => index.IsUnique)
-                .Select(index => index.GetDatabaseName())
+                .Select(index => new { Name = index.GetDatabaseName(), index.IsUnique })
                 .ToList();
 
             if (!actual.TryGetValue(table, out var indexes))
@@ -83,9 +86,21 @@ internal static class SchemaComparison
                 continue;
             }
 
-            foreach (var name in expected.Where(name => !indexes.Contains(name!)))
+            foreach (var item in expected)
             {
-                problems.Add($"{table}: в базе нет уникального индекса \"{name}\".");
+                var found = indexes.FirstOrDefault(index => index.Name == item.Name);
+                if (found is null)
+                {
+                    var kind = item.IsUnique ? "уникального" : "обычного";
+                    problems.Add($"{table}: в базе нет {kind} индекса \"{item.Name}\".");
+                    continue;
+                }
+
+                if (found.IsUnique != item.IsUnique)
+                {
+                    problems.Add(
+                        $"{table}.\"{item.Name}\": уникальность в базе {found.IsUnique}, в модели {item.IsUnique}.");
+                }
             }
         }
 
@@ -144,15 +159,15 @@ internal static class SchemaComparison
                 StringComparer.Ordinal);
     }
 
-    private static async Task<Dictionary<string, List<string>>> ReadIndexesAsync(
+    private static async Task<Dictionary<string, List<IndexInfo>>> ReadIndexesAsync(
         RoutePlannerDbContext context,
         CancellationToken ct)
     {
         var sql = """
-            SELECT tablename || '.' || indexname AS "Value"
+            SELECT tablename || '.' || indexname AS "Value",
+                   CASE WHEN indexdef LIKE '%UNIQUE%' THEN true ELSE false END AS "IsUnique"
             FROM pg_indexes
             WHERE schemaname = 'public' AND tablename LIKE 'vrt/_%' ESCAPE '/'
-              AND indexdef LIKE '%UNIQUE%'
             """;
 
         var rows = await context.Database.SqlQueryRaw<IndexRow>(sql).ToListAsync(ct);
@@ -162,14 +177,20 @@ internal static class SchemaComparison
             .ToDictionary(
                 group => group.Key,
                 group => group
-                    .Select(row => row.Value[(row.Value.IndexOf('.', StringComparison.Ordinal) + 1)..])
+                    .Select(row => new IndexInfo(
+                        row.Value[(row.Value.IndexOf('.', StringComparison.Ordinal) + 1)..],
+                        row.IsUnique))
                     .ToList(),
                 StringComparer.Ordinal);
     }
 
+    private sealed record IndexInfo(string Name, bool IsUnique);
+
     private sealed class IndexRow
     {
         public string Value { get; set; } = string.Empty;
+
+        public bool IsUnique { get; set; }
     }
 
     private sealed class SchemaRow

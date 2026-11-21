@@ -49,7 +49,8 @@ namespace VR.RoutePlanner.Infrastructure.Migrations
 
                     b.HasKey("MapVersionId", "AgvProfile", "EdgeId");
 
-                    b.HasIndex("EdgeId", "AgvProfile");
+                    b.HasIndex("EdgeId", "AgvProfile")
+                        .HasDatabaseName("IX_vrt_EdgePassability_Edge_Profile");
 
                     b.ToTable("vrt_EdgePassability", "public");
                 });

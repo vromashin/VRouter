@@ -18,26 +18,30 @@ public sealed class PostgresWarmupLock : IWarmupLock
     public const string LockKeyPrefix = "rms:warmup:routeplanner:";
 
     /// <summary>
-    /// Предельное ожидание блокировки: столько процесс ждет прогрева, идущего в соседнем
-    /// процессе, и падает с <see cref="TimeoutException"/> вместо бесконечного ожидания.
+    /// Предельное ожидание блокировки по умолчанию: столько процесс ждет прогрева, идущего
+    /// в соседнем процессе, и падает с <see cref="TimeoutException"/> вместо бесконечного ожидания.
     /// </summary>
-    public static readonly TimeSpan WaitTimeout = TimeSpan.FromMinutes(5);
+    public static readonly TimeSpan DefaultWaitTimeout = TimeSpan.FromMinutes(5);
 
     private readonly IDbContextFactory<RoutePlannerDbContext> _factory;
     private readonly ILogger<PostgresWarmupLock> _logger;
+    private readonly TimeSpan _waitTimeout;
 
     /// <summary>Создает блокировку прогрева поверх базы <c>rms</c>.</summary>
     /// <param name="factory">Фабрика контекста базы <c>rms</c>.</param>
     /// <param name="logger">Логгер.</param>
+    /// <param name="waitTimeout">Предельное ожидание блокировки; по умолчанию <see cref="DefaultWaitTimeout"/>.</param>
     public PostgresWarmupLock(
         IDbContextFactory<RoutePlannerDbContext> factory,
-        ILogger<PostgresWarmupLock> logger)
+        ILogger<PostgresWarmupLock> logger,
+        TimeSpan? waitTimeout = null)
     {
         ArgumentNullException.ThrowIfNull(factory);
         ArgumentNullException.ThrowIfNull(logger);
 
         _factory = factory;
         _logger = logger;
+        _waitTimeout = waitTimeout ?? DefaultWaitTimeout;
     }
 
     /// <inheritdoc />
@@ -51,11 +55,11 @@ public sealed class PostgresWarmupLock : IWarmupLock
         try
         {
             await context.Database.OpenConnectionAsync(ct).ConfigureAwait(false);
-            await SetStatementTimeoutAsync(context, WaitTimeout, ct).ConfigureAwait(false);
+            await SetStatementTimeoutAsync(context, _waitTimeout, ct).ConfigureAwait(false);
             _logger.LogDebug(
                 "Ожидание блокировки прогрева карты {MapId}, не дольше {Timeout}.",
                 mapId,
-                WaitTimeout);
+                _waitTimeout);
 
             try
             {
@@ -64,7 +68,7 @@ public sealed class PostgresWarmupLock : IWarmupLock
             catch (PostgresException exception) when (exception.SqlState == PostgresErrorCodes.QueryCanceled)
             {
                 throw new TimeoutException(
-                    $"Не удалось дождаться блокировки прогрева карты {mapId} за {WaitTimeout}: "
+                    $"Не удалось дождаться блокировки прогрева карты {mapId} за {_waitTimeout}: "
                     + "в другом процессе прогрев идет слишком долго.",
                     exception);
             }

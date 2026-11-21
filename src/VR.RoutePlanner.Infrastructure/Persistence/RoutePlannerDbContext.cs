@@ -92,7 +92,8 @@ public sealed class RoutePlannerDbContext : DbContext
             builder.Property(record => record.AgvProfile).HasMaxLength(128).IsRequired();
             builder.Property(record => record.CorridorClass).HasColumnName("CorridorClass").HasMaxLength(8).IsRequired();
             builder.Property(record => record.Reason).HasMaxLength(64);
-            builder.HasIndex(record => new { record.EdgeId, record.AgvProfile });
+            builder.HasIndex(record => new { record.EdgeId, record.AgvProfile })
+                .HasDatabaseName("IX_vrt_EdgePassability_Edge_Profile");
         });
 
         modelBuilder.Entity<TrafficResourceNodeRecord>(builder =>

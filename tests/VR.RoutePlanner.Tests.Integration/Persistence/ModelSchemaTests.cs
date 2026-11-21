@@ -15,6 +15,6 @@ public sealed class ModelSchemaTests
         await context.Database.MigrateAsync();
 
         await SchemaComparison.AssertColumnsAsync(context);
-        await SchemaComparison.AssertUniqueIndexesAsync(context);
+        await SchemaComparison.AssertIndexesAsync(context);
     }
 }
