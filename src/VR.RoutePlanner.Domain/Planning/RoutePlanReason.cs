@@ -41,4 +41,10 @@ public static class RoutePlanReason
 
     /// <summary>У ребра маршрута нет ресурса профиля в наборе ресурсов версии карты.</summary>
     public const string ResourceMissing = "RESOURCE_MISSING";
+
+    /// <summary>Нет точки подхода: целевой узел без проезжих ребер, рядом нет узла с проезжим ребром.</summary>
+    public const string NoApproach = "NO_APPROACH";
+
+    /// <summary>Маршрут построен до узла подхода, а не до целевого узла.</summary>
+    public const string ApproachNodeUsed = "APPROACH_NODE_USED";
 }

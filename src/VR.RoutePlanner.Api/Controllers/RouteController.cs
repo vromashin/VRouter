@@ -161,7 +161,7 @@ public sealed class RouteController : ControllerBase
         graph.Nodes.Values.FirstOrDefault(node => string.Equals(node.NodeId, nodeId, StringComparison.Ordinal));
 
     private static RoutePlanBodyResponse NotFoundResponse(string? reason) =>
-        new(false, reason, false, null, null, null, null, null, null, null);
+        new(false, reason, false, null, null, null, null, null, null, null, null, null);
 
     private static RoutePlanBodyResponse MapResult(RoutePlanResult result, bool explain)
     {
@@ -212,7 +212,9 @@ public sealed class RouteController : ControllerBase
             route.TurnCount,
             route.MinClearanceMeters,
             segments,
-            explanation);
+            explanation,
+            result.ApproachNodeId,
+            result.ApproachDistanceMeters);
     }
 
     private static RouteGraphSummaryBody BuildSummary(

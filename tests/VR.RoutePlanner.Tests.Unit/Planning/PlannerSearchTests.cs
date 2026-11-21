@@ -98,16 +98,19 @@ public sealed class PlannerSearchTests
         var a = Guid.NewGuid();
         var b = Guid.NewGuid();
         var island = Guid.NewGuid();
+        var islandPeer = Guid.NewGuid();
         var edge = PlanningFixtures.Edge(a, b, 1.0, 0, 0, 1, 0);
+        var islandEdge = PlanningFixtures.Edge(island, islandPeer, 2.0, 0, 10, 12, 0);
         var planner = Build(
             PlanningFixtures.Graph(
                 [
                     PlanningFixtures.Node(a, "A", 0, 0),
                     PlanningFixtures.Node(b, "B", 1, 0),
                     PlanningFixtures.Node(island, "D", 10, 10),
+                    PlanningFixtures.Node(islandPeer, "E", 10, 12),
                 ],
-                [edge]),
-            [(edge, 2.0)],
+                [edge, islandEdge]),
+            [(edge, 2.0), (islandEdge, 2.0)],
             []);
 
         var result = await planner.PlanAsync(Request(a, island), CancellationToken.None);

@@ -124,8 +124,41 @@ public sealed class AStarPathPlanner : IPathPlanner
             costs,
             ct).ConfigureAwait(false);
 
+        var passableNodeIds = new HashSet<Guid>();
+        foreach (var traversal in traversals)
+        {
+            passableNodeIds.Add(traversal.FromNodeId);
+            passableNodeIds.Add(traversal.ToNodeId);
+        }
+
+        var effectiveTo = toNode;
+        ApproachResolution? approach = null;
+        if (!passableNodeIds.Contains(toNode.Id))
+        {
+            approach = ApproachNodeResolver.Resolve(
+                graph,
+                passableNodeIds,
+                toNode.Id,
+                options.ApproachRadiusMeters);
+
+            if (approach is null || !graph.Nodes.TryGetValue(approach.Id, out effectiveTo))
+            {
+                return RoutePlanResult.NotFound(RoutePlanReason.NoApproach);
+            }
+        }
+
+        RoutePlanResult MarkApproach(RoutePlanResult result) =>
+            approach is null
+                ? result
+                : result with
+                {
+                    ApproachNodeId = approach.Code,
+                    ApproachDistanceMeters = Math.Round(approach.DistanceMeters, 3),
+                };
+
         var search = new RouteSearch(graph.Nodes, traversals, costs);
-        var first = search.Find(request.FromNodeId, request.ToNodeId, avoidNarrow: false);
+
+        var first = search.Find(request.FromNodeId, effectiveTo.Id, avoidNarrow: false);
         if (first is null)
         {
             return RoutePlanResult.NotFound(RoutePlanReason.NoPath);
@@ -146,14 +179,14 @@ public sealed class AStarPathPlanner : IPathPlanner
         if (!hasNarrow)
         {
             _logger.LogDebug("Маршрут {From}->{To} без узких коридоров", request.FromNodeId, request.ToNodeId);
-            return RoutePlanResult.Success(fast.Route, fast.Explanation);
+            return MarkApproach(RoutePlanResult.Success(fast.Route, fast.Explanation));
         }
 
-        var safe = search.Find(request.FromNodeId, request.ToNodeId, avoidNarrow: true);
+        var safe = search.Find(request.FromNodeId, effectiveTo.Id, avoidNarrow: true);
         if (safe is null)
         {
             var risky = assembler.Build(first, RoutePlanReason.NoSafeDetour, true, fastResources);
-            return RoutePlanResult.Success(risky.Route, risky.Explanation);
+            return MarkApproach(RoutePlanResult.Success(risky.Route, risky.Explanation));
         }
 
         var safeResources = ResolveResources(safe, resourceRows);
@@ -165,11 +198,11 @@ public sealed class AStarPathPlanner : IPathPlanner
         var safeRoute = assembler.Build(safe, null, false, safeResources);
         if (safeRoute.Route.TotalCost <= costs.SafetyOverrideRatio * fast.Route.TotalCost)
         {
-            return RoutePlanResult.Success(safeRoute.Route, safeRoute.Explanation);
+            return MarkApproach(RoutePlanResult.Success(safeRoute.Route, safeRoute.Explanation));
         }
 
         var fallback = assembler.Build(first, RoutePlanReason.SafeDetourTooExpensive, true, fastResources);
-        return RoutePlanResult.Success(fallback.Route, fallback.Explanation);
+        return MarkApproach(RoutePlanResult.Success(fallback.Route, fallback.Explanation));
     }
 
     /// <summary>

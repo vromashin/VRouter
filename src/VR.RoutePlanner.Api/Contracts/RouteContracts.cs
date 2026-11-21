@@ -67,7 +67,9 @@ public sealed record RoutePlanBodyResponse(
     int? TurnCount,
     double? MinClearanceMeters,
     IReadOnlyList<RouteSegmentBody>? Segments,
-    RouteExplainBody? Explain);
+    RouteExplainBody? Explain,
+    string? ApproachNodeId,
+    double? ApproachDistanceMeters);
 
 /// <summary>
 /// Ответ <c>GET /api/route/graph/{mapId}/summary</c>.

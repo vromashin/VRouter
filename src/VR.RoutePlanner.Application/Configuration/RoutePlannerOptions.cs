@@ -43,6 +43,12 @@ public sealed class RoutePlannerOptions
     public double MinPhysicalClearanceMeters { get; set; } = 0.1;
 
     /// <summary>
+    /// Радиус поиска точки подхода, метры. Если у целевого узла нет проезжих ребер
+    /// (слот уже робота), маршрут строится до ближайшего узла с проезжим ребром в этом радиусе.
+    /// </summary>
+    public double ApproachRadiusMeters { get; set; } = 25.0;
+
+    /// <summary>
     /// Радиус инфляции растра в метрах: ширина коридора W = 2 * (d + InflationRadius).
     /// Обязателен и не зависит от габаритов робота: определяется растром (например H80).
     /// </summary>
@@ -95,8 +101,12 @@ public sealed class RoutePlannerOptions
             return $"Routing:SideMargin не может быть отрицательным, получено {SideMargin}.";
         }
 
-        if (MinPhysicalClearanceMeters <= 0 || MinPhysicalClearanceMeters >= SideMargin)
+        if (ApproachRadiusMeters <= 0)
         {
+            return $"Routing:ApproachRadiusMeters должен быть больше нуля, задано {ApproachRadiusMeters}.";
+        }
+
+        if (MinPhysicalClearanceMeters <= 0 || MinPhysicalClearanceMeters >= SideMargin)        {
             return $"Routing:MinPhysicalClearanceMeters должен быть больше нуля и меньше SideMargin, получено {MinPhysicalClearanceMeters}.";
         }
 

@@ -13,7 +13,9 @@ public sealed record RoutePlanResult(
     string? Reason,
     bool PredictedRisk,
     PlannedRoute? Route,
-    RouteExplanation? Explanation)
+    RouteExplanation? Explanation,
+    string? ApproachNodeId = null,
+    double? ApproachDistanceMeters = null)
 {
     /// <summary>
     /// Результат «маршрута нет» с кодом причины.
