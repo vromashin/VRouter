@@ -179,7 +179,7 @@ public sealed class TrafficResourceBuilder : ITrafficResourceBuilder
         var passability = new List<EdgePassability>(edgeInfos.Count);
         foreach (var info in edgeInfos)
         {
-            var passable = CorridorClassifier.IsPassable(info.Width, profile, options.SideMargin);
+            var passable = CorridorClassifier.IsPassable(info.Width, profile, options.MinPhysicalClearanceMeters);
             passability.Add(new EdgePassability(
                 mapVersionId,
                 info.Edge.Id,
@@ -214,7 +214,7 @@ public sealed class TrafficResourceBuilder : ITrafficResourceBuilder
                 code,
                 profile.Name,
                 CorridorClassifier.ResourceTypeOf(corridorClass),
-                group[0].Nmax,
+                Math.Max(1, group[0].Nmax),
                 MinEntryInterval: 0,
                 MaxOccupancyTime: 0,
                 IsActive: true));

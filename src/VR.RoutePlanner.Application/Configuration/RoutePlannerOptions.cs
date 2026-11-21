@@ -37,6 +37,12 @@ public sealed class RoutePlannerOptions
     public double SideMargin { get; set; } = 0.2;
 
     /// <summary>
+    /// Физический минимум зазора с каждой стороны, ниже которого проезд запрещён.
+    /// Отделяет «робот не влезает» (непроходимо) от «влезает, но тесно» (проходимо медленно).
+    /// </summary>
+    public double MinPhysicalClearanceMeters { get; set; } = 0.1;
+
+    /// <summary>
     /// Радиус инфляции растра в метрах: ширина коридора W = 2 * (d + InflationRadius).
     /// Обязателен и не зависит от габаритов робота: определяется растром (например H80).
     /// </summary>
@@ -87,6 +93,11 @@ public sealed class RoutePlannerOptions
         if (SideMargin < 0)
         {
             return $"Routing:SideMargin не может быть отрицательным, получено {SideMargin}.";
+        }
+
+        if (MinPhysicalClearanceMeters <= 0 || MinPhysicalClearanceMeters >= SideMargin)
+        {
+            return $"Routing:MinPhysicalClearanceMeters должен быть больше нуля и меньше SideMargin, получено {MinPhysicalClearanceMeters}.";
         }
 
         if (InflationRadius <= 0)

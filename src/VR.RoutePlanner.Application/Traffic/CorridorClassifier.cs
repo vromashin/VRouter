@@ -82,10 +82,12 @@ public static class CorridorClassifier
     /// <param name="profile">Профиль робота.</param>
     /// <param name="sideMargin">Боковой зазор S в метрах.</param>
     /// <returns><c>true</c>, если робот профиля проходит коридор.</returns>
-    public static bool IsPassable(double corridorWidth, AgvProfile profile, double sideMargin)
+    public static bool IsPassable(double corridorWidth, AgvProfile profile, double minClearance)
     {
         ArgumentNullException.ThrowIfNull(profile);
-        return corridorWidth >= profile.WidthMeters + (2.0 * sideMargin);
+        // Физический минимум: робот должен влезть с зазором minClearance с каждой стороны.
+        // Желаемый запас (SideMargin) в проходимость не входит, он влияет на класс и скорость.
+        return corridorWidth >= profile.WidthMeters + (2.0 * minClearance);
     }
 
     /// <summary>

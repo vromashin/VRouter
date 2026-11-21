@@ -57,8 +57,8 @@ public sealed class ResourceSplitTests
     {
         var options = CreateOptions();
         options.AgvProfiles = TestProfiles.Create(1.102);
-        options.ManualCorridorWidth = 1.4;
-        options.DefaultCorridorWidth = 1.4;
+        options.ManualCorridorWidth = 1.2;
+        options.DefaultCorridorWidth = 1.2;
         options.SideMargin = 0.2;
 
         var set = await BuildAsync(Chain(3), options);
@@ -85,7 +85,7 @@ public sealed class ResourceSplitTests
     {
         WidthSource = WidthSource.Manual,
         DefaultCorridorWidth = 3.0,
-        SideMargin = 0.1,
+        SideMargin = 0.2,
         InflationRadius = 0.4,
         AgvProfiles = TestProfiles.Create(),
         DefaultAgvProfile = TestProfiles.Name,
