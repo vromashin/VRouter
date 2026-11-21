@@ -5,8 +5,7 @@ namespace VR.RoutePlanner.Infrastructure.Migrations;
 
 /// <summary>
 /// Ревизия 4: проходимость ребер перенесена из связи ресурса в отдельную таблицу
-/// <c>vrt_EdgePassability</c>, добавлена служебная таблица прогрева
-/// <c>vrt_WarmupState</c> (спека этапа 1, часть 4). Скрипт идемпотентный.
+/// <c>vrt_EdgePassability</c> и добавлен индекс по ребру для ширин. Скрипт идемпотентный.
 /// </summary>
 [DbContext(typeof(Persistence.RoutePlannerDbContext))]
 [Migration(MigrationId)]
@@ -56,26 +55,10 @@ public sealed class Stage1Rev4 : Migration
         CREATE INDEX IF NOT EXISTS "IX_vrt_EdgeWidth_EdgeId"
             ON public."vrt_EdgeWidth" ("EdgeId");
         """,
-        """
-        CREATE TABLE IF NOT EXISTS public."vrt_WarmupState" (
-            "MapId" varchar(128) NOT NULL,
-            "MapVersionId" uuid NOT NULL,
-            "GraphVersion" varchar(128) NOT NULL,
-            "EdgeCount" integer NOT NULL,
-            "WidthSource" varchar(16) NOT NULL,
-            "ResourceCount" text NOT NULL,
-            "ImpassableCount" text NOT NULL,
-            "DurationMs" bigint NOT NULL,
-            "ReusedWidths" boolean NOT NULL,
-            "CompletedAt" timestamp with time zone NOT NULL,
-            CONSTRAINT "PK_vrt_WarmupState" PRIMARY KEY ("MapId")
-        );
-        """,
     };
 
     private static readonly string[] DownStatements =
     {
-        """DROP TABLE IF EXISTS public."vrt_WarmupState";""",
         """DROP TABLE IF EXISTS public."vrt_EdgePassability";""",
     };
 }
