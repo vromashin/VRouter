@@ -28,30 +28,7 @@ namespace VR.RoutePlanner.Tests.Integration.Traffic;
     [SkippableFact]
     public async Task SaveAsync_TwoProfiles_WritesRowsOnce()
     {
-        var connectionString = TestDatabase.RequireConnection();
-        var rasterPath = Environment.GetEnvironmentVariable(RealRasterWidthTests.RasterVariable);
-        var rasterDirectory = string.IsNullOrWhiteSpace(rasterPath) || !File.Exists(rasterPath)
-            ? null
-            : Path.GetDirectoryName(Path.GetFullPath(rasterPath));
-        var options = BuildOptions(rasterDirectory);
-        var graphRepository = CreateGraphRepository(connectionString, options);
-        var graph = await graphRepository.LoadAsync(TestDatabase.MapId, CancellationToken.None);
-        var mapVersionId = await MapVersionSeed.EnsureAsync(connectionString, graph, CancellationToken.None);
-
-        var factory = new TestDbContextFactory(TestDatabase.BuildOptions(connectionString));
-        var widthRepository = new EdgeWidthRepository(
-            factory,
-            CreateBuilder(connectionString, graphRepository, options),
-            NullLogger<EdgeWidthRepository>.Instance);
-
-        var widths = await widthRepository.GetOrCreateAsync(
-            mapVersionId,
-            graph,
-            TestDatabase.MapId,
-            CancellationToken.None);
-
-        var builder = CreateBuilder(connectionString, graphRepository, options);
-        var sets = await builder.BuildAsync(graph, widths.Widths, mapVersionId, CancellationToken.None);
+        var (factory, mapVersionId, sets, rasterDirectory) = await BuildSetsAsync();
 
         Assert.Equal(2, sets.Count);
 
@@ -109,6 +86,167 @@ namespace VR.RoutePlanner.Tests.Integration.Traffic;
         Assert.Equal(first.Nodes, second.Nodes);
         Assert.Equal(first.Conflicts, second.Conflicts);
     }
+
+    [SkippableFact]
+    public async Task SaveAsync_OneProfile_KeepsRowsOfOtherProfile()
+    {
+        var (factory, mapVersionId, sets, _) = await BuildSetsAsync();
+
+        var repository = new ResourceRepository(factory);
+        await repository.SaveAsync(mapVersionId, sets, CancellationToken.None);
+
+        var before = await ReadProfileCountsAsync(factory, mapVersionId);
+        Assert.True(
+            before.ContainsKey(NarrowProfile) && before.ContainsKey(WideProfile),
+            $"Перед проверкой в базе не два профиля: {string.Join(", ", before.Keys)}.");
+
+        var wideOnly = sets.Where(set => set.AgvProfile == WideProfile).ToList();
+        Assert.NotEmpty(wideOnly);
+
+        await repository.SaveAsync(mapVersionId, wideOnly, CancellationToken.None);
+
+        var after = await ReadProfileCountsAsync(factory, mapVersionId);
+        Assert.Equal(before[NarrowProfile], after[NarrowProfile]);
+        Assert.Equal(before[WideProfile], after[WideProfile]);
+    }
+
+    private static async Task<(TestDbContextFactory Factory, Guid MapVersionId, IReadOnlyList<ProfileResourceSet> Sets, string? RasterDirectory)> BuildSetsAsync()
+    {
+        var connectionString = TestDatabase.RequireConnection();
+        var rasterPath = Environment.GetEnvironmentVariable(RealRasterWidthTests.RasterVariable);
+        var rasterDirectory = string.IsNullOrWhiteSpace(rasterPath) || !File.Exists(rasterPath)
+            ? null
+            : Path.GetDirectoryName(Path.GetFullPath(rasterPath));
+        var options = BuildOptions(rasterDirectory);
+        var graphRepository = CreateGraphRepository(connectionString, options);
+        var graph = await graphRepository.LoadAsync(TestDatabase.MapId, CancellationToken.None);
+        var mapVersionId = await MapVersionSeed.EnsureAsync(connectionString, graph, CancellationToken.None);
+
+        var factory = new TestDbContextFactory(TestDatabase.BuildOptions(connectionString));
+        await RemoveRowsOfOtherProfilesAsync(factory, mapVersionId).ConfigureAwait(false);
+
+        var widthRepository = new EdgeWidthRepository(
+            factory,
+            CreateBuilder(connectionString, graphRepository, options),
+            NullLogger<EdgeWidthRepository>.Instance);
+
+        var widths = await widthRepository.GetOrCreateAsync(
+            mapVersionId,
+            graph,
+            TestDatabase.MapId,
+            CancellationToken.None);
+
+        var sets = await CreateBuilder(connectionString, graphRepository, options)
+            .BuildAsync(graph, widths.Widths, mapVersionId, CancellationToken.None);
+
+        return (factory, mapVersionId, sets, rasterDirectory);
+    }
+
+    /// <summary>
+    /// Убирает из версии карты строки профилей, с которыми эти тесты не работают:
+    /// версию делят и другие интеграционные тесты, а проверки ниже считают строки по всей версии.
+    /// </summary>
+    private static async Task RemoveRowsOfOtherProfilesAsync(
+        IDbContextFactory<RoutePlannerDbContext> factory,
+        Guid mapVersionId)
+    {
+        string[] kept = [NarrowProfile, WideProfile];
+
+        await using var context = await factory.CreateDbContextAsync().ConfigureAwait(false);
+        await using var transaction = await context.Database.BeginTransactionAsync().ConfigureAwait(false);
+
+        var staleIds = context.TrafficResources
+            .Where(row => row.MapVersionId == mapVersionId && !kept.Contains(row.AgvProfile))
+            .Select(row => row.Id);
+
+        await context.ResourceConflicts
+            .Where(row => staleIds.Contains(row.ResourceId) || staleIds.Contains(row.ConflictingResourceId))
+            .ExecuteDeleteAsync()
+            .ConfigureAwait(false);
+        await context.TrafficResourceEdges
+            .Where(row => staleIds.Contains(row.TrafficResourceId))
+            .ExecuteDeleteAsync()
+            .ConfigureAwait(false);
+        await context.TrafficResourceNodes
+            .Where(row => staleIds.Contains(row.TrafficResourceId))
+            .ExecuteDeleteAsync()
+            .ConfigureAwait(false);
+        await context.EdgePassabilities
+            .Where(row => row.MapVersionId == mapVersionId && !kept.Contains(row.AgvProfile))
+            .ExecuteDeleteAsync()
+            .ConfigureAwait(false);
+        await context.TrafficResources
+            .Where(row => row.MapVersionId == mapVersionId && !kept.Contains(row.AgvProfile))
+            .ExecuteDeleteAsync()
+            .ConfigureAwait(false);
+
+        await transaction.CommitAsync().ConfigureAwait(false);
+    }
+
+    private static async Task<Dictionary<string, ProfileCounts>> ReadProfileCountsAsync(
+        IDbContextFactory<RoutePlannerDbContext> factory,
+        Guid mapVersionId)
+    {
+        await using var context = await factory.CreateDbContextAsync().ConfigureAwait(false);
+
+        var resources = await context.TrafficResources
+            .AsNoTracking()
+            .Where(row => row.MapVersionId == mapVersionId)
+            .GroupBy(row => row.AgvProfile)
+            .Select(group => new ProfileCount(group.Key, group.Count()))
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var passability = await context.EdgePassabilities
+            .AsNoTracking()
+            .Where(row => row.MapVersionId == mapVersionId)
+            .GroupBy(row => row.AgvProfile)
+            .Select(group => new ProfileCount(group.Key, group.Count()))
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var edges = await context.TrafficResourceEdges
+            .AsNoTracking()
+            .GroupBy(row => row.AgvProfile)
+            .Select(group => new ProfileCount(group.Key, group.Count()))
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var nodes = await context.TrafficResourceNodes
+            .AsNoTracking()
+            .GroupBy(row => row.AgvProfile)
+            .Select(group => new ProfileCount(group.Key, group.Count()))
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var conflicts = await (
+                from conflict in context.ResourceConflicts.AsNoTracking()
+                join resource in context.TrafficResources.AsNoTracking()
+                    on conflict.ResourceId equals resource.Id
+                where resource.MapVersionId == mapVersionId
+                group conflict by resource.AgvProfile
+                into grouped
+                select new ProfileCount(grouped.Key, grouped.Count()))
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var result = new Dictionary<string, ProfileCounts>(StringComparer.Ordinal);
+        foreach (var profile in resources)
+        {
+            result[profile.Profile] = new ProfileCounts(
+                profile.Count,
+                CountFor(edges, profile.Profile),
+                CountFor(nodes, profile.Profile),
+                CountFor(conflicts, profile.Profile),
+                CountFor(passability, profile.Profile));
+        }
+
+        return result;
+    }
+
+    private static int CountFor(IEnumerable<ProfileCount> rows, string profile) => rows
+        .Where(row => string.Equals(row.Profile, profile, StringComparison.Ordinal))
+        .Sum(row => row.Count);
 
     private static async Task<int> CountSelfConflictsAsync(IDbContextFactory<RoutePlannerDbContext> factory)
     {
@@ -232,6 +370,10 @@ namespace VR.RoutePlanner.Tests.Integration.Traffic;
 
         return new TrafficResourceBuilder(raster, Options.Create(options), NullLogger<TrafficResourceBuilder>.Instance);
     }
+
+    private sealed record ProfileCount(string Profile, int Count);
+
+    private sealed record ProfileCounts(int Resources, int Edges, int Nodes, int Conflicts, int Passability);
 
     private sealed record TableCounts(
         int Resources,

@@ -105,10 +105,16 @@ public sealed class ResourceRepository : IResourceRepository
         await using var transaction = await context.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
 
         // Удаление строго от дочерних строк к родительским: внешние ключи без каскада.
-        // Отбор по версии карты, а не по новым идентификаторам: после смены формулы
-        // DeterministicId старые строки этой версии иначе останутся и заблокируют удаление.
+        // Отбор по версии карты и профилям из набора: после смены формулы DeterministicId старые
+        // строки этих профилей иначе останутся и заблокируют удаление, а строки остальных профилей
+        // той же версии должны пережить сохранение (добавление профиля не меняет существующие данные).
+        var profiles = sets
+            .Select(set => set.AgvProfile)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
         var versionResourceIds = context.TrafficResources
-            .Where(row => row.MapVersionId == mapVersionId)
+            .Where(row => row.MapVersionId == mapVersionId && profiles.Contains(row.AgvProfile))
             .Select(row => row.Id);
 
         await context.ResourceConflicts
@@ -125,15 +131,11 @@ public sealed class ResourceRepository : IResourceRepository
             .ExecuteDeleteAsync(ct)
             .ConfigureAwait(false);
         await context.EdgePassabilities
-            .Where(row => row.MapVersionId == mapVersionId)
+            .Where(row => row.MapVersionId == mapVersionId && profiles.Contains(row.AgvProfile))
             .ExecuteDeleteAsync(ct)
             .ConfigureAwait(false);
         await context.TrafficResources
-            .Where(row => row.MapVersionId == mapVersionId)
-            .ExecuteDeleteAsync(ct)
-            .ConfigureAwait(false);
-        await context.EdgePassabilities
-            .Where(row => row.MapVersionId == mapVersionId)
+            .Where(row => row.MapVersionId == mapVersionId && profiles.Contains(row.AgvProfile))
             .ExecuteDeleteAsync(ct)
             .ConfigureAwait(false);
 
