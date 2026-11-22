@@ -87,7 +87,10 @@ internal sealed class FakeComposer : IVdaOrderComposer
         string serialNumber,
         long orderNumber,
         long headerId,
-        DateTimeOffset timestamp)
+        DateTimeOffset timestamp,
+        double? firstNodeX = null,
+        double? firstNodeY = null,
+        double? firstNodeTheta = null)
     {
         var nodes = new List<object>();
         var sequence = 0;

@@ -48,7 +48,10 @@ public static class VdaOrderBuilder
         string serialNumber,
         long orderNumber,
         long headerId,
-        DateTimeOffset timestamp)
+        DateTimeOffset timestamp,
+        double? firstNodeX = null,
+        double? firstNodeY = null,
+        double? firstNodeTheta = null)
     {
         ArgumentNullException.ThrowIfNull(route);
         ArgumentNullException.ThrowIfNull(graph);
@@ -73,7 +76,7 @@ public static class VdaOrderBuilder
 
             if (previous is null)
             {
-                nodes.Add(BuildNode(from, sequence, mapId, first: true));
+                nodes.Add(BuildNode(from, sequence, mapId, true, firstNodeX, firstNodeY, firstNodeTheta));
                 previous = from;
             }
             else if (previous.Id != from.Id)
@@ -83,7 +86,7 @@ public static class VdaOrderBuilder
             }
 
             orderEdges.Add(BuildEdge(edge, segment.Direction, sequence + 1, from, to));
-            nodes.Add(BuildNode(to, sequence + 2, mapId, first: false));
+            nodes.Add(BuildNode(to, sequence + 2, mapId, false, null, null, null));
             sequence += 2;
             previous = to;
         }
@@ -153,17 +156,24 @@ public static class VdaOrderBuilder
         };
     }
 
-    private static JsonObject BuildNode(WarehouseNode node, int sequenceId, string mapId, bool first)
+    private static JsonObject BuildNode(
+        WarehouseNode node,
+        int sequenceId,
+        string mapId,
+        bool first,
+        double? firstX,
+        double? firstY,
+        double? firstTheta)
     {
         var position = new JsonObject
         {
-            ["x"] = node.X,
-            ["y"] = node.Y,
+            ["x"] = first ? firstX ?? node.X : node.X,
+            ["y"] = first ? firstY ?? node.Y : node.Y,
         };
 
         if (first)
         {
-            position["theta"] = node.Theta;
+            position["theta"] = firstTheta ?? node.Theta;
         }
 
         position["allowedDeviationXY"] = first ? FirstNodeDeviationXy : NodeDeviationXy;
