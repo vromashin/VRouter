@@ -23,7 +23,7 @@ public sealed class LegacyOrderController(RobotOrderService orders) : Controller
     {
         try
         {
-            var order = await orders.CreateOrderAsync(serial, mapId, nodeId, hasLoad: false, ct).ConfigureAwait(false);
+            var order = await orders.CreateOrderAsync(mapId, serial, nodeId, hasLoad: false, ct).ConfigureAwait(false);
             return Ok(ApiResponse(order));
         }
         catch (OrderInProgressException exception)
