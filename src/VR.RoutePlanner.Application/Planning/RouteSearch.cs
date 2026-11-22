@@ -102,7 +102,8 @@ internal sealed class RouteSearch
                     turnDegrees = EdgeGeometry.StraightAngleDegrees;
                 }
 
-                if (!isReversal
+                if (_costs.RespectRotationAllowed
+                    && !isReversal
                     && incoming is not null
                     && turnDegrees > EdgeGeometry.RightAngleDegrees
                     && (incoming.Edge.RotationAllowed == false || traversal.Edge.RotationAllowed == false))

@@ -50,6 +50,12 @@ public sealed class RoutePlannerOptions
     public bool RequirePhysicalWidth { get; set; }
 
     /// <summary>
+    /// Учитывать признак RotationAllowed у ребер. В карте он false у всех ребер,
+    /// старый AGVControl его не проверял, поэтому по умолчанию не учитываем.
+    /// </summary>
+    public bool RespectRotationAllowed { get; set; }
+
+    /// <summary>
     /// Радиус поиска точки подхода, метры. Если у целевого узла нет проезжих ребер
     /// (слот уже робота), маршрут строится до ближайшего узла с проезжим ребром в этом радиусе.
     /// </summary>

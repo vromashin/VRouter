@@ -9,13 +9,14 @@ namespace VR.RoutePlanner.Application.Planning;
 public sealed class EdgeCostCalculator
 {
     private readonly CostOptions _cost;
-
+    private readonly bool _respectRotationAllowed;
     /// <summary>
     /// Создает калькулятор по параметрам планировщика.
     /// </summary>
+    public bool RespectRotationAllowed => _respectRotationAllowed;
     /// <param name="options">Параметры секции <c>Routing</c>.</param>
     public EdgeCostCalculator(IOptions<RoutePlannerOptions> options)
-        : this((options ?? throw new ArgumentNullException(nameof(options))).Value.Cost)
+        : this((options ?? throw new ArgumentNullException(nameof(options))).Value.Cost, options.Value.RespectRotationAllowed)
     {
     }
 
@@ -23,9 +24,10 @@ public sealed class EdgeCostCalculator
     /// Создает калькулятор по параметрам стоимости.
     /// </summary>
     /// <param name="cost">Параметры <c>Routing:Cost</c>.</param>
-    public EdgeCostCalculator(CostOptions cost)
+    public EdgeCostCalculator(CostOptions cost, bool respectRotationAllowed = false)
     {
         ArgumentNullException.ThrowIfNull(cost);
+        _respectRotationAllowed = respectRotationAllowed;
         _cost = cost;
     }
 
