@@ -33,7 +33,9 @@ public sealed class SimpleTaskWorker(
         {
             BootstrapServers = settings.BootstrapServers,
             GroupId = settings.GroupId,
-            AutoOffsetReset = AutoOffsetReset.Latest,
+            AutoOffsetReset = Enum.TryParse<AutoOffsetReset>(settings.AutoOffsetReset, ignoreCase: true, out var reset)
+                ? reset
+                : AutoOffsetReset.Latest,
             EnableAutoCommit = true,
         }).Build();
 

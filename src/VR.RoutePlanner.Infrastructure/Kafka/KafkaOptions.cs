@@ -17,6 +17,9 @@ public sealed class KafkaOptions
     /// <summary>Топик задач от WMS.</summary>
     public string TasksTopic { get; set; } = "simple-tasks";
 
+    /// <summary>С чего читать при первом запуске группы: <c>Latest</c> или <c>Earliest</c>.</summary>
+    public string AutoOffsetReset { get; set; } = "Latest";
+
     /// <summary>Топик событий выполнения задач.</summary>
     public string EventsTopic { get; set; } = "tasks-events";
 }
