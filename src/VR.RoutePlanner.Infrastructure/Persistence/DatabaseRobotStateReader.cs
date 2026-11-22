@@ -14,6 +14,7 @@ namespace VR.RoutePlanner.Infrastructure.Persistence;
 public sealed class DatabaseRobotStateReader : IRobotStateReader
 {
     private readonly MqttRobotStateReader _memory;
+    private readonly IRobotVisualizationReader _visualizations;
     private readonly IRobotSessionRepository _sessions;
     private readonly IOptions<AgvMonitoringOptions> _options;
     private readonly TimeProvider _time;
@@ -23,24 +24,28 @@ public sealed class DatabaseRobotStateReader : IRobotStateReader
     /// Создает читатель состояния.
     /// </summary>
     /// <param name="memory">Снимки процесса, читающего MQTT.</param>
+    /// <param name="visualizations">Живые позиции из <c>visualization</c>.</param>
     /// <param name="sessions">Хранилище сессий.</param>
     /// <param name="options">Параметры <c>AgvMonitoring</c>.</param>
     /// <param name="time">Источник времени.</param>
     /// <param name="logger">Журнал.</param>
     public DatabaseRobotStateReader(
         MqttRobotStateReader memory,
+        IRobotVisualizationReader visualizations,
         IRobotSessionRepository sessions,
         IOptions<AgvMonitoringOptions> options,
         TimeProvider time,
         ILogger<DatabaseRobotStateReader> logger)
     {
         ArgumentNullException.ThrowIfNull(memory);
+        ArgumentNullException.ThrowIfNull(visualizations);
         ArgumentNullException.ThrowIfNull(sessions);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(time);
         ArgumentNullException.ThrowIfNull(logger);
 
         _memory = memory;
+        _visualizations = visualizations;
         _sessions = sessions;
         _options = options;
         _time = time;
@@ -58,7 +63,7 @@ public sealed class DatabaseRobotStateReader : IRobotStateReader
         var fromMemory = await _memory.GetLatestAsync(serialNumber, ct).ConfigureAwait(false);
         if (fromMemory is not null && now - fromMemory.ReceivedAt <= stale)
         {
-            return fromMemory;
+            return WithVisualization(fromMemory);
         }
 
         var session = await _sessions.GetAsync(serialNumber, ct).ConfigureAwait(false);
@@ -76,7 +81,28 @@ public sealed class DatabaseRobotStateReader : IRobotStateReader
             return null;
         }
 
-        return ToSnapshot(session);
+        return WithVisualization(ToSnapshot(session));
+    }
+
+    /// <summary>
+    /// Подставляет позицию из визуализации, если она свежее состояния.
+    /// </summary>
+    private RobotSnapshot WithVisualization(RobotSnapshot snapshot)
+    {
+        var visualization = _visualizations.GetLatest(snapshot.SerialNumber);
+        if (visualization is null || visualization.ReceivedAt < snapshot.ReceivedAt)
+        {
+            return snapshot;
+        }
+
+        return snapshot with
+        {
+            PositionX = visualization.PositionX,
+            PositionY = visualization.PositionY,
+            Theta = visualization.Theta,
+            MapId = visualization.MapId ?? snapshot.MapId,
+            BatteryCharge = visualization.BatteryCharge,
+        };
     }
 
     /// <inheritdoc />

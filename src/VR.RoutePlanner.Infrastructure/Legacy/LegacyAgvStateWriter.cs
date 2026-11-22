@@ -5,13 +5,14 @@ using VR.RoutePlanner.Application.Robots;
 namespace VR.RoutePlanner.Infrastructure.Legacy;
 
 public sealed class LegacyAgvStateWriter(
-    LegacyReadDbContext context,
+    IDbContextFactory<LegacyReadDbContext> contextFactory,
     ILogger<LegacyAgvStateWriter> logger) : ILegacyAgvStateWriter
 {
     public async Task ApplyAsync(RobotSnapshot snapshot, string? orderId, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
+        await using var context = await contextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
         var row = await context.Agvs
             .FirstOrDefaultAsync(record => record.SerialNumber == snapshot.SerialNumber, ct)
             .ConfigureAwait(false);

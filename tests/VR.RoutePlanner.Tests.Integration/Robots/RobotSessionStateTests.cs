@@ -61,6 +61,7 @@ public sealed class RobotSessionStateTests
                 NullLogger<MqttRobotStateReader>.Instance);
             var reader = new DatabaseRobotStateReader(
                 memory,
+                memory,
                 repository,
                 Options.Create(new AgvMonitoringOptions { StaleStateSeconds = 5 }),
                 time,

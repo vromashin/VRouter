@@ -149,6 +149,7 @@ public sealed class RobotSessionStateTests
 
         return new DatabaseRobotStateReader(
             memory,
+            memory,
             sessions,
             new FixedOptions<AgvMonitoringOptions>(new AgvMonitoringOptions()),
             time,

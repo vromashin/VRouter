@@ -39,6 +39,9 @@ public static class VdaOrderBuilder
     /// <param name="orderNumber">Номер заказа; в <c>orderId</c> пишется пятью цифрами.</param>
     /// <param name="headerId">Идентификатор сообщения из таймера.</param>
     /// <param name="timestamp">Момент сборки заказа.</param>
+    /// <param name="firstNodeX">Координата X первого узла, если она известна точнее графа.</param>
+    /// <param name="firstNodeY">Координата Y первого узла.</param>
+    /// <param name="firstNodeTheta">Ориентация первого узла, радианы.</param>
     /// <returns>Заказ как JSON-объект.</returns>
     public static JsonObject Build(
         PlannedRoute route,

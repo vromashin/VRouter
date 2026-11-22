@@ -22,6 +22,9 @@ public interface IVdaOrderComposer
     /// <param name="orderNumber">Числовая часть номера заказа.</param>
     /// <param name="headerId">Идентификатор сообщения.</param>
     /// <param name="timestamp">Момент сборки.</param>
+    /// <param name="firstNodeX">Координата X первого узла, если нужна не из графа.</param>
+    /// <param name="firstNodeY">Координата Y первого узла.</param>
+    /// <param name="firstNodeTheta">Ориентация первого узла, радианы.</param>
     /// <returns>JSON заказа.</returns>
     string Compose(
         PlannedRoute route,

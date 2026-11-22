@@ -11,15 +11,19 @@ namespace VR.RoutePlanner.Infrastructure.Mqtt;
 /// Клиент MQTT: подписка только на <c>APR/v2/+/{serial}/state</c> и хранение последних снимков
 /// состояния в памяти. Публикаций нет: на этом шаге сервис только читает.
 /// </summary>
-public sealed class MqttRobotStateReader : IRobotStateReader, IAsyncDisposable
+public sealed class MqttRobotStateReader : IRobotStateReader, IRobotVisualizationReader, IAsyncDisposable
 {
     /// <summary>Фильтр топика состояния: производитель и серийный номер — подстановочные.</summary>
     public const string StateTopicFilter = "APR/v2/+/+/state";
+
+    /// <summary>Фильтр топика визуализации: позиция приходит на 5 Гц.</summary>
+    public const string VisualizationTopicFilter = "APR/v2/+/+/visualization";
 
     private readonly IOptions<MqttOptions> _options;
     private readonly ILogger<MqttRobotStateReader> _logger;
     private readonly ConcurrentDictionary<string, RobotSnapshot> _snapshots = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, string> _payloads = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, RobotVisualization> _visualizations = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     private IMqttClient? _client;
@@ -38,8 +42,15 @@ public sealed class MqttRobotStateReader : IRobotStateReader, IAsyncDisposable
         _logger = logger;
     }
 
-    /// <summary>Событие нового разобранного состояния робота.</summary>
+    /// <summary>Событие нового состояния робота.</summary>
     public event EventHandler<RobotSnapshot>? SnapshotReceived;
+
+    /// <summary>Событие новой визуализации робота.</summary>
+    public event EventHandler<RobotVisualization>? VisualizationReceived;
+
+    /// <inheritdoc />
+    public RobotVisualization? GetLatest(string serialNumber) =>
+        string.IsNullOrWhiteSpace(serialNumber) ? null : _visualizations.GetValueOrDefault(serialNumber);
 
     /// <summary>Последние тела сообщений <c>state</c> по серийному номеру.</summary>
     public string? GetLatestPayload(string serialNumber) =>
@@ -51,6 +62,26 @@ public sealed class MqttRobotStateReader : IRobotStateReader, IAsyncDisposable
         ct.ThrowIfCancellationRequested();
         return Task.FromResult(
             string.IsNullOrWhiteSpace(serialNumber) ? null : _snapshots.GetValueOrDefault(serialNumber));
+    }
+
+    /// <summary>
+    /// Обрабатывает сообщение <c>visualization</c>: запоминает позицию и телеметрию.
+    /// </summary>
+    /// <param name="topic">Топик сообщения.</param>
+    /// <param name="payload">Тело в UTF-8.</param>
+    /// <returns><c>true</c>, если визуализация сохранена.</returns>
+    public bool ProcessVisualizationPayload(string topic, string? payload)
+    {
+        if (!RobotVisualizationParser.TryParse(payload, out var visualization, out var error) || visualization is null)
+        {
+            _logger.LogWarning("MQTT: сообщение {Topic} не разобрано: {Error}", topic, error);
+            return false;
+        }
+
+        _visualizations[visualization.SerialNumber] = visualization;
+        _logger.LogTrace("MQTT: визуализация {Visualization}", RobotVisualizationParser.Describe(visualization));
+        VisualizationReceived?.Invoke(this, visualization);
+        return true;
     }
 
     /// <inheritdoc />
@@ -147,6 +178,7 @@ public sealed class MqttRobotStateReader : IRobotStateReader, IAsyncDisposable
 
             var subscribeOptions = new MqttClientSubscribeOptionsBuilder()
                 .WithTopicFilter(StateTopicFilter)
+                .WithTopicFilter(VisualizationTopicFilter)
                 .Build();
             await client.SubscribeAsync(subscribeOptions, ct).ConfigureAwait(false);
 
@@ -204,6 +236,12 @@ public sealed class MqttRobotStateReader : IRobotStateReader, IAsyncDisposable
         var payload = args.ApplicationMessage.Payload.Length == 0
             ? null
             : Encoding.UTF8.GetString(System.Buffers.BuffersExtensions.ToArray(args.ApplicationMessage.Payload));
+
+        if (args.ApplicationMessage.Topic.EndsWith("/visualization", StringComparison.Ordinal))
+        {
+            ProcessVisualizationPayload(args.ApplicationMessage.Topic, payload);
+            return Task.CompletedTask;
+        }
 
         ProcessPayload(args.ApplicationMessage.Topic, payload);
         return Task.CompletedTask;

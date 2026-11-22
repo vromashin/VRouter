@@ -25,6 +25,7 @@ public sealed record RobotNodeState(string NodeId, int SequenceId, bool Released
 /// <param name="NodeStates">Состояния узлов маршрута.</param>
 /// <param name="ReceivedAt">Момент получения сообщения сервисом.</param>
 /// <param name="Version">Версия протокола из сообщения.</param>
+/// <param name="LastNodeId">Последний узел маршрута из сообщения.</param>
 public sealed record RobotSnapshot(
     string SerialNumber,
     string ConnectionState,

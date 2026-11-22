@@ -107,6 +107,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ILegacyAgvRepository, LegacyAgvRepository>();
         services.Configure<LegacyOptions>(configuration.GetSection(LegacyOptions.SectionName));
         services.AddSingleton<ILegacyAgvStateWriter, LegacyAgvStateWriter>();
+        services.AddSingleton<ILegacyAgvVisualizationWriter, LegacyAgvVisualizationWriter>();
+        services.AddSingleton<RobotVisualizationWriter>();
         services.AddSingleton<IMapVersionRepository, MapVersionRepository>();
         services.AddSingleton<IWarmupLock, PostgresWarmupLock>();
         services.AddSingleton<IWarmupStateRepository, WarmupStateRepository>();
