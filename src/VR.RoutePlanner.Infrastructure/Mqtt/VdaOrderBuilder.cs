@@ -98,21 +98,19 @@ public static class VdaOrderBuilder
 
             // Первый перегон: если робот смотрит против направления ребра, едем задним ходом
             // (orientation = PI), как это делал старый AGVControl.
-            double? orientation = sequence > 0 || firstNodeTheta is null
-                ? null
-                : Math.Cos(firstNodeTheta.Value - Math.Atan2(to.Y - from.Y, to.X - from.X)) >= 0
-                    ? 0
-                    : Math.PI;
+            // Ориентация ребра в VDA: 0 если едем по направлению ребра, PI если против.
+            double orientation = fromId == edge.FromNodeId ? 0 : Math.PI;
 
             orderEdges.Add(BuildEdge(edge, segment.Direction, sequence + 1, from, to, nextReleased, orientation));
 
             double? stopX = null, stopY = null, stopTheta = null;
             if (!string.IsNullOrWhiteSpace(terminalActionType))
             {
+                // Как AgvControl: точка остановки это передняя точка робота на предыдущем узле.
                 stopTheta = Math.Atan2(to.Y - from.Y, to.X - from.X);
-                const double backOff = 1.4;
-                stopX = to.X - (Math.Cos(stopTheta.Value) * backOff);
-                stopY = to.Y - (Math.Sin(stopTheta.Value) * backOff);
+                const double halfLength = 0.7275;
+                stopX = from.X + (Math.Cos(stopTheta.Value) * halfLength);
+                stopY = from.Y + (Math.Sin(stopTheta.Value) * halfLength);
             }
 
             nodes.Add(BuildNode(
@@ -271,7 +269,7 @@ public static class VdaOrderBuilder
         actions.Add(new JsonObject
         {
             ["actionId"] = Guid.NewGuid().ToString(),
-            ["actionType"] = actionType,
+            ["blockingType"] = "SOFT",
             ["blockingType"] = "HARD",
             ["actionParameters"] = parameters,
         });

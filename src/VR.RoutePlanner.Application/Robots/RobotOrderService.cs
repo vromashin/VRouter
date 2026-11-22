@@ -158,15 +158,29 @@ public sealed class RobotOrderService
         {
             var robotX = snapshot?.PositionX ?? from.X;
             var robotY = snapshot?.PositionY ?? from.Y;
-            var neighbor = graph.Edges.Values
+            // Предпочитаем соседа, ребро которого направлено В слот: тогда робот едет по ребру
+            // вперед и приезжает лицом к стеллажу, а не кормой.
+            var candidates = graph.Edges.Values
                 .SelectMany(list => list)
                 .Where(edge => edge.FromNodeId == slotNode.Id || edge.ToNodeId == slotNode.Id)
-                .Select(edge => edge.FromNodeId == slotNode.Id ? edge.ToNodeId : edge.FromNodeId)
+                .Select(edge => new
+                {
+                    NodeId = edge.FromNodeId == slotNode.Id ? edge.ToNodeId : edge.FromNodeId,
+                    IntoSlot = edge.ToNodeId == slotNode.Id,
+                })
                 .Distinct()
-                .Select(id => graph.Nodes.GetValueOrDefault(id))
-                .Where(node => node is not null && !node.NodeId.StartsWith(SlotApproachResolver.SlotPrefix, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(node => Math.Pow(node!.X - robotX, 2) + Math.Pow(node!.Y - robotY, 2))
-                .FirstOrDefault();
+                .Select(item => new
+                {
+                    Node = graph.Nodes.GetValueOrDefault(item.NodeId),
+                    item.IntoSlot,
+                })
+                .Where(item => item.Node is not null
+                    && !item.Node.NodeId.StartsWith(SlotApproachResolver.SlotPrefix, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(item => item.IntoSlot ? 0 : 1)
+                .ThenBy(item => Math.Pow(item.Node!.X - robotX, 2) + Math.Pow(item.Node!.Y - robotY, 2))
+                .ToList();
+
+            var neighbor = candidates.FirstOrDefault()?.Node;
 
             if (neighbor is not null)
             {
