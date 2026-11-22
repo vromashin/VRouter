@@ -190,17 +190,31 @@ public sealed class RobotOrderService
 
         if (from.Id == to.Id)
         {
-            // Робот уже на целевом узле: берем входящий сосед как старт, иначе маршрут пустой
-            // и симулятор отклоняет заказ (старый AGVControl делал так же).
-            var incoming = graph.Edges.Values
-                .SelectMany(list => list)
-                .Where(edge => edge.ToNodeId == to.Id || (edge.Bidirectional && edge.FromNodeId == to.Id))
-                .Select(edge => graph.Nodes.GetValueOrDefault(edge.ToNodeId == to.Id ? edge.FromNodeId : edge.ToNodeId))
-                .FirstOrDefault(node => node is not null);
-            if (incoming is not null)
-            {
-                from = incoming;
-            }
+            // Робот уже стоит на узле подъезда: движение не нужно, сразу фиксируем выполнение.
+            var immediateNumber = await _numbers.NextAsync(ct).ConfigureAwait(false);
+            var immediateId = $"ORD_{immediateNumber:D5}";
+            var immediateNow = _time.GetUtcNow();
+            var immediate = new RobotOrder(
+                immediateId,
+                serialNumber,
+                0,
+                RobotOrderStatuses.Completed,
+                "{}",
+                0,
+                to.NodeId,
+                null,
+                immediateNow,
+                immediateNow,
+                immediateNow,
+                immediateNow,
+                null,
+                Array.Empty<RobotOrderNode>());
+            await _orders.SaveAsync(immediate, ct).ConfigureAwait(false);
+            _logger.LogInformation(
+                "Заказ {OrderId}: робот уже на узле {Node}, движение не требуется",
+                immediateId,
+                to.NodeId);
+            return immediate;
         }
 
         var plan = await _planner
