@@ -124,7 +124,7 @@ public sealed class VdaOrderBuilderTests
     }
 
     [Fact]
-    public void Build_MultiPointEdge_UsesDegreeThreeCurve()
+    public void Build_MultiPointEdge_UsesStraightTwoPointCurveAsInReference()
     {
         var points = new[]
         {
@@ -136,9 +136,10 @@ public sealed class VdaOrderBuilderTests
 
         var trajectory = VdaOrderBuilder.BuildTrajectory(points, RouteEdgeDirection.Forward);
 
-        Assert.Equal(3, trajectory["degree"]!.GetValue<int>());
-        Assert.Equal(8, trajectory["knotVector"]!.AsArray().Count);
-        Assert.Equal(4, trajectory["controlPoints"]!.AsArray().Count);
+        // Эталон AGVControl публикует прямую: degree 1, четыре узла, две точки.
+        Assert.Equal(1, trajectory["degree"]!.GetValue<int>());
+        Assert.Equal(4, trajectory["knotVector"]!.AsArray().Count);
+        Assert.Equal(2, trajectory["controlPoints"]!.AsArray().Count);
     }
 
     [Fact]
