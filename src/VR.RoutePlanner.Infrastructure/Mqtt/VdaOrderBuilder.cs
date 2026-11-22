@@ -128,33 +128,25 @@ public static class VdaOrderBuilder
     public static JsonObject BuildTrajectory(IReadOnlyList<MapPoint> points, RouteEdgeDirection direction)
     {
         var ordered = direction == RouteEdgeDirection.Forward ? points : points.Reverse().ToList();
-        var degree = Math.Min(MaxTrajectoryDegree, Math.Max(1, ordered.Count - 1));
-        var knots = new JsonArray();
-        for (var i = 0; i < degree + 1; i++)
-        {
-            knots.Add(0);
-        }
 
-        for (var i = 0; i < degree + 1; i++)
-        {
-            knots.Add(1);
-        }
-
+        // Эталон AGVControl публикует прямую: ровно две точки, degree 1, knotVector [0,0,1,1].
+        // Симулятор на длинной NURBS-кривой не начинает движение, поэтому форму держим как в эталоне.
         var controlPoints = new JsonArray();
-        foreach (var point in ordered)
+        if (ordered.Count > 0)
         {
-            controlPoints.Add(new JsonObject
+            var first = ordered[0];
+            var last = ordered[^1];
+            controlPoints.Add(new JsonObject { ["x"] = first.X, ["y"] = first.Y, ["weight"] = 1 });
+            if (ordered.Count > 1)
             {
-                ["x"] = point.X,
-                ["y"] = point.Y,
-                ["weight"] = 1,
-            });
+                controlPoints.Add(new JsonObject { ["x"] = last.X, ["y"] = last.Y, ["weight"] = 1 });
+            }
         }
 
         return new JsonObject
         {
-            ["degree"] = degree,
-            ["knotVector"] = knots,
+            ["degree"] = 1,
+            ["knotVector"] = new JsonArray { 0, 0, 1, 1 },
             ["controlPoints"] = controlPoints,
         };
     }
