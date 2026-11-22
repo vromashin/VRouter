@@ -19,6 +19,7 @@ public sealed class VdaOrderComposer : IVdaOrderComposer
         string serialNumber,
         long orderNumber,
         long headerId,
+        int releasedNodeCount,
         DateTimeOffset timestamp,
         double? firstNodeX = null,
         double? firstNodeY = null,
@@ -39,7 +40,8 @@ public sealed class VdaOrderComposer : IVdaOrderComposer
             timestamp,
             firstNodeX,
             firstNodeY,
-            firstNodeTheta);
+            firstNodeTheta,
+            releasedNodeCount);
 
         order["orderId"] = orderId;
         return VdaOrderBuilder.Serialize(order);

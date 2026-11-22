@@ -21,6 +21,7 @@ public interface IVdaOrderComposer
     /// <param name="serialNumber">Серийный номер робота.</param>
     /// <param name="orderNumber">Числовая часть номера заказа.</param>
     /// <param name="headerId">Идентификатор сообщения.</param>
+    /// <param name="releasedNodeCount">Сколько первых узлов входит в базовый план.</param>
     /// <param name="timestamp">Момент сборки.</param>
     /// <param name="firstNodeX">Координата X первого узла, если нужна не из графа.</param>
     /// <param name="firstNodeY">Координата Y первого узла.</param>
@@ -35,6 +36,7 @@ public interface IVdaOrderComposer
         string serialNumber,
         long orderNumber,
         long headerId,
+        int releasedNodeCount,
         DateTimeOffset timestamp,
         double? firstNodeX = null,
         double? firstNodeY = null,

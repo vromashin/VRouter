@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -30,6 +31,8 @@ public sealed class RobotOrderService
     /// <summary>Код причины отказа при ошибке робота в <c>state</c>.</summary>
     public const string ReasonRobotError = "ROBOT_ERROR";
 
+    private static readonly TimeSpan UpdateThrottle = TimeSpan.FromSeconds(2);
+
     private static readonly string[] ActiveStatuses =
     [
         RobotOrderStatuses.Draft,
@@ -49,6 +52,8 @@ public sealed class RobotOrderService
     private readonly IOptions<RoutePlannerOptions> _options;
     private readonly TimeProvider _time;
     private readonly ILogger<RobotOrderService> _logger;
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _lastUpdate = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, int> _lastUpdateSequence = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Создает сервис заказов.
@@ -166,6 +171,7 @@ public sealed class RobotOrderService
             serialNumber,
             number,
             _headers.Next(),
+            options.Order.ReleasedNodes,
             now,
             snapshot?.PositionX,
             snapshot?.PositionY,
@@ -262,7 +268,8 @@ public sealed class RobotOrderService
             && nodes.SequenceEqual(order.Nodes)
             && acceptedAt == order.AcceptedAt
             && completedAt == order.CompletedAt
-            && failure == order.FailureReason)
+            && failure == order.FailureReason
+            && status != RobotOrderStatuses.Executing)
         {
             return order;
         }
@@ -276,9 +283,83 @@ public sealed class RobotOrderService
             Nodes = nodes,
         };
 
+        if (status == RobotOrderStatuses.Executing)
+        {
+            updated = await ExtendPlanAsync(updated, snapshot, ct).ConfigureAwait(false);
+            nodes = updated.Nodes;
+        }
+
         await _orders.SaveAsync(updated, ct).ConfigureAwait(false);
         _logger.LogInformation("Заказ {OrderId}: статус {Status}", updated.OrderId, updated.Status);
         return updated;
+    }
+
+    /// <summary>
+    /// Публикует обновление заказа, когда базовый план почти исчерпан: горизонт сдвигается
+    /// на следующие узлы, <c>orderUpdateId</c> растет.
+    /// </summary>
+    private async Task<RobotOrder> ExtendPlanAsync(RobotOrder order, RobotSnapshot snapshot, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(order.PlanJson))
+        {
+            return order;
+        }
+
+        var reached = order.Nodes.Where(node => node.Reached).Select(node => node.NodeId).ToHashSet(StringComparer.Ordinal);
+        if (VdaOrderUpdater.CountUnreachedReleased(order.PlanJson, reached) >= 2)
+        {
+            return order;
+        }
+
+        var now = _time.GetUtcNow();
+        if (_lastUpdate.TryGetValue(order.AgvSerialNumber, out var last) && now - last < UpdateThrottle)
+        {
+            return order;
+        }
+
+        var reachedSequence = snapshot.LastNodeSequenceId
+            ?? order.Nodes.Where(node => node.Reached).Select(node => node.SequenceId).DefaultIfEmpty(-1).Max();
+        if (_lastUpdateSequence.TryGetValue(order.AgvSerialNumber, out var lastSequence)
+            && reachedSequence <= lastSequence)
+        {
+            return order;
+        }
+
+        var releasedNodes = _options.Value.Order.ReleasedNodes;
+        var updateJson = VdaOrderUpdater.BuildUpdate(
+            order.PlanJson,
+            order.OrderUpdateId + 1,
+            releasedNodes,
+            _headers.Next(),
+            now,
+            snapshot.LastNodeId,
+            snapshot.LastNodeSequenceId);
+
+        if (updateJson is null)
+        {
+            return order;
+        }
+
+        await _publisher
+            .PublishAsync(_options.Value.Order.Manufacturer, order.AgvSerialNumber, updateJson, ct)
+            .ConfigureAwait(false);
+        _lastUpdate[order.AgvSerialNumber] = now;
+        _lastUpdateSequence[order.AgvSerialNumber] = reachedSequence;
+
+        var updatedNodes = BuildNodesFromPlan(updateJson, order.OrderId, reached);
+        _logger.LogInformation(
+            "Заказ {OrderId}: обновление {Version}, узлов в плане {Nodes}",
+            order.OrderId,
+            order.OrderUpdateId + 1,
+            updatedNodes.Count);
+
+        return order with
+        {
+            PlanJson = updateJson,
+            OrderUpdateId = order.OrderUpdateId + 1,
+            ReleasedNodeCount = Math.Min(releasedNodes, updatedNodes.Count),
+            Nodes = updatedNodes,
+        };
     }
 
     /// <summary>
@@ -439,6 +520,28 @@ public sealed class RobotOrderService
         }
 
         return nodes;
+    }
+
+    private static IReadOnlyList<RobotOrderNode> BuildNodesFromPlan(
+        string planJson,
+        string orderId,
+        IReadOnlyCollection<string> reached)
+    {
+        using var document = JsonDocument.Parse(planJson);
+        var result = new List<RobotOrderNode>();
+        foreach (var node in document.RootElement.GetProperty("nodes").EnumerateArray())
+        {
+            var nodeId = node.GetProperty("nodeId").GetString() ?? string.Empty;
+            result.Add(new RobotOrderNode(
+                orderId,
+                node.GetProperty("sequenceId").GetInt32(),
+                nodeId,
+                node.GetProperty("released").GetBoolean(),
+                reached.Contains(nodeId),
+                0));
+        }
+
+        return result;
     }
 
     private static IReadOnlyList<RobotOrderNode> MergeNodes(

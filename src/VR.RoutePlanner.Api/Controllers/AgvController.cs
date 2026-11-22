@@ -121,6 +121,7 @@ public sealed class AgvController : ControllerBase
     /// Отдает последнее состояние робота.
     /// </summary>
     /// <param name="serial">Серийный номер робота.</param>
+    /// <param name="ct">Токен отмены.</param>
     /// <returns>Состояние либо 404.</returns>
     [HttpGet("state")]
     public async Task<IActionResult> GetStateAsync(string serial, CancellationToken ct)

@@ -83,7 +83,8 @@ public static class RobotStateParser
                 ReadNodeStates(root),
                 DateTimeOffset.UtcNow,
                 version,
-                ReadString(root, "lastNodeId"));
+                ReadString(root, "lastNodeId"),
+                ReadNullableInt(root, "lastNodeSequenceId"));
 
             return true;
         }
@@ -128,6 +129,16 @@ public static class RobotStateParser
         }
 
         return value.TryGetInt32(out var number) ? number : (int)Math.Round(value.GetDouble(), MidpointRounding.AwayFromZero);
+    }
+
+    private static int? ReadNullableInt(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Number)
+        {
+            return null;
+        }
+
+        return value.TryGetInt32(out var number) ? number : null;
     }
 
     private static bool ReadBool(JsonElement root, string name) =>

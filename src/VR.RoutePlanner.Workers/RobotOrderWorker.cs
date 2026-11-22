@@ -30,6 +30,9 @@ public sealed class RobotOrderWorker : BackgroundService
     /// <param name="orders">Сервис заказов.</param>
     /// <param name="sessions">Запись состояния роботов в базу.</param>
     /// <param name="reader">Чтение состояния роботов.</param>
+    /// <param name="legacy">Запись состояния в legacy-таблицу.</param>
+    /// <param name="visualizations">Запись живой позиции из visualization.</param>
+    /// <param name="legacyOptions">Параметры <c>Legacy</c>.</param>
     /// <param name="logger">Журнал.</param>
     public RobotOrderWorker(
         RobotOrderService orders,

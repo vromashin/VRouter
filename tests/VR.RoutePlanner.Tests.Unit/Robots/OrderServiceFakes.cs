@@ -87,6 +87,7 @@ internal sealed class FakeComposer : IVdaOrderComposer
         string serialNumber,
         long orderNumber,
         long headerId,
+        int releasedNodeCount,
         DateTimeOffset timestamp,
         double? firstNodeX = null,
         double? firstNodeY = null,
@@ -94,10 +95,18 @@ internal sealed class FakeComposer : IVdaOrderComposer
     {
         var nodes = new List<object>();
         var sequence = 0;
+        var index = 0;
         foreach (var _ in route.Segments)
         {
-            nodes.Add(new { nodeId = $"wa{sequence}", sequenceId = sequence, actions = Array.Empty<object>() });
+            nodes.Add(new
+            {
+                nodeId = $"wa{sequence}",
+                sequenceId = sequence,
+                released = index < releasedNodeCount,
+                actions = Array.Empty<object>(),
+            });
             sequence += 2;
+            index++;
         }
 
         return JsonSerializer.Serialize(new

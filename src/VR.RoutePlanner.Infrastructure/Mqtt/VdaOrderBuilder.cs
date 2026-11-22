@@ -42,6 +42,8 @@ public static class VdaOrderBuilder
     /// <param name="firstNodeX">Координата X первого узла, если она известна точнее графа.</param>
     /// <param name="firstNodeY">Координата Y первого узла.</param>
     /// <param name="firstNodeTheta">Ориентация первого узла, радианы.</param>
+    /// <param name="releasedNodeCount">Сколько первых узлов входит в базовый план.</param>
+    /// <param name="orderUpdateId">Версия заказа.</param>
     /// <returns>Заказ как JSON-объект.</returns>
     public static JsonObject Build(
         PlannedRoute route,
@@ -54,7 +56,9 @@ public static class VdaOrderBuilder
         DateTimeOffset timestamp,
         double? firstNodeX = null,
         double? firstNodeY = null,
-        double? firstNodeTheta = null)
+        double? firstNodeTheta = null,
+        int releasedNodeCount = int.MaxValue,
+        int orderUpdateId = 0)
     {
         ArgumentNullException.ThrowIfNull(route);
         ArgumentNullException.ThrowIfNull(graph);
@@ -79,7 +83,7 @@ public static class VdaOrderBuilder
 
             if (previous is null)
             {
-                nodes.Add(BuildNode(from, sequence, mapId, true, firstNodeX, firstNodeY, firstNodeTheta));
+                nodes.Add(BuildNode(from, sequence, mapId, true, firstNodeX, firstNodeY, firstNodeTheta, releasedNodeCount > 0));
                 previous = from;
             }
             else if (previous.Id != from.Id)
@@ -88,8 +92,9 @@ public static class VdaOrderBuilder
                     $"Маршрут разрывается: ребро {segment.EdgeCode} начинается не в узле {previous.NodeId}.");
             }
 
-            orderEdges.Add(BuildEdge(edge, segment.Direction, sequence + 1, from, to));
-            nodes.Add(BuildNode(to, sequence + 2, mapId, false, null, null, null));
+            var nextReleased = releasedNodeCount > (sequence / 2) + 1;
+            orderEdges.Add(BuildEdge(edge, segment.Direction, sequence + 1, from, to, nextReleased));
+            nodes.Add(BuildNode(to, sequence + 2, mapId, false, null, null, null, nextReleased));
             sequence += 2;
             previous = to;
         }
@@ -102,7 +107,7 @@ public static class VdaOrderBuilder
             ["manufacturer"] = manufacturer,
             ["serialNumber"] = serialNumber,
             ["orderId"] = $"ORD_{orderNumber:D5}",
-            ["orderUpdateId"] = 0,
+            ["orderUpdateId"] = orderUpdateId,
             ["nodes"] = nodes,
             ["edges"] = orderEdges,
         };
@@ -158,7 +163,8 @@ public static class VdaOrderBuilder
         bool first,
         double? firstX,
         double? firstY,
-        double? firstTheta)
+        double? firstTheta,
+        bool released)
     {
         var position = new JsonObject
         {
@@ -179,7 +185,7 @@ public static class VdaOrderBuilder
         {
             ["nodeId"] = node.NodeId,
             ["sequenceId"] = sequenceId,
-            ["released"] = true,
+            ["released"] = released,
             ["nodePosition"] = position,
             ["nodeDescription"] = "{}",
             ["actions"] = new JsonArray(),
@@ -191,7 +197,8 @@ public static class VdaOrderBuilder
         RouteEdgeDirection direction,
         int sequenceId,
         WarehouseNode from,
-        WarehouseNode to) => new()
+        WarehouseNode to,
+        bool released) => new()
     {
         ["edgeId"] = edge.EdgeId,
         ["sequenceId"] = sequenceId,
@@ -199,7 +206,7 @@ public static class VdaOrderBuilder
         ["endNodeId"] = to.NodeId,
         ["orientation"] = 0,
         ["orientationType"] = "TANGENTIAL",
-        ["released"] = true,
+        ["released"] = released,
         ["trajectory"] = BuildTrajectory(edge.TrajectoryPoints, direction),
         ["actions"] = new JsonArray(),
     };

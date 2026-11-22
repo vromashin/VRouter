@@ -9,7 +9,7 @@ public sealed class OrderOptions
     public const string SectionName = "Order";
 
     /// <summary>Сколько первых узлов заказа отправлять роботу выпущенными.</summary>
-    public int ReleasedNodes { get; set; } = 5;
+    public int ReleasedNodes { get; set; } = 3;
 
     /// <summary>Предельное время без прогресса узлов, секунды.</summary>
     public double ProgressTimeoutSeconds { get; set; } = 60;
