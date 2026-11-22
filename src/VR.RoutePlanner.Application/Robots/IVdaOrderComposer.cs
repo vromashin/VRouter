@@ -25,6 +25,8 @@ public interface IVdaOrderComposer
     /// <param name="timestamp">Момент сборки.</param>
     /// <param name="firstNodeX">Координата X первого узла, если нужна не из графа.</param>
     /// <param name="firstNodeY">Координата Y первого узла.</param>
+    /// <param name="terminalActionType">Тип действия на последнем узле: pick или drop.</param>
+    /// <param name="terminalActionLoadId">Идентификатор груза для действия.</param>
     /// <param name="firstNodeTheta">Ориентация первого узла, радианы.</param>
     /// <returns>JSON заказа.</returns>
     string Compose(

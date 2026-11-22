@@ -212,7 +212,7 @@ public static class VdaOrderBuilder
         {
             position["theta"] = firstTheta ?? node.Theta;
         }
-        else if (stopTheta is not null)
+        else if (false)
         {
             // Рабочий узел: робот встает перед ним и смотрит на стеллаж.
             position["theta"] = stopTheta.Value;

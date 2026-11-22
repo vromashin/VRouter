@@ -24,6 +24,7 @@ public sealed class EdgeCostCalculator
     /// Создает калькулятор по параметрам стоимости.
     /// </summary>
     /// <param name="cost">Параметры <c>Routing:Cost</c>.</param>
+    /// <param name="respectRotationAllowed">Учитывать ли RotationAllowed при поворотах.</param>
     public EdgeCostCalculator(CostOptions cost, bool respectRotationAllowed = false)
     {
         ArgumentNullException.ThrowIfNull(cost);
