@@ -24,6 +24,7 @@ public sealed class MqttRobotStateReader : IRobotStateReader, IRobotVisualizatio
     private readonly ConcurrentDictionary<string, RobotSnapshot> _snapshots = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, string> _payloads = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, RobotVisualization> _visualizations = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, string> _visualizationPayloads = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     private IMqttClient? _client;
@@ -53,6 +54,13 @@ public sealed class MqttRobotStateReader : IRobotStateReader, IRobotVisualizatio
         string.IsNullOrWhiteSpace(serialNumber) ? null : _visualizations.GetValueOrDefault(serialNumber);
 
     /// <summary>Последние тела сообщений <c>state</c> по серийному номеру.</summary>
+    /// <summary>
+    /// Последние сырые сообщения visualization по всем роботам: серийный номер → JSON.
+    /// Формат совпадает с AGVControl, его читает карта.
+    /// </summary>
+    /// <returns>Словарь серийный номер → исходный JSON visualization.</returns>
+    public IReadOnlyDictionary<string, string> GetRawVisualizations() => _visualizationPayloads;
+
     public string? GetLatestPayload(string serialNumber) =>
         string.IsNullOrWhiteSpace(serialNumber) ? null : _payloads.GetValueOrDefault(serialNumber);
 
@@ -79,6 +87,10 @@ public sealed class MqttRobotStateReader : IRobotStateReader, IRobotVisualizatio
         }
 
         _visualizations[visualization.SerialNumber] = visualization;
+        if (!string.IsNullOrWhiteSpace(payload))
+        {
+            _visualizationPayloads[visualization.SerialNumber] = payload!;
+        }
         _logger.LogTrace("MQTT: визуализация {Visualization}", RobotVisualizationParser.Describe(visualization));
         VisualizationReceived?.Invoke(this, visualization);
         return true;
