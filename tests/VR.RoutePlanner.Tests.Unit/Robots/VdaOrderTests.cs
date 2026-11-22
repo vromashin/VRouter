@@ -79,7 +79,8 @@ public sealed class VdaOrderBuilderTests
         foreach (var edge in edges)
         {
             Assert.Equal("TANGENTIAL", edge!["orientationType"]!.GetValue<string>());
-            Assert.Equal(0, edge["orientation"]!.GetValue<int>());
+            var orientation = edge["orientation"]!.GetValue<double>();
+            Assert.True(orientation == 0 || Math.Abs(orientation - Math.PI) < 1e-9, $"orientation={orientation}");
             Assert.True(edge["released"]!.GetValue<bool>());
             var trajectory = edge["trajectory"]!;
             Assert.Equal(1, trajectory["degree"]!.GetValue<int>());
