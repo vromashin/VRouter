@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using VR.RoutePlanner.Application.Robots;
 using VR.RoutePlanner.Domain.Robots;
+using VR.RoutePlanner.Infrastructure.Legacy;
 
 namespace VR.RoutePlanner.Infrastructure.Kafka;
 
@@ -15,6 +16,7 @@ namespace VR.RoutePlanner.Infrastructure.Kafka;
 public sealed class SimpleTaskWorker(
     IOptions<KafkaOptions> options,
     RobotOrderService orders,
+    ILegacyAgvRepository agvs,
     ILogger<SimpleTaskWorker> logger) : BackgroundService
 {
     private readonly DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
@@ -100,7 +102,7 @@ public sealed class SimpleTaskWorker(
             task.Actions.Count,
             task.Actions[0].Location);
 
-        await PublishAsync(producer, settings, new { taskId = task.TaskId, status = "Started", agvId = Guid.Empty }, ct)
+        await PublishAsync(producer, settings, new { TaskId = task.TaskId, Status = "Running", AgvId = await ResolveAgvIdAsync(ct).ConfigureAwait(false) }, ct)
             .ConfigureAwait(false);
 
         try
@@ -122,16 +124,24 @@ public sealed class SimpleTaskWorker(
                 await WaitCompletionAsync(order.OrderId, ct).ConfigureAwait(false);
             }
 
-            await PublishAsync(producer, settings, new { taskId = task.TaskId, status = "Finished", agvId = Guid.Empty }, ct)
+            await PublishAsync(producer, settings, new { TaskId = task.TaskId, Status = "Finished", AgvId = await ResolveAgvIdAsync(ct).ConfigureAwait(false) }, ct)
                 .ConfigureAwait(false);
             logger.LogInformation("Задача {TaskId}: выполнена", task.TaskId);
         }
         catch (Exception exception)
         {
             logger.LogError(exception, "Задача {TaskId}: ошибка исполнения", task.TaskId);
-            await PublishAsync(producer, settings, new { taskId = task.TaskId, status = "Failed", agvId = Guid.Empty }, ct)
+            await PublishAsync(producer, settings, new { TaskId = task.TaskId, Status = "Failed", AgvId = await ResolveAgvIdAsync(ct).ConfigureAwait(false) }, ct)
                 .ConfigureAwait(false);
         }
+    }
+
+    private async Task<Guid> ResolveAgvIdAsync(CancellationToken ct)
+    {
+        var serial = await ResolveSerialAsync(ct).ConfigureAwait(false);
+        var rows = await agvs.ListAsync(ct).ConfigureAwait(false);
+        var robot = rows.FirstOrDefault(row => string.Equals(row.SerialNumber, serial, StringComparison.Ordinal));
+        return robot?.Id ?? Guid.Empty;
     }
 
     private async Task WaitFreeAsync(CancellationToken ct)
