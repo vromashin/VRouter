@@ -105,7 +105,30 @@ public static class VdaOrderBuilder
                     : Math.PI;
 
             orderEdges.Add(BuildEdge(edge, segment.Direction, sequence + 1, from, to, nextReleased, orientation));
-            nodes.Add(BuildNode(to, sequence + 2, mapId, false, null, null, null, nextReleased, terminalActionType, terminalActionLoadId));
+
+            double? stopX = null, stopY = null, stopTheta = null;
+            if (!string.IsNullOrWhiteSpace(terminalActionType))
+            {
+                stopTheta = Math.Atan2(to.Y - from.Y, to.X - from.X);
+                const double backOff = 1.4;
+                stopX = to.X - (Math.Cos(stopTheta.Value) * backOff);
+                stopY = to.Y - (Math.Sin(stopTheta.Value) * backOff);
+            }
+
+            nodes.Add(BuildNode(
+                to,
+                sequence + 2,
+                mapId,
+                false,
+                null,
+                null,
+                null,
+                nextReleased,
+                terminalActionType,
+                terminalActionLoadId,
+                stopX,
+                stopY,
+                stopTheta));
             sequence += 2;
             previous = to;
         }
@@ -177,23 +200,29 @@ public static class VdaOrderBuilder
         double? firstTheta,
         bool released,
         string? actionType = null,
-        string? actionLoadId = null)
+        string? actionLoadId = null,
+        double? stopX = null,
+        double? stopY = null,
+        double? stopTheta = null)
     {
         var position = new JsonObject
         {
-            ["x"] = first ? firstX ?? node.X : node.X,
-            ["y"] = first ? firstY ?? node.Y : node.Y,
+            ["x"] = first ? firstX ?? node.X : stopX ?? node.X,
+            ["y"] = first ? firstY ?? node.Y : stopY ?? node.Y,
         };
 
         if (first)
         {
             position["theta"] = firstTheta ?? node.Theta;
         }
+        else if (stopTheta is not null)
+        {
+            // Рабочий узел: робот встает перед ним и смотрит на стеллаж.
+            position["theta"] = stopTheta.Value;
+        }
         else if (Math.Abs(node.Theta) > 1e-6)
         {
-            // Узел с заданным курсом (например слот): робот должен подъехать этой стороной.
             position["theta"] = node.Theta;
-            position["allowedDeviationTheta"] = NodeDeviationTheta;
         }
 
         position["allowedDeviationXY"] = first ? FirstNodeDeviationXy : NodeDeviationXy;
@@ -207,14 +236,17 @@ public static class VdaOrderBuilder
             ["released"] = released,
             ["nodePosition"] = position,
             ["nodeDescription"] = "{}",
-            ["actions"] = BuildActions(actionType, actionLoadId, node.NodeId),
+            ["actions"] = BuildActions(actionType, actionLoadId, node.NodeId, node.X, node.Y, stopTheta),
         };
     }
-
-    /// <summary>
-    /// Действия узла. Для конечного узла добавляется pick или drop, как делает AGVControl.
     /// </summary>
-    private static JsonArray BuildActions(string? actionType, string? loadId, string nodeId)
+    private static JsonArray BuildActions(
+        string? actionType,
+        string? loadId,
+        string nodeId,
+        double containerX,
+        double containerY,
+        double? containerTheta)
     {
         var actions = new JsonArray();
         if (string.IsNullOrWhiteSpace(actionType))
@@ -222,8 +254,16 @@ public static class VdaOrderBuilder
             return actions;
         }
 
+        // Параметры как в AGVControl: робот знает, откуда брать и куда класть паллету.
         var parameters = new JsonArray
         {
+            new JsonObject { ["key"] = "containerTypeId", ["value"] = "0" },
+            new JsonObject { ["key"] = "containerX", ["value"] = containerX },
+            new JsonObject { ["key"] = "containerY", ["value"] = containerY },
+            new JsonObject { ["key"] = "containerTheta", ["value"] = containerTheta ?? 0 },
+            new JsonObject { ["key"] = "onlyFork", ["value"] = true },
+            new JsonObject { ["key"] = "autoReturnNode", ["value"] = true },
+            new JsonObject { ["key"] = "noScan", ["value"] = false },
             new JsonObject { ["key"] = "loadId", ["value"] = loadId ?? nodeId },
             new JsonObject { ["key"] = "stationId", ["value"] = nodeId },
         };
