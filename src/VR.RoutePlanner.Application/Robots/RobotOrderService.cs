@@ -180,8 +180,8 @@ public sealed class RobotOrderService
             // и симулятор отклоняет заказ (старый AGVControl делал так же).
             var incoming = graph.Edges.Values
                 .SelectMany(list => list)
-                .Where(edge => edge.ToNodeId == to.Id)
-                .Select(edge => graph.Nodes.GetValueOrDefault(edge.FromNodeId))
+                .Where(edge => edge.ToNodeId == to.Id || (edge.Bidirectional && edge.FromNodeId == to.Id))
+                .Select(edge => graph.Nodes.GetValueOrDefault(edge.ToNodeId == to.Id ? edge.FromNodeId : edge.ToNodeId))
                 .FirstOrDefault(node => node is not null);
             if (incoming is not null)
             {
