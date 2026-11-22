@@ -306,7 +306,11 @@ public sealed class RobotOrderService
         }
 
         var reached = order.Nodes.Where(node => node.Reached).Select(node => node.NodeId).ToHashSet(StringComparer.Ordinal);
-        if (VdaOrderUpdater.CountUnreachedReleased(order.PlanJson, reached) >= 2)
+        var remaining = snapshot.LastNodeSequenceId is { } lastSeq
+            ? VdaOrderUpdater.CountUnreachedReleasedAfterSequence(order.PlanJson, lastSeq)
+            : VdaOrderUpdater.CountUnreachedReleased(order.PlanJson, reached);
+
+        if (remaining > 1)
         {
             return order;
         }

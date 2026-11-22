@@ -108,6 +108,30 @@ public static class VdaOrderUpdater
     /// <param name="planJson">План заказа.</param>
     /// <param name="reachedNodeIds">Достигнутые узлы.</param>
     /// <returns>Число непройденных узлов с <c>released = true</c>.</returns>
+
+    /// <summary>
+    /// Сколько узлов базового плана ещё не пройдено, если известно, на каком
+    /// <c>sequenceId</c> сейчас робот. Пройденными считаются узлы с меньшим или равным sequenceId.
+    /// </summary>
+    /// <param name="planJson">Сохранённый план заказа.</param>
+    /// <param name="lastNodeSequenceId">Последний достигнутый sequenceId из состояния.</param>
+    /// <returns>Число непройденных узлов базового плана.</returns>
+    public static int CountUnreachedReleasedAfterSequence(string planJson, int lastNodeSequenceId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(planJson);
+
+        var plan = JsonNode.Parse(planJson) as JsonObject;
+        var nodes = plan?["nodes"]?.AsArray();
+        if (nodes is null)
+        {
+            return 0;
+        }
+
+        return nodes.Count(node =>
+            node!["released"]!.GetValue<bool>()
+            && node["sequenceId"]!.GetValue<int>() > lastNodeSequenceId);
+    }
+
     public static int CountUnreachedReleased(string planJson, IReadOnlyCollection<string> reachedNodeIds)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(planJson);
