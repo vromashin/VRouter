@@ -91,7 +91,9 @@ internal sealed class FakeComposer : IVdaOrderComposer
         DateTimeOffset timestamp,
         double? firstNodeX = null,
         double? firstNodeY = null,
-        double? firstNodeTheta = null)
+        double? firstNodeTheta = null,
+        string? terminalActionType = null,
+        string? terminalActionLoadId = null)
     {
         var nodes = new List<object>();
         var sequence = 0;

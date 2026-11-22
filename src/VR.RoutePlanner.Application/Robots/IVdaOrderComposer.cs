@@ -40,7 +40,9 @@ public interface IVdaOrderComposer
         DateTimeOffset timestamp,
         double? firstNodeX = null,
         double? firstNodeY = null,
-        double? firstNodeTheta = null);
+        double? firstNodeTheta = null,
+        string? terminalActionType = null,
+        string? terminalActionLoadId = null);
 }
 
 /// <summary>

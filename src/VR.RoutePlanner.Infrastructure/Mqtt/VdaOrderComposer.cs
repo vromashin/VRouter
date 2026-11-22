@@ -23,7 +23,9 @@ public sealed class VdaOrderComposer : IVdaOrderComposer
         DateTimeOffset timestamp,
         double? firstNodeX = null,
         double? firstNodeY = null,
-        double? firstNodeTheta = null)
+        double? firstNodeTheta = null,
+        string? terminalActionType = null,
+        string? terminalActionLoadId = null)
     {
         ArgumentNullException.ThrowIfNull(route);
         ArgumentNullException.ThrowIfNull(graph);
@@ -41,7 +43,10 @@ public sealed class VdaOrderComposer : IVdaOrderComposer
             firstNodeX,
             firstNodeY,
             firstNodeTheta,
-            releasedNodeCount);
+            releasedNodeCount,
+            orderUpdateId: 0,
+            terminalActionType: terminalActionType,
+            terminalActionLoadId: terminalActionLoadId);
 
         order["orderId"] = orderId;
         return VdaOrderBuilder.Serialize(order);
