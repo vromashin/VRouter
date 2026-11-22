@@ -459,9 +459,24 @@ public sealed class RobotOrderService
 
         var merged = order.Nodes
             .Select(node => byNode.TryGetValue(node.NodeId, out var state)
-                ? node with { Released = node.Released || state.Released, Reached = node.Reached || state.Released }
+                ? string.IsNullOrWhiteSpace(snapshot.LastNodeId)
+                    ? node with { Released = node.Released || state.Released, Reached = node.Reached || state.Released }
+                    : node with { Released = node.Released || state.Released }
                 : node)
             .ToList();
+
+        // Достижение подтверждает lastNodeId из состояния: все узлы до него включительно пройдены,
+        // а released значит лишь готовность узла и не является признаком проезда.
+        if (!string.IsNullOrWhiteSpace(snapshot.LastNodeId))
+        {
+            var reachedIndex = merged.FindIndex(node =>
+                string.Equals(node.NodeId, snapshot.LastNodeId, StringComparison.Ordinal));
+
+            for (var i = 0; i <= reachedIndex && i < merged.Count; i++)
+            {
+                merged[i] = merged[i] with { Reached = true };
+            }
+        }
 
         reachedLast = merged.Count > 0 && merged[^1].Reached;
         return merged;

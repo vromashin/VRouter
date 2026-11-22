@@ -43,7 +43,8 @@ public sealed class RobotOrderServiceTests
                     ("wa0", 0, true),
                     ("wa2", 2, true),
                     ("wa4", 4, true),
-                ]),
+                ],
+                lastNodeId: "wa4"),
             CancellationToken.None);
 
         Assert.Equal(RobotOrderStatuses.Completed, completed!.Status);

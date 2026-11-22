@@ -164,7 +164,8 @@ internal static class OrderTestData
         bool driving = false,
         IEnumerable<(string NodeId, int Sequence, bool Released)>? nodes = null,
         IEnumerable<string>? errors = null,
-        DateTimeOffset? receivedAt = null) => new(
+        DateTimeOffset? receivedAt = null,
+        string? lastNodeId = null) => new(
         Serial,
         "ONLINE",
         driving,
@@ -179,7 +180,7 @@ internal static class OrderTestData
         nodes?.Select(node => new RobotNodeState(node.NodeId, node.Sequence, node.Released)).ToList() ?? [],
         receivedAt ?? DateTimeOffset.UtcNow,
         "2.1.0",
-        "wa0");
+        lastNodeId ?? "wa0");
 
     public static RobotOrder Order(
         string orderId = "ORD_04331",
