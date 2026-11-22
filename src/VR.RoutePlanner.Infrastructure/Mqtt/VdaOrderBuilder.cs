@@ -94,7 +94,9 @@ public static class VdaOrderBuilder
                     $"Маршрут разрывается: ребро {segment.EdgeCode} начинается не в узле {previous.NodeId}.");
             }
 
-            var nextReleased = releasedNodeCount > (sequence / 2) + 1;
+            // Как AGVControl: отрицательное или нулевое значение означает «весь маршрут сразу»,
+            // без горизонта и без последующих обновлений плана.
+            var nextReleased = releasedNodeCount <= 0 || releasedNodeCount > (sequence / 2) + 1;
 
             // Первый перегон: если робот смотрит против направления ребра, едем задним ходом
             // (orientation = PI), как это делал старый AGVControl.
