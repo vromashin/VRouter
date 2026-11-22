@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using VR.RoutePlanner.Application.Configuration;
 using VR.RoutePlanner.Application.Graph;
+using VR.RoutePlanner.Application.Legacy;
 using VR.RoutePlanner.Application.Planning;
 using VR.RoutePlanner.Application.Robots;
 using VR.RoutePlanner.Application.Startup;
@@ -104,6 +105,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITrafficResourceBuilder>(provider => provider.GetRequiredService<TrafficResourceBuilder>());
         services.AddDbContextFactory<LegacyReadDbContext>((_, options) => options.UseNpgsql(connectionString));
         services.AddSingleton<ILegacyAgvRepository, LegacyAgvRepository>();
+        services.Configure<LegacyOptions>(configuration.GetSection(LegacyOptions.SectionName));
+        services.AddSingleton<ILegacyAgvStateWriter, LegacyAgvStateWriter>();
         services.AddSingleton<IMapVersionRepository, MapVersionRepository>();
         services.AddSingleton<IWarmupLock, PostgresWarmupLock>();
         services.AddSingleton<IWarmupStateRepository, WarmupStateRepository>();

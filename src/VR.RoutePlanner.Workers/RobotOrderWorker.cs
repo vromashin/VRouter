@@ -1,6 +1,9 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using VR.RoutePlanner.Application.Legacy;
 using VR.RoutePlanner.Application.Robots;
+using VR.RoutePlanner.Infrastructure.Legacy;
 using VR.RoutePlanner.Infrastructure.Mqtt;
 
 namespace VR.RoutePlanner.Workers;
@@ -16,6 +19,8 @@ public sealed class RobotOrderWorker : BackgroundService
     private readonly RobotOrderService _orders;
     private readonly RobotSessionService _sessions;
     private readonly MqttRobotStateReader _reader;
+    private readonly ILegacyAgvStateWriter _legacy;
+    private readonly IOptions<LegacyOptions> _legacyOptions;
     private readonly ILogger<RobotOrderWorker> _logger;
 
     /// <summary>
@@ -29,6 +34,8 @@ public sealed class RobotOrderWorker : BackgroundService
         RobotOrderService orders,
         RobotSessionService sessions,
         MqttRobotStateReader reader,
+        ILegacyAgvStateWriter legacy,
+        IOptions<LegacyOptions> legacyOptions,
         ILogger<RobotOrderWorker> logger)
     {
         ArgumentNullException.ThrowIfNull(orders);
@@ -39,6 +46,8 @@ public sealed class RobotOrderWorker : BackgroundService
         _orders = orders;
         _sessions = sessions;
         _reader = reader;
+        _legacy = legacy;
+        _legacyOptions = legacyOptions;
         _logger = logger;
     }
 
@@ -101,7 +110,13 @@ public sealed class RobotOrderWorker : BackgroundService
                 {
                     var payload = _reader.GetLatestPayload(snapshot.SerialNumber);
                     await _sessions.SaveAsync(snapshot, payload, CancellationToken.None).ConfigureAwait(false);
-                    await _orders.ApplyStateAsync(snapshot, CancellationToken.None).ConfigureAwait(false);
+                    var status = await _orders.ApplyStateAsync(snapshot, CancellationToken.None).ConfigureAwait(false);
+                    if (_legacyOptions.Value.WriteAgvsEnabled)
+                    {
+                        await _legacy
+                            .ApplyAsync(snapshot, status?.OrderId, CancellationToken.None)
+                            .ConfigureAwait(false);
+                    }
                 }
                 catch (Exception exception)
                 {
