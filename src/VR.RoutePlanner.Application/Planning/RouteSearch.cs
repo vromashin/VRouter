@@ -111,6 +111,7 @@ internal sealed class RouteSearch
                 }
 
                 var next = new SearchState(traversal.ToNodeId, traversal.Edge.Id);
+
                 var candidate = known + traversal.BaseCost + _costs.TurnCost(turnDegrees);
                 if (best.TryGetValue(next, out var stored) && stored <= candidate)
                 {
@@ -124,6 +125,31 @@ internal sealed class RouteSearch
         }
 
         return null;
+    }
+
+    private static bool HasVisited(
+        SearchState state,
+        Guid candidate,
+        Dictionary<SearchState, (SearchState Previous, EdgeTraversal Traversal)> cameFrom,
+        Guid startNodeId)
+    {
+        var current = state;
+        while (true)
+        {
+            if (current.NodeId == candidate)
+            {
+                return true;
+            }
+
+            if (!cameFrom.TryGetValue(current, out var entry))
+            {
+                break;
+            }
+
+            current = entry.Previous;
+        }
+
+        return candidate == startNodeId;
     }
 
     private static SearchOutcome Reconstruct(
