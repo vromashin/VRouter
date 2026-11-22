@@ -121,7 +121,11 @@ public sealed class SimpleTaskWorker(
                     action.Location,
                     order.OrderId);
 
-                await WaitCompletionAsync(order.OrderId, ct).ConfigureAwait(false);
+                var outcome = await WaitCompletionAsync(order.OrderId, ct).ConfigureAwait(false);
+                if (!string.Equals(outcome, RobotOrderStatuses.Completed, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException($"Заказ {order.OrderId} завершился со статусом {outcome}.");
+                }
             }
 
             await PublishAsync(producer, settings, new { TaskId = task.TaskId, Status = "Finished", AgvId = await ResolveAgvIdAsync(ct).ConfigureAwait(false) }, ct)
@@ -164,7 +168,7 @@ public sealed class SimpleTaskWorker(
         return "98001";
     }
 
-    private async Task WaitCompletionAsync(string orderId, CancellationToken ct)
+    private async Task<string> WaitCompletionAsync(string orderId, CancellationToken ct)
     {
         var deadline = DateTimeOffset.UtcNow.AddMinutes(15);
         while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
@@ -172,16 +176,18 @@ public sealed class SimpleTaskWorker(
             var order = await orders.GetOrderAsync(orderId, ct).ConfigureAwait(false);
             if (order is null)
             {
-                return;
+                return RobotOrderStatuses.Failed;
             }
 
             if (order.Status is RobotOrderStatuses.Completed or RobotOrderStatuses.Failed or RobotOrderStatuses.Cancelled)
             {
-                return;
+                return order.Status;
             }
 
             await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
         }
+
+        return RobotOrderStatuses.Failed;
     }
 
     private static Task PublishAsync(

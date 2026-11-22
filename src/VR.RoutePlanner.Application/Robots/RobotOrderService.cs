@@ -179,6 +179,16 @@ public sealed class RobotOrderService
             throw new OrderRejectedException(plan.Reason ?? RoutePlanReason.NoPath, "Маршрут не построен.");
         }
 
+        _logger.LogInformation(
+            "Заказ {OrderId}: старт {From} -> {To}, lastNodeId={LastNode}, seq={Seq}, позиция {X}/{Y}",
+            targetNodeId,
+            from.NodeId,
+            to.NodeId,
+            snapshot?.LastNodeId,
+            snapshot?.LastNodeSequenceId,
+            snapshot?.PositionX,
+            snapshot?.PositionY);
+
         var number = await _numbers.NextAsync(ct).ConfigureAwait(false);
         var orderId = $"ORD_{number:D5}";
         var now = _time.GetUtcNow();

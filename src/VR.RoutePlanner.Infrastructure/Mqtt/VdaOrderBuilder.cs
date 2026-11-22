@@ -95,7 +95,16 @@ public static class VdaOrderBuilder
             }
 
             var nextReleased = releasedNodeCount > (sequence / 2) + 1;
-            orderEdges.Add(BuildEdge(edge, segment.Direction, sequence + 1, from, to, nextReleased));
+
+            // Первый перегон: если робот смотрит против направления ребра, едем задним ходом
+            // (orientation = PI), как это делал старый AGVControl.
+            double? orientation = sequence > 0 || firstNodeTheta is null
+                ? null
+                : Math.Cos(firstNodeTheta.Value - Math.Atan2(to.Y - from.Y, to.X - from.X)) >= 0
+                    ? 0
+                    : Math.PI;
+
+            orderEdges.Add(BuildEdge(edge, segment.Direction, sequence + 1, from, to, nextReleased, orientation));
             nodes.Add(BuildNode(to, sequence + 2, mapId, false, null, null, null, nextReleased, terminalActionType, terminalActionLoadId));
             sequence += 2;
             previous = to;
@@ -180,6 +189,12 @@ public static class VdaOrderBuilder
         {
             position["theta"] = firstTheta ?? node.Theta;
         }
+        else if (Math.Abs(node.Theta) > 1e-6)
+        {
+            // Узел с заданным курсом (например слот): робот должен подъехать этой стороной.
+            position["theta"] = node.Theta;
+            position["allowedDeviationTheta"] = NodeDeviationTheta;
+        }
 
         position["allowedDeviationXY"] = first ? FirstNodeDeviationXy : NodeDeviationXy;
         position["allowedDeviationTheta"] = first ? FirstNodeDeviationTheta : NodeDeviationTheta;
@@ -230,7 +245,8 @@ public static class VdaOrderBuilder
         int sequenceId,
         WarehouseNode from,
         WarehouseNode to,
-        bool released) => new()
+        bool released,
+        double? orientation = null) => new()
     {
         ["edgeId"] = edge.EdgeId,
         ["sequenceId"] = sequenceId,
