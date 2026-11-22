@@ -216,10 +216,6 @@ public static class VdaOrderBuilder
             // Рабочий узел: робот встает перед ним и смотрит на стеллаж.
             position["theta"] = stopTheta.Value;
         }
-        else if (Math.Abs(node.Theta) > 1e-6)
-        {
-            position["theta"] = node.Theta;
-        }
 
         position["allowedDeviationXY"] = first ? FirstNodeDeviationXy : NodeDeviationXy;
         position["allowedDeviationTheta"] = first ? FirstNodeDeviationTheta : NodeDeviationTheta;
