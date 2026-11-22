@@ -29,6 +29,12 @@ public sealed class OrderOptions
     /// </summary>
     public bool SendForkActions { get; set; } = true;
 
+    /// <summary>
+    /// Действие в конечном узле заказа. Нужно симулятору: без действия список точек остановки пуст,
+    /// и MotionController зависает. Сами вилы выполняются отдельным instantAction.
+    /// </summary>
+    public string? TerminalActionType { get; set; } = "detectObject";
+
     /// <summary>Проверяет параметры на старте сервиса.</summary>
     /// <returns>Текст ошибки либо <c>null</c>.</returns>
     public string? Validate()
