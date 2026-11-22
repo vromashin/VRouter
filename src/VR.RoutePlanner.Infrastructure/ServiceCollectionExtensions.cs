@@ -11,6 +11,7 @@ using VR.RoutePlanner.Application.Robots;
 using VR.RoutePlanner.Application.Startup;
 using VR.RoutePlanner.Application.Traffic;
 using VR.RoutePlanner.Infrastructure.Graph;
+using VR.RoutePlanner.Infrastructure.Kafka;
 using VR.RoutePlanner.Infrastructure.Legacy;
 using VR.RoutePlanner.Infrastructure.Mqtt;
 using VR.RoutePlanner.Infrastructure.Persistence;
@@ -107,6 +108,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITrafficResourceBuilder>(provider => provider.GetRequiredService<TrafficResourceBuilder>());
         services.AddDbContextFactory<LegacyReadDbContext>((_, options) => options.UseNpgsql(connectionString));
         services.AddSingleton<ILegacyAgvRepository, LegacyAgvRepository>();
+        services.Configure<KafkaOptions>(configuration.GetSection(KafkaOptions.SectionName));
         services.Configure<LegacyOptions>(configuration.GetSection(LegacyOptions.SectionName));
         services.AddSingleton<ILegacyAgvStateWriter, LegacyAgvStateWriter>();
         services.AddSingleton<ILegacyAgvVisualizationWriter, LegacyAgvVisualizationWriter>();
