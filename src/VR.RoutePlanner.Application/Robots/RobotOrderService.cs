@@ -174,6 +174,21 @@ public sealed class RobotOrderService
             }
         }
 
+        if (from.Id == to.Id)
+        {
+            // Робот уже на целевом узле: берем входящий сосед как старт, иначе маршрут пустой
+            // и симулятор отклоняет заказ (старый AGVControl делал так же).
+            var incoming = graph.Edges.Values
+                .SelectMany(list => list)
+                .Where(edge => edge.ToNodeId == to.Id)
+                .Select(edge => graph.Nodes.GetValueOrDefault(edge.FromNodeId))
+                .FirstOrDefault(node => node is not null);
+            if (incoming is not null)
+            {
+                from = incoming;
+            }
+        }
+
         var plan = await _planner
             .PlanAsync(new RoutePlanRequest(mapId, options.DefaultAgvProfile, from.Id, to.Id, hasLoad), ct)
             .ConfigureAwait(false);
