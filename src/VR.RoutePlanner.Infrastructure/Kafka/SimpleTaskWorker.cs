@@ -17,6 +17,8 @@ public sealed class SimpleTaskWorker(
     RobotOrderService orders,
     ILogger<SimpleTaskWorker> logger) : BackgroundService
 {
+    private readonly DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
+
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -67,6 +69,13 @@ public sealed class SimpleTaskWorker(
             }
 
             var task = WmsTaskParser.Parse(result.Message.Value);
+            if (task is not null && task.CreatedAt != DateTimeOffset.MinValue && task.CreatedAt < _startedAt.AddMinutes(-1))
+            {
+                // Старые задачи из истории топика не выполняем: робот уже не там, узлы могли измениться.
+                logger.LogInformation("Задача {TaskId} пропущена: создана до запуска сервиса", task.TaskId);
+                continue;
+            }
+
             if (task is null)
             {
                 logger.LogWarning("Задача WMS не разобрана: {Payload}", result.Message.Value);

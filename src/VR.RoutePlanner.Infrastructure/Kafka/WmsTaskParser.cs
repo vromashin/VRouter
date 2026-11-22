@@ -6,7 +6,7 @@ namespace VR.RoutePlanner.Infrastructure.Kafka;
 public sealed record WmsTaskAction(int ActionOrder, string Location, int ActionType);
 
 /// <summary>Задача WMS из топика <c>simple-tasks</c>.</summary>
-public sealed record WmsTask(string TaskId, string AreaWmsId, IReadOnlyList<WmsTaskAction> Actions);
+public sealed record WmsTask(string TaskId, string AreaWmsId, DateTimeOffset CreatedAt, IReadOnlyList<WmsTaskAction> Actions);
 
 /// <summary>Разбор сообщений задач WMS.</summary>
 public static class WmsTaskParser
@@ -61,8 +61,14 @@ public static class WmsTaskParser
                 return null;
             }
 
+            var createdAt = root.TryGetProperty("createdAt", out var createdElement)
+                && createdElement.ValueKind == JsonValueKind.String
+                && DateTimeOffset.TryParse(createdElement.GetString(), out var parsed)
+                    ? parsed
+                    : DateTimeOffset.MinValue;
+
             actions.Sort((left, right) => left.ActionOrder.CompareTo(right.ActionOrder));
-            return new WmsTask(taskId.GetString()!, area, actions);
+            return new WmsTask(taskId.GetString()!, area, createdAt, actions);
         }
         catch (JsonException)
         {
