@@ -17,8 +17,11 @@ public sealed class SimpleTaskWorker(
     IOptions<KafkaOptions> options,
     RobotOrderService orders,
     ILegacyAgvRepository agvs,
+    IOptions<Application.Configuration.RoutePlannerOptions> orderOptions,
     ILogger<SimpleTaskWorker> logger) : BackgroundService
 {
+    private readonly IOptions<Application.Configuration.RoutePlannerOptions> _orderOptions = orderOptions;
+
     private readonly DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
 
     /// <inheritdoc />
@@ -126,6 +129,9 @@ public sealed class SimpleTaskWorker(
                 {
                     throw new InvalidOperationException($"Заказ {order.OrderId} завершился со статусом {outcome}.");
                 }
+
+                // Вилы: pick/drop отдельным instantAction, как в AGVControl.
+                await RunForkAsync(order.AgvSerialNumber, action.ActionType == WmsTaskParser.PickUp, ct).ConfigureAwait(false);
             }
 
             await PublishAsync(producer, settings, new { TaskId = task.TaskId, Status = "Finished", AgvId = await ResolveAgvIdAsync(ct).ConfigureAwait(false) }, ct)
@@ -168,6 +174,37 @@ public sealed class SimpleTaskWorker(
         return "98001";
     }
 
+    private async Task RunForkAsync(string serialNumber, bool pick, CancellationToken ct)
+    {
+        if (!_orderOptions.Value.Order.SendForkActions)
+        {
+            logger.LogInformation("Действия вил выключены настройкой SendForkActions");
+            return;
+        }
+
+        var actionType = pick ? "pick" : "drop";
+        var actionId = await orders.TriggerForkAsync(serialNumber, actionType, ct).ConfigureAwait(false);
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
+        while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
+        {
+            var status = await orders.GetActionStatusAsync(serialNumber, actionId, ct).ConfigureAwait(false);
+            if (string.Equals(status, "FINISHED", StringComparison.OrdinalIgnoreCase))
+            {
+                logger.LogInformation("Действие {Action} {ActionId} выполнено", actionType, actionId);
+                return;
+            }
+
+            if (string.Equals(status, "FAILED", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Действие {actionType} завершилось ошибкой.");
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
+        }
+
+        logger.LogWarning("Действие {Action} {ActionId} не завершилось за 120 секунд", actionType, actionId);
+    }
     private async Task<string> WaitCompletionAsync(string orderId, CancellationToken ct)
     {
         var deadline = DateTimeOffset.UtcNow.AddMinutes(15);

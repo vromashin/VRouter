@@ -473,6 +473,69 @@ public sealed class RobotOrderService
         return active.Any(order => string.Equals(order.AgvSerialNumber, serialNumber, StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// Отправляет pick/drop как instantAction, как это делает AGVControl: координаты паллеты
+    /// берутся от текущей позы робота на расстоянии длины корпуса.
+    /// </summary>
+    /// <param name="serialNumber">Серийный номер робота.</param>
+    /// <param name="actionType">Тип действия: pick или drop.</param>
+    /// <param name="ct">Отмена.</param>
+    /// <returns>Идентификатор действия.</returns>
+    public async Task<string> TriggerForkAsync(string serialNumber, string actionType, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(serialNumber);
+        ArgumentException.ThrowIfNullOrWhiteSpace(actionType);
+
+        var snapshot = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false)
+            ?? throw new OrderRejectedException(RoutePlanReason.NodeNotFound, "Нет состояния робота для действия вил.");
+
+        var options = _options.Value;
+        var length = options.AgvProfiles.TryGetValue(options.DefaultAgvProfile, out var profile)
+            ? profile.LengthMeters
+            : 1.455;
+        var distance = length + 0.05;
+
+        var containerX = snapshot.PositionX + (distance * Math.Cos(snapshot.Theta));
+        var containerY = snapshot.PositionY + (distance * Math.Sin(snapshot.Theta));
+
+        var parameters = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["containerTypeId"] = "0",
+            ["containerX"] = containerX,
+            ["containerY"] = containerY,
+            ["containerTheta"] = snapshot.Theta,
+            ["onlyFork"] = true,
+            ["autoReturnNode"] = false,
+            ["noScan"] = false,
+        };
+
+        var actionId = Guid.NewGuid().ToString("N");
+        var payload = VdaInstantActionPayload.Build(actionType, actionId, _time.GetUtcNow(), parameters);
+        await _publisher.PublishInstantActionAsync(options.Order.Manufacturer, serialNumber, payload, ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Роботу {Serial} отправлено действие {Action} ({ActionId}), паллета {X}/{Y}",
+            serialNumber,
+            actionType,
+            actionId,
+            Math.Round(containerX, 3),
+            Math.Round(containerY, 3));
+
+        return actionId;
+    }
+
+    /// <summary>
+    /// Возвращает статус действия робота из последнего состояния.
+    /// </summary>
+    /// <param name="serialNumber">Серийный номер робота.</param>
+    /// <param name="actionId">Идентификатор действия.</param>
+    /// <param name="ct">Отмена.</param>
+    /// <returns>Статус действия или <c>null</c>.</returns>
+    public async Task<string?> GetActionStatusAsync(string serialNumber, string actionId, CancellationToken ct)
+    {
+        var snapshot = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false);
+        return snapshot?.ActionStates?.FirstOrDefault(item => item.ActionId == actionId)?.ActionStatus;
+    }
     public async Task<int> CheckTimeoutsAsync(CancellationToken ct)
     {
         var options = _options.Value.Order;

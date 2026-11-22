@@ -59,7 +59,11 @@ public static class VdaInstantActionPayload
     /// <param name="actionId">Идентификатор действия.</param>
     /// <param name="timestamp">Момент отправки.</param>
     /// <returns>JSON сообщения.</returns>
-    public static string Build(string actionType, string actionId, DateTimeOffset timestamp)
+    public static string Build(
+        string actionType,
+        string actionId,
+        DateTimeOffset timestamp,
+        IReadOnlyDictionary<string, object?>? parameters = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(actionType);
         ArgumentException.ThrowIfNullOrWhiteSpace(actionId);
@@ -75,7 +79,29 @@ public static class VdaInstantActionPayload
             writer.WriteStartObject();
             writer.WriteString("actionType", actionType);
             writer.WriteString("actionId", actionId);
-            writer.WriteString("blockingType", "HARD");
+            writer.WriteString("blockingType", "SOFT");
+            if (parameters is { Count: > 0 })
+            {
+                writer.WriteStartArray("actionParameters");
+                foreach (var pair in parameters)
+                {
+                    writer.WriteStartObject();
+                    writer.WriteString("key", pair.Key);
+                    writer.WritePropertyName("value");
+                    switch (pair.Value)
+                    {
+                        case bool flag: writer.WriteBooleanValue(flag); break;
+                        case int number: writer.WriteNumberValue(number); break;
+                        case double real: writer.WriteNumberValue(real); break;
+                        case null: writer.WriteNullValue(); break;
+                        default: writer.WriteStringValue(pair.Value.ToString()); break;
+                    }
+
+                    writer.WriteEndObject();
+                }
+
+                writer.WriteEndArray();
+            }
             writer.WriteEndObject();
             writer.WriteEndArray();
             writer.WriteEndObject();

@@ -85,7 +85,8 @@ public static class RobotStateParser
                 version,
                 ReadString(root, "lastNodeId"),
                 ReadNullableInt(root, "lastNodeSequenceId"),
-            ReadBool(root, "newBaseRequest"));
+            ReadBool(root, "newBaseRequest"),
+            ReadActionStates(root));
 
             return true;
         }
@@ -144,6 +145,28 @@ public static class RobotStateParser
 
     private static bool ReadBool(JsonElement root, string name) =>
         root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
+
+    private static IReadOnlyList<RobotActionState> ReadActionStates(JsonElement root)
+    {
+        var result = new List<RobotActionState>();
+        if (!root.TryGetProperty("actionStates", out var actions) || actions.ValueKind != JsonValueKind.Array)
+        {
+            return result;
+        }
+
+        foreach (var item in actions.EnumerateArray())
+        {
+            var id = ReadString(item, "actionId");
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                continue;
+            }
+
+            result.Add(new RobotActionState(id!, ReadString(item, "actionType"), ReadString(item, "actionStatus")));
+        }
+
+        return result;
+    }
 
     private static IReadOnlyList<string> ReadErrors(JsonElement root)
     {

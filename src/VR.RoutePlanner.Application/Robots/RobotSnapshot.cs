@@ -27,6 +27,12 @@ public sealed record RobotNodeState(string NodeId, int SequenceId, bool Released
 /// <param name="Version">Версия протокола из сообщения.</param>
 /// <param name="LastNodeId">Последний узел маршрута из сообщения.</param>
 /// <param name="LastNodeSequenceId">Номер последнего узла в плане.</param>
+/// <summary>Состояние действия робота из state.actionStates.</summary>
+/// <param name="ActionId">Идентификатор действия.</param>
+/// <param name="ActionType">Тип действия.</param>
+/// <param name="ActionStatus">Статус: WAITING, INITIALIZING, RUNNING, FINISHED, FAILED.</param>
+public sealed record RobotActionState(string ActionId, string? ActionType, string? ActionStatus);
+
 public sealed record RobotSnapshot(
     string SerialNumber,
     string ConnectionState,
@@ -44,4 +50,5 @@ public sealed record RobotSnapshot(
     string Version,
     string? LastNodeId = null,
     int? LastNodeSequenceId = null,
-    bool NewBaseRequest = false);
+    bool NewBaseRequest = false,
+    IReadOnlyList<RobotActionState>? ActionStates = null);
