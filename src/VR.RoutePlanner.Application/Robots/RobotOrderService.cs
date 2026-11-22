@@ -292,8 +292,14 @@ public sealed class RobotOrderService
         var now = _time.GetUtcNow();
         var failed = 0;
 
-        foreach (var order in await _orders.GetActiveAsync(ct).ConfigureAwait(false))
+        foreach (var active in await _orders.GetActiveAsync(ct).ConfigureAwait(false))
         {
+            var order = await _orders.GetAsync(active.OrderId, ct).ConfigureAwait(false);
+            if (order is null)
+            {
+                continue;
+            }
+
             var snapshot = await _states.GetLatestAsync(order.AgvSerialNumber, ct).ConfigureAwait(false);
             string? reason = null;
 
