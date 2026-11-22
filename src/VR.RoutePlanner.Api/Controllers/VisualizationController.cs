@@ -16,9 +16,22 @@ public sealed class VisualizationController(MqttRobotStateReader reader) : Contr
     [HttpGet("rawVisualizationAll")]
     public IActionResult GetRawAll()
     {
-        var raw = reader.GetRawVisualizations();
-        var payloads = raw.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
-        return Content(JsonSerializer.Serialize(payloads), "application/json");
+        // Карта ждет объект вида { "98001": <сырое VDA-сообщение>, ... },
+        // то есть значения должны быть JSON-объектами, а не строками.
+        var root = new System.Text.Json.Nodes.JsonObject();
+        foreach (var pair in reader.GetRawVisualizations())
+        {
+            try
+            {
+                root[pair.Key] = System.Text.Json.Nodes.JsonNode.Parse(pair.Value);
+            }
+            catch (JsonException)
+            {
+                // Битое сообщение пропускаем: карте нужен валидный JSON.
+            }
+        }
+
+        return Content(root.ToJsonString(), "application/json");
     }
 
     /// <summary>Сырое сообщение visualization конкретного робота.</summary>
