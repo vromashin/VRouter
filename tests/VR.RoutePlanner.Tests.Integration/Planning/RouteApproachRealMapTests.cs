@@ -12,7 +12,7 @@ namespace VR.RoutePlanner.Tests.Integration.Planning;
 public sealed class RouteApproachRealMapTests
 {
     [SkippableFact]
-    public async Task PlanAsync_IsolatedSlot_PlansToApproachNode()
+    public async Task PlanAsync_SlotReachableOnParityMap()
     {
         var fixture = await PlanningTestFixture.CreateAsync(CancellationToken.None);
         var from = fixture.Graph.Nodes.Values.First(node => node.NodeId == "wa128");
@@ -33,9 +33,8 @@ public sealed class RouteApproachRealMapTests
                 HasLoad: false),
             CancellationToken.None);
 
-        Assert.True(result.Found, $"слот {slot.NodeId} должен планироваться через точку подхода, причина {result.Reason}");
-        Assert.NotNull(result.ApproachNodeId);
-        Assert.NotEqual(slot.NodeId, result.ApproachNodeId);
-        Assert.True(result.ApproachDistanceMeters > 0, "расстояние до точки подхода должно быть положительным");
+        Assert.True(result.Found, "слот должен быть достижим: паритет со старым AGVControl");
+        Assert.NotNull(result.Route);
+        Assert.NotEmpty(result.Route!.Segments);
     }
 }

@@ -151,6 +151,26 @@ public sealed class RobotOrderService
             throw new OrderRejectedException(RoutePlanReason.NodeNotFound, "Узел старта или цели не найден на карте.");
         }
 
+        // Слот рабочий узел не проезжаем: маршрут строим до соседнего узла, действие выполняем там.
+        var slotNode = to;
+        var stopBeforeSlot = slotNode.NodeId.StartsWith(SlotApproachResolver.SlotPrefix, StringComparison.OrdinalIgnoreCase);
+        if (stopBeforeSlot)
+        {
+            var neighbor = graph.Edges.Values
+                .SelectMany(list => list)
+                .Where(edge => edge.FromNodeId == slotNode.Id || edge.ToNodeId == slotNode.Id)
+                .Select(edge => edge.FromNodeId == slotNode.Id ? edge.ToNodeId : edge.FromNodeId)
+                .Distinct()
+                .Select(id => graph.Nodes.GetValueOrDefault(id))
+                .FirstOrDefault(node => node is not null
+                    && !node.NodeId.StartsWith(SlotApproachResolver.SlotPrefix, StringComparison.OrdinalIgnoreCase));
+
+            if (neighbor is not null)
+            {
+                to = neighbor;
+            }
+        }
+
         var plan = await _planner
             .PlanAsync(new RoutePlanRequest(mapId, options.DefaultAgvProfile, from.Id, to.Id, hasLoad), ct)
             .ConfigureAwait(false);
@@ -162,6 +182,14 @@ public sealed class RobotOrderService
         var number = await _numbers.NextAsync(ct).ConfigureAwait(false);
         var orderId = $"ORD_{number:D5}";
         var now = _time.GetUtcNow();
+
+        // Тип действия берем из типа узла, как старый AGVControl: LOADING это подбор, UNLOADING выгрузка.
+        var actionType = slotNode.NodeType?.ToUpperInvariant() switch
+        {
+            "LOADING" => "pick",
+            "UNLOADING" => "drop",
+            _ => hasLoad ? "drop" : "pick",
+        };
         var orderJson = composer.Compose(
             plan.Route,
             graph,
@@ -175,7 +203,9 @@ public sealed class RobotOrderService
             now,
             snapshot?.PositionX,
             snapshot?.PositionY,
-            snapshot?.Theta);
+            snapshot?.Theta,
+            actionType,
+            orderId);
 
         await _publisher
             .PublishAsync(options.Order.Manufacturer, serialNumber, orderJson, ct)

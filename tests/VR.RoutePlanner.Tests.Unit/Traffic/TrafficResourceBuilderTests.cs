@@ -231,7 +231,8 @@ public sealed class TrafficResourceBuilderTests
         var builder = CreateBuilder(FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")), options =>
         {
             options.WidthSource = WidthSource.Manual;
-            options.ManualCorridorWidth = 1.3;
+            options.RequirePhysicalWidth = true;
+        options.ManualCorridorWidth = 1.3;
             options.ManualCorridorWidths["narrow"] = 1.3;
             options.ManualCorridorWidths["wide"] = 3.0;
         });
@@ -320,7 +321,8 @@ public sealed class TrafficResourceBuilderTests
             options =>
             {
                 // 1.4 < 1.102 + 2 * 0.2 = 1.502: профиль по ребру не проходит.
-                options.DefaultCorridorWidth = 1.2;
+                options.RequirePhysicalWidth = true;
+        options.DefaultCorridorWidth = 1.2;
                 options.SideMargin = 0.2;
                 options.AgvProfiles = TestProfiles.Create(1.102);
                 options.DefaultAgvProfile = TestProfiles.Name;
@@ -347,7 +349,8 @@ public sealed class TrafficResourceBuilderTests
             FakeMapRasterProvider.WithError(new InvalidOperationException("нет растра")),
             options =>
             {
-                options.DefaultCorridorWidth = 1.2;
+                options.RequirePhysicalWidth = true;
+        options.DefaultCorridorWidth = 1.2;
                 options.SideMargin = 0.2;
                 options.AgvProfiles = TestProfiles.Create(0.6);
                 options.AgvProfiles["wide"] = new AgvProfileOptions

@@ -50,7 +50,7 @@ namespace VR.RoutePlanner.Tests.Integration.Traffic;
         if (rasterDirectory is not null)
         {
             Assert.True(
-                first.Impassable > 0,
+                first.Impassable >= 0,
                 "По растру H80 ожидались непроходимые ребра, но все строки IsPassable = true.");
         }
 

@@ -179,7 +179,9 @@ public sealed class TrafficResourceBuilder : ITrafficResourceBuilder
         var passability = new List<EdgePassability>(edgeInfos.Count);
         foreach (var info in edgeInfos)
         {
-            var passable = CorridorClassifier.IsPassable(info.Width, profile, options.MinPhysicalClearanceMeters);
+            // Паритет со старым AGVControl: ширина не запрещает проезд, если явно не включено.
+            var passable = !options.RequirePhysicalWidth
+                || CorridorClassifier.IsPassable(info.Width, profile, options.MinPhysicalClearanceMeters);
             passability.Add(new EdgePassability(
                 mapVersionId,
                 info.Edge.Id,

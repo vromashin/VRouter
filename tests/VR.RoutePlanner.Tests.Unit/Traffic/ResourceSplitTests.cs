@@ -57,6 +57,7 @@ public sealed class ResourceSplitTests
     {
         var options = CreateOptions();
         options.AgvProfiles = TestProfiles.Create(1.102);
+        options.RequirePhysicalWidth = true;
         options.ManualCorridorWidth = 1.2;
         options.DefaultCorridorWidth = 1.2;
         options.SideMargin = 0.2;
