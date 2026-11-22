@@ -39,9 +39,9 @@ public sealed class OrderOptions
     /// <returns>Текст ошибки либо <c>null</c>.</returns>
     public string? Validate()
     {
-        if (ReleasedNodes < 1)
+        if (ReleasedNodes < 0)
         {
-            return $"Routing:Order:ReleasedNodes должен быть не меньше 1, получено {ReleasedNodes}.";
+            return $"Routing:Order:ReleasedNodes не может быть отрицательным, получено {ReleasedNodes}.";
         }
 
         if (ProgressTimeoutSeconds <= 0 || AcceptTimeoutSeconds <= 0 || StateSilenceSeconds <= 0)
