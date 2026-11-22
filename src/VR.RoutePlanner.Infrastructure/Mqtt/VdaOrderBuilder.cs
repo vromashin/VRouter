@@ -285,7 +285,7 @@ public static class VdaOrderBuilder
         ["sequenceId"] = sequenceId,
         ["startNodeId"] = from.NodeId,
         ["endNodeId"] = to.NodeId,
-        ["orientation"] = 0,
+        ["orientation"] = orientation ?? 0,
         ["orientationType"] = "TANGENTIAL",
         ["released"] = released,
         ["trajectory"] = BuildTrajectory(edge.TrajectoryPoints, direction),
