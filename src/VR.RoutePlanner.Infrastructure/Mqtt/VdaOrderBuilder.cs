@@ -106,11 +106,9 @@ public static class VdaOrderBuilder
             double? stopX = null, stopY = null, stopTheta = null;
             if (!string.IsNullOrWhiteSpace(terminalActionType))
             {
-                // Как AgvControl: точка остановки это передняя точка робота на предыдущем узле.
+                // Узел должен остаться реальным узлом карты: смещать позицию нельзя,
+                // иначе робот не доедет. Смещение задается параметрами действия.
                 stopTheta = Math.Atan2(to.Y - from.Y, to.X - from.X);
-                const double halfLength = 0.7275;
-                stopX = from.X + (Math.Cos(stopTheta.Value) * halfLength);
-                stopY = from.Y + (Math.Sin(stopTheta.Value) * halfLength);
             }
 
             nodes.Add(BuildNode(
