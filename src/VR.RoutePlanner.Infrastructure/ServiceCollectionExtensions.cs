@@ -89,6 +89,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPathPlanner, AStarPathPlanner>();
         services.AddSingleton<IResourceRepository, ResourceRepository>();
         services.AddSingleton<MqttRobotStateReader>();
+        services.AddSingleton<IRobotVisualizationReader>(
+            provider => provider.GetRequiredService<MqttRobotStateReader>());
         services.AddSingleton<IRobotStateReader, DatabaseRobotStateReader>();
         services.AddSingleton<RobotSessionService>();
         services.AddSingleton<IRobotOrderTransport, MqttOrderTransport>();
