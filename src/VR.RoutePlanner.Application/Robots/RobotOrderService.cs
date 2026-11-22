@@ -414,6 +414,14 @@ public sealed class RobotOrderService
             {
                 reason = ReasonNoAccept;
             }
+            else if (order.Status != RobotOrderStatuses.Executing
+                && order.SentAt is not null
+                && (now - order.SentAt.Value).TotalSeconds <= options.AcceptTimeoutSeconds)
+            {
+                // Робот ещё не подтвердил заказ: молчание состояния не считается отказом,
+                // пока не истекло окно приёма. Иначе заказ падает раньше, чем робот ответит.
+                reason = null;
+            }
             else if (snapshot is null
                 || snapshot.OrderId != order.OrderId
                 || (now - snapshot.ReceivedAt).TotalSeconds > options.StateSilenceSeconds)
