@@ -297,6 +297,19 @@ public sealed class RobotOrderService
             var snapshot = await _states.GetLatestAsync(order.AgvSerialNumber, ct).ConfigureAwait(false);
             string? reason = null;
 
+            if (snapshot is not null
+                && order.Status == RobotOrderStatuses.Sent
+                && string.Equals(snapshot.OrderId, order.OrderId, StringComparison.Ordinal))
+            {
+                // Робот уже принял заказ, просто событие accept не попало в обработчик: фиксируем прием.
+                order = order with
+                {
+                    Status = RobotOrderStatuses.Accepted,
+                    AcceptedAt = order.AcceptedAt ?? now,
+                };
+                await _orders.SaveAsync(order, ct).ConfigureAwait(false);
+            }
+
             if (order.Status == RobotOrderStatuses.Sent
                 && order.SentAt is not null
                 && (now - order.SentAt.Value).TotalSeconds > options.AcceptTimeoutSeconds)
