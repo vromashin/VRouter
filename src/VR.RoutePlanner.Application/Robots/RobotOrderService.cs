@@ -571,7 +571,14 @@ public sealed class RobotOrderService
         reachedLast = false;
         if (snapshot.NodeStates.Count == 0)
         {
-            reachedLast = order.Nodes.Count > 0 && order.Nodes[^1].Reached;
+            // Узлы в состоянии закончились: последний узел заказа считается достигнутым,
+            // если робот сообщает его как lastNodeId (так робот отмечает финиш).
+            var lastOrderNode = order.Nodes.Count > 0 ? order.Nodes[^1] : null;
+            reachedLast = (lastOrderNode is not null && lastOrderNode.Reached)
+                || (lastOrderNode is not null
+                    && !string.IsNullOrWhiteSpace(snapshot.LastNodeId)
+                    && string.Equals(lastOrderNode.NodeId, snapshot.LastNodeId, StringComparison.Ordinal));
+
             return order.Nodes;
         }
 
