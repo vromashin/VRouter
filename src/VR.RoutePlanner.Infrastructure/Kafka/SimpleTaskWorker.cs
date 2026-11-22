@@ -108,6 +108,7 @@ public sealed class SimpleTaskWorker(
             foreach (var action in task.Actions)
             {
                 var hasLoad = action.ActionType != WmsTaskParser.PickUp;
+                await WaitFreeAsync(ct).ConfigureAwait(false);
                 var order = await orders
                     .CreateOrderAsync(task.AreaWmsId, await ResolveSerialAsync(ct).ConfigureAwait(false), action.Location, hasLoad, ct)
                     .ConfigureAwait(false);
@@ -130,6 +131,20 @@ public sealed class SimpleTaskWorker(
             logger.LogError(exception, "Задача {TaskId}: ошибка исполнения", task.TaskId);
             await PublishAsync(producer, settings, new { taskId = task.TaskId, status = "Failed", agvId = Guid.Empty }, ct)
                 .ConfigureAwait(false);
+        }
+    }
+
+    private async Task WaitFreeAsync(CancellationToken ct)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddMinutes(20);
+        while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
+        {
+            if (!await orders.HasActiveOrderAsync(await ResolveSerialAsync(ct).ConfigureAwait(false), ct).ConfigureAwait(false))
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(3), ct).ConfigureAwait(false);
         }
     }
 

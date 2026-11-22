@@ -387,6 +387,18 @@ public sealed class RobotOrderService
     public Task<RobotOrder?> GetOrderAsync(string orderId, CancellationToken ct) =>
         _orders.GetAsync(orderId, ct);
 
+    /// <summary>
+    /// Проверяет, есть ли у робота незавершенный заказ.
+    /// </summary>
+    /// <param name="serialNumber">Серийный номер робота.</param>
+    /// <param name="ct">Отмена.</param>
+    /// <returns><c>true</c>, если заказ в работе.</returns>
+    public async Task<bool> HasActiveOrderAsync(string serialNumber, CancellationToken ct)
+    {
+        var active = await _orders.GetActiveAsync(ct).ConfigureAwait(false);
+        return active.Any(order => string.Equals(order.AgvSerialNumber, serialNumber, StringComparison.Ordinal));
+    }
+
     public async Task<int> CheckTimeoutsAsync(CancellationToken ct)
     {
         var options = _options.Value.Order;
