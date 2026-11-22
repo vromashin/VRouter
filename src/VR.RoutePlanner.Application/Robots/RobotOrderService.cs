@@ -310,6 +310,13 @@ public sealed class RobotOrderService
             ? VdaOrderUpdater.CountUnreachedReleasedAfterSequence(order.PlanJson, lastSeq)
             : VdaOrderUpdater.CountUnreachedReleased(order.PlanJson, reached);
 
+        _logger.LogInformation(
+            "Заказ {OrderId}: продление, seq={Seq}, осталось={Remaining}, версия={Version}",
+            order.OrderId,
+            snapshot.LastNodeSequenceId,
+            remaining,
+            order.OrderUpdateId);
+
         if (remaining > 1)
         {
             return order;
