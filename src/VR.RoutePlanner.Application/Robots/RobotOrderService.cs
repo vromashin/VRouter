@@ -378,6 +378,15 @@ public sealed class RobotOrderService
     /// </summary>
     /// <param name="ct">Токен отмены.</param>
     /// <returns>Сколько заказов провалено по таймауту.</returns>
+    /// <summary>
+    /// Возвращает заказ по идентификатору.
+    /// </summary>
+    /// <param name="orderId">Идентификатор заказа.</param>
+    /// <param name="ct">Отмена.</param>
+    /// <returns>Заказ или <c>null</c>.</returns>
+    public Task<RobotOrder?> GetOrderAsync(string orderId, CancellationToken ct) =>
+        _orders.GetAsync(orderId, ct);
+
     public async Task<int> CheckTimeoutsAsync(CancellationToken ct)
     {
         var options = _options.Value.Order;

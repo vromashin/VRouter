@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using VR.RoutePlanner.Application.Configuration;
 using VR.RoutePlanner.Infrastructure;
+using VR.RoutePlanner.Infrastructure.Kafka;
 using VR.RoutePlanner.Infrastructure.Mqtt;
 using VR.RoutePlanner.Workers;
 
@@ -20,6 +21,15 @@ if (mqttOptions.Enabled)
 {
     builder.Services.AddHostedService<MqttRobotStateWorker>();
     builder.Services.AddHostedService<RobotOrderWorker>();
+}
+
+var kafkaOptions = builder.Configuration
+    .GetSection(KafkaOptions.SectionName)
+    .Get<KafkaOptions>() ?? new KafkaOptions();
+
+if (kafkaOptions.Enabled)
+{
+    builder.Services.AddHostedService<SimpleTaskWorker>();
 }
 
 var host = builder.Build();
