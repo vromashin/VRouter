@@ -176,8 +176,8 @@ public sealed class RobotOrderService
                 })
                 .Where(item => item.Node is not null
                     && !item.Node.NodeId.StartsWith(SlotApproachResolver.SlotPrefix, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(item => item.IntoSlot ? 0 : 1)
-                .ThenBy(item => Math.Pow(item.Node!.X - robotX, 2) + Math.Pow(item.Node!.Y - robotY, 2))
+                .OrderBy(item => Math.Sqrt(Math.Pow(item.Node!.X - slotNode.X, 2) + Math.Pow(item.Node!.Y - slotNode.Y, 2)))
+                .ThenBy(item => item.IntoSlot ? 0 : 1)
                 .ToList();
 
             var neighbor = candidates.FirstOrDefault()?.Node;
