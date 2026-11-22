@@ -23,6 +23,12 @@ public sealed class OrderOptions
     /// <summary>Производитель робота для топиков и заказа.</summary>
     public string Manufacturer { get; set; } = "Tuskrobots";
 
+    /// <summary>
+    /// Отправлять действия pick/drop в заказе. На симуляторе TUSKROBOTS действие не завершается,
+    /// робот навсегда остается в WORKING, поэтому на стенде флаг выключается.
+    /// </summary>
+    public bool SendForkActions { get; set; } = true;
+
     /// <summary>Проверяет параметры на старте сервиса.</summary>
     /// <returns>Текст ошибки либо <c>null</c>.</returns>
     public string? Validate()
