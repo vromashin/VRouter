@@ -156,14 +156,17 @@ public sealed class RobotOrderService
         var stopBeforeSlot = slotNode.NodeId.StartsWith(SlotApproachResolver.SlotPrefix, StringComparison.OrdinalIgnoreCase);
         if (stopBeforeSlot)
         {
+            var robotX = snapshot?.PositionX ?? from.X;
+            var robotY = snapshot?.PositionY ?? from.Y;
             var neighbor = graph.Edges.Values
                 .SelectMany(list => list)
                 .Where(edge => edge.FromNodeId == slotNode.Id || edge.ToNodeId == slotNode.Id)
                 .Select(edge => edge.FromNodeId == slotNode.Id ? edge.ToNodeId : edge.FromNodeId)
                 .Distinct()
                 .Select(id => graph.Nodes.GetValueOrDefault(id))
-                .FirstOrDefault(node => node is not null
-                    && !node.NodeId.StartsWith(SlotApproachResolver.SlotPrefix, StringComparison.OrdinalIgnoreCase));
+                .Where(node => node is not null && !node.NodeId.StartsWith(SlotApproachResolver.SlotPrefix, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(node => Math.Pow(node!.X - robotX, 2) + Math.Pow(node!.Y - robotY, 2))
+                .FirstOrDefault();
 
             if (neighbor is not null)
             {
