@@ -41,7 +41,11 @@ public static class VdaOrderUpdater
 
         var allEdges = plan["edges"]?.AsArray() ?? new JsonArray();
 
-        var startIndex = FindStartIndex(allNodes, lastNodeId, lastNodeSequenceId);
+        var startIndex = FindBaseBoundary(allNodes);
+        if (startIndex < 0)
+        {
+            startIndex = FindStartIndex(allNodes, lastNodeId, lastNodeSequenceId);
+        }
         if (startIndex < 0 || startIndex >= allNodes.Count - 1)
         {
             return null;
@@ -119,6 +123,26 @@ public static class VdaOrderUpdater
         return nodes.Count(node =>
             node!["released"]!.GetValue<bool>()
             && !reachedNodeIds.Contains(node["nodeId"]!.GetValue<string>()));
+    }
+
+
+    /// <summary>
+    /// Индекс последнего узла базового плана. Обновление обязано начинаться с него:
+    /// робот сверяет первый узел обновления с последним базовым узлом состояния.
+    /// </summary>
+    private static int FindBaseBoundary(JsonArray nodes)
+    {
+        var index = -1;
+        for (var i = 0; i < nodes.Count; i++)
+        {
+            var released = nodes[i]?["released"]?.GetValue<bool>() ?? false;
+            if (released)
+            {
+                index = i;
+            }
+        }
+
+        return index;
     }
 
     private static int FindStartIndex(JsonArray nodes, string? lastNodeId, int? lastNodeSequenceId)

@@ -58,7 +58,9 @@ public static class VdaOrderBuilder
         double? firstNodeY = null,
         double? firstNodeTheta = null,
         int releasedNodeCount = int.MaxValue,
-        int orderUpdateId = 0)
+        int orderUpdateId = 0,
+        string? terminalActionType = null,
+        string? terminalActionLoadId = null)
     {
         ArgumentNullException.ThrowIfNull(route);
         ArgumentNullException.ThrowIfNull(graph);
@@ -94,7 +96,7 @@ public static class VdaOrderBuilder
 
             var nextReleased = releasedNodeCount > (sequence / 2) + 1;
             orderEdges.Add(BuildEdge(edge, segment.Direction, sequence + 1, from, to, nextReleased));
-            nodes.Add(BuildNode(to, sequence + 2, mapId, false, null, null, null, nextReleased));
+            nodes.Add(BuildNode(to, sequence + 2, mapId, false, null, null, null, nextReleased, terminalActionType, terminalActionLoadId));
             sequence += 2;
             previous = to;
         }
@@ -164,7 +166,9 @@ public static class VdaOrderBuilder
         double? firstX,
         double? firstY,
         double? firstTheta,
-        bool released)
+        bool released,
+        string? actionType = null,
+        string? actionLoadId = null)
     {
         var position = new JsonObject
         {
@@ -188,8 +192,36 @@ public static class VdaOrderBuilder
             ["released"] = released,
             ["nodePosition"] = position,
             ["nodeDescription"] = "{}",
-            ["actions"] = new JsonArray(),
+            ["actions"] = BuildActions(actionType, actionLoadId, node.NodeId),
         };
+    }
+
+    /// <summary>
+    /// Действия узла. Для конечного узла добавляется pick или drop, как делает AGVControl.
+    /// </summary>
+    private static JsonArray BuildActions(string? actionType, string? loadId, string nodeId)
+    {
+        var actions = new JsonArray();
+        if (string.IsNullOrWhiteSpace(actionType))
+        {
+            return actions;
+        }
+
+        var parameters = new JsonArray
+        {
+            new JsonObject { ["key"] = "loadId", ["value"] = loadId ?? nodeId },
+            new JsonObject { ["key"] = "stationId", ["value"] = nodeId },
+        };
+
+        actions.Add(new JsonObject
+        {
+            ["actionId"] = Guid.NewGuid().ToString(),
+            ["actionType"] = actionType,
+            ["blockingType"] = "HARD",
+            ["actionParameters"] = parameters,
+        });
+
+        return actions;
     }
 
     private static JsonObject BuildEdge(

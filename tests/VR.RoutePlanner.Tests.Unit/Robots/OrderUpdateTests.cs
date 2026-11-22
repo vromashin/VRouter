@@ -61,7 +61,7 @@ public sealed class OrderUpdateTests
     }
 
     [Fact]
-    public void BuildUpdate_StartsAtLastReachedNodeAndGrowsVersion()
+    public void BuildUpdate_StartsAtBaseBoundaryAndGrowsVersion()
     {
         var plan = Plan(5);
 
@@ -74,16 +74,16 @@ public sealed class OrderUpdateTests
         Assert.Equal(42, root.GetProperty("headerId").GetInt64());
 
         var nodes = root.GetProperty("nodes");
-        Assert.Equal(4, nodes.GetArrayLength());
-        Assert.Equal("wa2", nodes[0].GetProperty("nodeId").GetString());
-        Assert.Equal(2, nodes[0].GetProperty("sequenceId").GetInt32());
+        Assert.Equal(3, nodes.GetArrayLength());
+        Assert.Equal("wa4", nodes[0].GetProperty("nodeId").GetString());
+        Assert.Equal(4, nodes[0].GetProperty("sequenceId").GetInt32());
         Assert.True(nodes[0].GetProperty("released").GetBoolean());
         Assert.True(nodes[1].GetProperty("released").GetBoolean());
         Assert.False(nodes[2].GetProperty("released").GetBoolean());
 
         var edges = root.GetProperty("edges");
-        Assert.Equal(3, edges.GetArrayLength());
-        Assert.Equal(3, edges[0].GetProperty("sequenceId").GetInt32());
+        Assert.Equal(2, edges.GetArrayLength());
+        Assert.Equal(5, edges[0].GetProperty("sequenceId").GetInt32());
         Assert.True(edges[0].GetProperty("released").GetBoolean());
         Assert.False(edges[1].GetProperty("released").GetBoolean());
     }
@@ -91,9 +91,9 @@ public sealed class OrderUpdateTests
     [Fact]
     public void BuildUpdate_NothingAfterReachedNode_IsNull()
     {
-        var plan = Plan(5);
+        var plan = Plan(3);
 
-        Assert.Null(VdaOrderUpdater.BuildUpdate(plan, 1, 2, 42, DateTimeOffset.UnixEpoch, "wa8", 8));
+        Assert.Null(VdaOrderUpdater.BuildUpdate(plan, 1, 2, 42, DateTimeOffset.UnixEpoch, "wa4", 4));
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public sealed class OrderUpdateTests
 
         Assert.Equal(1, updated!.OrderUpdateId);
         Assert.Equal(3, updated.ReleasedNodeCount);
-        Assert.StartsWith("wa2", updated.Nodes[0].NodeId, StringComparison.Ordinal);
+        Assert.StartsWith("wa4", updated.Nodes[0].NodeId, StringComparison.Ordinal);
         Assert.Equal(RobotOrderStatuses.Executing, updated.Status);
     }
 
