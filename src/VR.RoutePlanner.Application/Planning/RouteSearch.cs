@@ -84,6 +84,7 @@ internal sealed class RouteSearch
                     continue;
                 }
 
+                var isReversal = incoming is not null && incoming.Edge.Id == traversal.Edge.Id;
                 var turnDegrees = incoming is null
                     ? 0
                     : EdgeGeometry.TurnDegrees(
@@ -92,7 +93,17 @@ internal sealed class RouteSearch
                         traversal.Edge,
                         traversal.Direction);
 
-                if (incoming is not null
+                if (isReversal)
+                {
+                    // Разворот на том же ребре: геометрия дает ноль, потому что ребро одно и то же,
+                    // физически это разворот на 180 градусов, поэтому цена поворота максимальная.
+                    // Флаг RotationAllowed на таком маневре не проверяем: иначе тупики карты
+                    // становятся недостижимыми, а данные о разрешении поворота неполные.
+                    turnDegrees = EdgeGeometry.StraightAngleDegrees;
+                }
+
+                if (!isReversal
+                    && incoming is not null
                     && turnDegrees > EdgeGeometry.RightAngleDegrees
                     && (incoming.Edge.RotationAllowed == false || traversal.Edge.RotationAllowed == false))
                 {
