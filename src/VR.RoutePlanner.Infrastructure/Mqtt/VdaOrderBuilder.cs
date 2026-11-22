@@ -103,8 +103,9 @@ public static class VdaOrderBuilder
 
             orderEdges.Add(BuildEdge(edge, segment.Direction, sequence + 1, from, to, nextReleased, orientation));
 
+            var isLast = ReferenceEquals(segment, route.Segments[route.Segments.Count - 1]);
             double? stopX = null, stopY = null, stopTheta = null;
-            if (!string.IsNullOrWhiteSpace(terminalActionType))
+            if (isLast && !string.IsNullOrWhiteSpace(terminalActionType))
             {
                 // Узел должен остаться реальным узлом карты: смещать позицию нельзя,
                 // иначе робот не доедет. Смещение задается параметрами действия.
@@ -120,8 +121,8 @@ public static class VdaOrderBuilder
                 null,
                 null,
                 nextReleased,
-                terminalActionType,
-                terminalActionLoadId,
+                isLast ? terminalActionType : null,
+                isLast ? terminalActionLoadId : null,
                 stopX,
                 stopY,
                 stopTheta));
