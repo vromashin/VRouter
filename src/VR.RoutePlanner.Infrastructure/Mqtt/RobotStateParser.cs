@@ -84,7 +84,8 @@ public static class RobotStateParser
                 DateTimeOffset.UtcNow,
                 version,
                 ReadString(root, "lastNodeId"),
-                ReadNullableInt(root, "lastNodeSequenceId"));
+                ReadNullableInt(root, "lastNodeSequenceId"),
+            ReadBool(root, "newBaseRequest"));
 
             return true;
         }

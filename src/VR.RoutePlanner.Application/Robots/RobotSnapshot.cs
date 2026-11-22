@@ -43,4 +43,5 @@ public sealed record RobotSnapshot(
     DateTimeOffset ReceivedAt,
     string Version,
     string? LastNodeId = null,
-    int? LastNodeSequenceId = null);
+    int? LastNodeSequenceId = null,
+    bool NewBaseRequest = false);

@@ -378,7 +378,9 @@ public sealed class RobotOrderService
         }
 
         var reached = order.Nodes.Where(node => node.Reached).Select(node => node.NodeId).ToHashSet(StringComparer.Ordinal);
-        var remaining = snapshot.LastNodeSequenceId is { } lastSeq
+        // AGV выставляет newBaseRequest, когда его базовый план исчерпан: как в AGVControl,
+        // строим продолжение от последнего достигнутого узла, не дожидаясь счётчика узлов.
+        var remaining = snapshot.NewBaseRequest ? 0 : snapshot.LastNodeSequenceId is { } lastSeq
             ? VdaOrderUpdater.CountUnreachedReleasedAfterSequence(order.PlanJson, lastSeq)
             : VdaOrderUpdater.CountUnreachedReleased(order.PlanJson, reached);
 
