@@ -166,10 +166,7 @@ public sealed class RobotOrderService
             serialNumber,
             number,
             _headers.Next(),
-            now,
-            snapshot?.PositionX,
-            snapshot?.PositionY,
-            snapshot?.Theta);
+            now);
 
         await _publisher
             .PublishAsync(options.Order.Manufacturer, serialNumber, orderJson, ct)
