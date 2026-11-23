@@ -20,7 +20,7 @@ public static class VdaOrderBuilder
     public const double FirstNodeDeviationTheta = 3.14;
 
     /// <summary>Допуск по координатам остальных узлов, метры.</summary>
-    public const double NodeDeviationXy = 0.1;
+    public const double NodeDeviationXy = 0.3;
 
     /// <summary>Допуск по ориентации остальных узлов, радианы.</summary>
     public const double NodeDeviationTheta = 0.1;

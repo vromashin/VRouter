@@ -64,7 +64,7 @@ public sealed class VdaOrderBuilderTests
         Assert.Equal(0.3, first["allowedDeviationXY"]!.GetValue<double>(), 9);
         Assert.Equal(3.14, first["allowedDeviationTheta"]!.GetValue<double>(), 9);
         // Как AGVControl: у первого узла theta не задается, курс сохраняется.
-        Assert.Equal(0.1, second["allowedDeviationXY"]!.GetValue<double>(), 9);
+        Assert.Equal(0.3, second["allowedDeviationXY"]!.GetValue<double>(), 9);
         Assert.Equal(0.1, second["allowedDeviationTheta"]!.GetValue<double>(), 9);
         Assert.Null(second["theta"]);
         Assert.Equal("801", first["mapId"]!.GetValue<string>());
