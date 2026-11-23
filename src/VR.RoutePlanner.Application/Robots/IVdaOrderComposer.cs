@@ -79,7 +79,7 @@ public static class VdaInstantActionPayload
             writer.WriteStartObject();
             writer.WriteString("actionType", actionType);
             writer.WriteString("actionId", actionId);
-            writer.WriteString("blockingType", "SOFT");
+            writer.WriteString("blockingType", parameters is { Count: > 0 } ? "SOFT" : "HARD");
             if (parameters is { Count: > 0 })
             {
                 writer.WriteStartArray("actionParameters");
