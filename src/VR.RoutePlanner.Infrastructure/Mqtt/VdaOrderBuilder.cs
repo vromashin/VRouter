@@ -260,14 +260,18 @@ public static class VdaOrderBuilder
             return actions;
         }
 
-        // Параметры как в AGVControl: паллета впереди робота по оси X на длину корпуса,
+        var direction = containerTheta ?? 0.0;
+        var containerPosX = containerX + (Math.Cos(direction) * ContainerOffsetMeters);
+        var containerPosY = containerY + (Math.Sin(direction) * ContainerOffsetMeters);
+
+        // Параметры как в AGVControl: паллета впереди робота по направлению на стеллаж,
         // тип контейнера 2, авто-возврат в узел и подстройка без препятствий.
         var parameters = new JsonArray
         {
             new JsonObject { ["key"] = "containerTypeId", ["value"] = 2 },
-            new JsonObject { ["key"] = "containerX", ["value"] = containerX + ContainerOffsetMeters },
-            new JsonObject { ["key"] = "containerY", ["value"] = containerY },
-            new JsonObject { ["key"] = "containerTheta", ["value"] = 0.0 },
+            new JsonObject { ["key"] = "containerX", ["value"] = containerPosX },
+            new JsonObject { ["key"] = "containerY", ["value"] = containerPosY },
+            new JsonObject { ["key"] = "containerTheta", ["value"] = direction },
             new JsonObject { ["key"] = "onlyFork", ["value"] = true },
             new JsonObject { ["key"] = "autoReturnNode", ["value"] = true },
             new JsonObject { ["key"] = "noScan", ["value"] = false },
