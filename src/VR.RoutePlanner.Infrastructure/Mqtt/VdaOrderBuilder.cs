@@ -123,9 +123,8 @@ public static class VdaOrderBuilder
             double? stopX = null, stopY = null, stopTheta = null;
             if (isLast && !string.IsNullOrWhiteSpace(terminalActionType))
             {
-                // Узел должен остаться реальным узлом карты: смещать позицию нельзя,
-                // иначе робот не доедет. Смещение задается параметрами действия.
-                stopTheta = Math.Atan2(to.Y - from.Y, to.X - from.X);
+                // Курс робота на рабочем узле — на стеллаж (из параметров действия), а не по ходу ребра.
+                stopTheta = containerTheta ?? Math.Atan2(to.Y - from.Y, to.X - from.X);
             }
 
             nodes.Add(BuildNode(
@@ -272,16 +271,13 @@ public static class VdaOrderBuilder
         }
 
         var direction = containerTheta ?? 0.0;
-        var containerPosX = containerX + (Math.Cos(direction) * ContainerOffsetMeters);
-        var containerPosY = containerY + (Math.Sin(direction) * ContainerOffsetMeters);
 
-        // Параметры как в AGVControl: паллета впереди робота по направлению на стеллаж,
-        // тип контейнера 2, авто-возврат в узел и подстройка без препятствий.
+        // Параметры как в AGVControl: паллета в координатах узла слота, курс — на стеллаж.
         var parameters = new JsonArray
         {
             new JsonObject { ["key"] = "containerTypeId", ["value"] = 2 },
-            new JsonObject { ["key"] = "containerX", ["value"] = containerPosX },
-            new JsonObject { ["key"] = "containerY", ["value"] = containerPosY },
+            new JsonObject { ["key"] = "containerX", ["value"] = containerX },
+            new JsonObject { ["key"] = "containerY", ["value"] = containerY },
             new JsonObject { ["key"] = "containerTheta", ["value"] = direction },
             new JsonObject { ["key"] = "onlyFork", ["value"] = true },
             new JsonObject { ["key"] = "autoReturnNode", ["value"] = true },
