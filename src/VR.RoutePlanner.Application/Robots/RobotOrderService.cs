@@ -6,6 +6,7 @@ using VR.RoutePlanner.Application.Configuration;
 using VR.RoutePlanner.Application.Graph;
 using VR.RoutePlanner.Application.Planning;
 using VR.RoutePlanner.Domain.Planning;
+using VR.RoutePlanner.Domain.Graph;
 using VR.RoutePlanner.Domain.Robots;
 
 namespace VR.RoutePlanner.Application.Robots;
@@ -196,6 +197,10 @@ public sealed class RobotOrderService
         {
             throw new OrderRejectedException(RoutePlanReason.MapNotFound, $"Карта '{mapId}' не найдена.");
         }
+
+        // Симулятор накапливает расхождение позы с узлом: VDA-действие initPosition возвращает
+        // робота в координаты узла lastNodeId, иначе он «едет», но не доходит до узла.
+        snapshot = await CorrectPoseAsync(serialNumber, snapshot, graph, ct).ConfigureAwait(false);
 
         var from = RobotStartNodeResolver.Resolve(graph, snapshot);
         var to = graph.Nodes.Values.FirstOrDefault(node => node.NodeId == targetNodeId);
@@ -545,6 +550,67 @@ public sealed class RobotOrderService
     {
         var active = await _orders.GetActiveAsync(ct).ConfigureAwait(false);
         return active.Any(order => string.Equals(order.AgvSerialNumber, serialNumber, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Выравнивает позу робота по узлу lastNodeId, если симулятор накопил расхождение.
+    /// </summary>
+    /// <param name="serialNumber">Серийный номер робота.</param>
+    /// <param name="snapshot">Текущее состояние робота.</param>
+    /// <param name="graph">Граф карты.</param>
+    /// <param name="ct">Отмена.</param>
+    /// <returns>Обновленное состояние.</returns>
+    private async Task<RobotSnapshot?> CorrectPoseAsync(
+        string serialNumber,
+        RobotSnapshot? snapshot,
+        WarehouseGraph graph,
+        CancellationToken ct)
+    {
+        if (snapshot is null || string.IsNullOrWhiteSpace(snapshot.LastNodeId))
+        {
+            return snapshot;
+        }
+
+        var node = graph.Nodes.Values
+            .FirstOrDefault(item => string.Equals(item.NodeId, snapshot.LastNodeId, StringComparison.Ordinal));
+        if (node is null)
+        {
+            return snapshot;
+        }
+
+        var distance = Math.Sqrt(
+            Math.Pow(node.X - snapshot.PositionX, 2) + Math.Pow(node.Y - snapshot.PositionY, 2));
+        if (distance <= 0.3)
+        {
+            return snapshot;
+        }
+
+        var parameters = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["x"] = node.X,
+            ["y"] = node.Y,
+            ["theta"] = snapshot.Theta,
+            ["mapId"] = snapshot.MapId ?? string.Empty,
+        };
+
+        var payload = VdaInstantActionPayload.Build(
+            "initPosition",
+            Guid.NewGuid().ToString("N"),
+            _time.GetUtcNow(),
+            parameters);
+
+        await _publisher
+            .PublishInstantActionAsync(_options.Value.Order.Manufacturer, serialNumber, payload, ct)
+            .ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Робот {Serial} выровнен по узлу {Node}: расхождение {Distance:F2} м",
+            serialNumber,
+            node.NodeId,
+            distance);
+
+        await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
+        return await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? snapshot;
     }
 
     /// <summary>
