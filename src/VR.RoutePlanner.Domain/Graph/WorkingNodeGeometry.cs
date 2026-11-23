@@ -54,27 +54,27 @@ public static class WorkingNodeGeometry
     }
 
     /// <summary>
-    /// Точка перед узлом по направлению курса.
+    /// Точка остановки перед узлом: смещение от узла против направления курса.
     /// </summary>
     /// <param name="node">Узел карты.</param>
     /// <param name="theta">Курс робота на узле, радианы.</param>
-    /// <returns>Координаты точки остановки «передом».</returns>
+    /// <returns>Координаты точки остановки «передом»: <c>N - 1.475*(cos, sin)</c>.</returns>
     public static (double X, double Y) Front(WarehouseNode node, double theta)
     {
         ArgumentNullException.ThrowIfNull(node);
-        return (node.X + (WrkLength * Math.Cos(theta)), node.Y + (WrkLength * Math.Sin(theta)));
+        return (node.X - (WrkLength * Math.Cos(theta)), node.Y - (WrkLength * Math.Sin(theta)));
     }
 
     /// <summary>
-    /// Точка за узлом по направлению курса (робот подъезжает кормой).
+    /// Точка остановки за узлом: смещение от узла по направлению курса (робот подъезжает кормой).
     /// </summary>
     /// <param name="node">Узел карты.</param>
     /// <param name="theta">Курс робота на узле, радианы.</param>
-    /// <returns>Координаты точки остановки «задом».</returns>
+    /// <returns>Координаты точки остановки «задом»: <c>N + 1.475*(cos, sin)</c>.</returns>
     public static (double X, double Y) Rear(WarehouseNode node, double theta)
     {
         ArgumentNullException.ThrowIfNull(node);
-        return (node.X - (WrkLength * Math.Cos(theta)), node.Y - (WrkLength * Math.Sin(theta)));
+        return (node.X + (WrkLength * Math.Cos(theta)), node.Y + (WrkLength * Math.Sin(theta)));
     }
 
     /// <summary>

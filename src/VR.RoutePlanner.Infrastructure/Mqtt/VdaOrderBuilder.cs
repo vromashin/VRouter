@@ -11,6 +11,10 @@ namespace VR.RoutePlanner.Infrastructure.Mqtt;
 /// Нумерация сквозная по полному маршруту: узел четный (<c>2i</c>), ребро нечетное
 /// (<c>2i + 1</c>), ребро всегда равно узлу плюс один. Кусок сообщения меняет только состав
 /// узлов и ребер, но не их номера, поэтому обновление продолжает нумерацию исходного плана.
+///
+/// Исключение — виртуальный старт обновления (робот стоит не в первом узле маршрута):
+/// перед планом появляется виртуальный узел <c>sequenceId = 0</c> и виртуальное ребро с
+/// <c>sequenceId = 1</c>, остальные номера сдвигаются на два.
 /// </summary>
 public static class VdaOrderBuilder
 {
@@ -28,6 +32,9 @@ public static class VdaOrderBuilder
 
     /// <summary>Допуск по курсу у остальных узлов, радианы.</summary>
     public const double NodeDeviationTheta = 0.1;
+
+    /// <summary>Допуск «робот стоит в первом узле маршрута», метры.</summary>
+    public const double VirtualStartDeviationXy = 0.1;
 
     private const string OrientationTypeTangential = "TANGENTIAL";
 
@@ -128,8 +135,7 @@ public static class VdaOrderBuilder
     {
         var lookup = EdgeLookup(request.Graph);
         var nodes = new List<WarehouseNode>();
-        var edges = new List<WarehouseEdge>();
-        var directions = new List<RouteEdgeDirection>();
+        var edges = new List<PlanEdge>();
 
         foreach (var segment in request.Route.Segments)
         {
@@ -160,8 +166,7 @@ public static class VdaOrderBuilder
             }
 
             nodes.Add(to);
-            edges.Add(edge);
-            directions.Add(segment.Direction);
+            edges.Add(new PlanEdge(edge, segment.Direction));
         }
 
         if (nodes.Count == 0)
@@ -169,11 +174,59 @@ public static class VdaOrderBuilder
             throw new InvalidOperationException("Маршрут пуст: собирать заказ не из чего.");
         }
 
-        return new PlanChain(nodes, edges, directions);
+        var plan = new PlanChain(nodes, edges, VirtualStart: false);
+        return NeedsVirtualStart(request, plan) ? PrependVirtualStart(plan) : plan;
+    }
+
+    /// <summary>
+    /// Нужен ли виртуальный старт: обновление заказа начинается не в том узле, где стоит робот.
+    ///
+    /// Как в AGVControl (<c>MakeNodesAndEdgesForOrderAsync</c>, <c>addVirualEdge</c>): виртуальное
+    /// ребро добавляется только к обновлению (<c>orderUpdateId &gt; 0</c>) и только в начало
+    /// сообщения. В первом сообщении заказа позу робота получает сам первый узел (допуски 0.3/3.14),
+    /// поэтому виртуальное ребро там не нужно и нумерация плана не сдвигается.
+    /// </summary>
+    private static bool NeedsVirtualStart(VdaOrderRequest request, PlanChain plan)
+    {
+        if (request.OrderUpdateId <= 0 || request.SliceStartIndex > 0)
+        {
+            return false;
+        }
+
+        if (request.RobotX is not { } robotX || request.RobotY is not { } robotY)
+        {
+            return false;
+        }
+
+        var first = plan.Nodes[0];
+        var distance = Math.Sqrt(Math.Pow(first.X - robotX, 2) + Math.Pow(first.Y - robotY, 2));
+        return distance > VirtualStartDeviationXy;
+    }
+
+    /// <summary>
+    /// Ставит перед планом виртуальный узел с текущей позой робота и виртуальное ребро
+    /// <c>VIRTUAL_START_&lt;nodeId&gt;</c> к первому узлу маршрута. Номера сдвигаются на два:
+    /// виртуальный узел получает <c>sequenceId = 0</c>, виртуальное ребро — <c>1</c>,
+    /// первый узел маршрута становится <c>2</c>.
+    /// </summary>
+    private static PlanChain PrependVirtualStart(PlanChain plan)
+    {
+        var nodes = new List<WarehouseNode>(plan.Nodes.Count + 1) { plan.Nodes[0] };
+        nodes.AddRange(plan.Nodes);
+
+        var edges = new List<PlanEdge>(plan.Edges.Count + 1) { new(null, RouteEdgeDirection.Forward) };
+        edges.AddRange(plan.Edges);
+
+        return new PlanChain(nodes, edges, VirtualStart: true);
     }
 
     private static JsonObject BuildNode(VdaOrderRequest request, PlanChain plan, int index, bool first)
     {
+        if (plan.VirtualStart && index == 0)
+        {
+            return BuildVirtualStartNode(request, plan);
+        }
+
         var node = plan.Nodes[index];
         var isWorking = WorkingNodeGeometry.IsWorking(node);
         WorkingNodeStop stop = default;
@@ -275,14 +328,21 @@ public static class VdaOrderBuilder
 
     private static JsonObject BuildEdge(VdaOrderRequest request, PlanChain plan, int index, bool first)
     {
-        var edge = plan.Edges[index];
+        var link = plan.Edges[index];
         var from = plan.Nodes[index];
         var to = plan.Nodes[index + 1];
+
+        if (link.Edge is null)
+        {
+            return BuildVirtualStartEdge(plan, index);
+        }
+
+        var edge = link.Edge;
 
         // Как в AGVControl: курс задается только у первого ребра сообщения. Если первый
         // перегон идет против хранения ребра, робот едет задним ходом (orientation = PI).
         // У остальных ребер orientation = 0 независимо от направления.
-        var orientation = first && plan.Directions[index] == RouteEdgeDirection.Backward
+        var orientation = first && link.Direction == RouteEdgeDirection.Backward
             ? Math.PI
             : 0;
 
@@ -305,10 +365,64 @@ public static class VdaOrderBuilder
         }
 
         result["released"] = true;
-        result["trajectory"] = BuildTrajectory(edge.TrajectoryPoints, plan.Directions[index]);
+        result["trajectory"] = BuildTrajectory(edge.TrajectoryPoints, link.Direction);
         result["actions"] = new JsonArray();
         return result;
     }
+
+    /// <summary>
+    /// Виртуальный узел старта: текущая поза робота перед первым узлом маршрута.
+    /// </summary>
+    private static JsonObject BuildVirtualStartNode(VdaOrderRequest request, PlanChain plan)
+    {
+        var target = plan.Nodes[1];
+        var position = new JsonObject
+        {
+            ["x"] = request.RobotX ?? target.X,
+            ["y"] = request.RobotY ?? target.Y,
+            ["theta"] = request.RobotTheta ?? target.Theta,
+            ["allowedDeviationXY"] = Math.Max(target.AllowedDeviationXY ?? 0, NodeDeviationXy),
+            ["allowedDeviationTheta"] = Math.Max(target.AllowedDeviationTheta ?? 0, NodeDeviationTheta),
+            ["mapId"] = request.MapId,
+        };
+
+        return new JsonObject
+        {
+            ["nodeId"] = VirtualStartId(target),
+            ["sequenceId"] = 0,
+            ["released"] = true,
+            ["nodePosition"] = position,
+            ["nodeDescription"] = "{}",
+            ["actions"] = new JsonArray(),
+        };
+    }
+
+    /// <summary>
+    /// Виртуальное стартовое ребро от позы робота к первому узлу маршрута.
+    /// Как <c>CreateVirtualEdge</c> в AGVControl: курса нет, поворот запрещен,
+    /// скорость и траектория не задаются — робот проходит этот отрезок сам.
+    /// </summary>
+    private static JsonObject BuildVirtualStartEdge(PlanChain plan, int index)
+    {
+        var target = plan.Nodes[index + 1];
+
+        return new JsonObject
+        {
+            ["edgeId"] = VirtualStartId(target),
+            ["sequenceId"] = (index * 2) + 1,
+            ["startNodeId"] = plan.VirtualStart && index == 0
+                ? VirtualStartId(target)
+                : plan.Nodes[index].NodeId,
+            ["endNodeId"] = target.NodeId,
+            ["orientation"] = null,
+            ["orientationType"] = null,
+            ["rotationAllowed"] = false,
+            ["released"] = true,
+            ["actions"] = new JsonArray(),
+        };
+    }
+
+    private static string VirtualStartId(WarehouseNode node) => VirtualEdgePrefix + node.NodeId;
 
     private static JsonObject BuildForkAction(
         WarehouseNode node,
@@ -368,9 +482,17 @@ public static class VdaOrderBuilder
         return result;
     }
 
-    /// <summary>Полный план маршрута: узлы, ребра и направление проезда каждого ребра.</summary>
+    /// <summary>Ребро плана: ребро графа и направление проезда; <c>Edge = null</c> — виртуальный старт.</summary>
+    private sealed record PlanEdge(WarehouseEdge? Edge, RouteEdgeDirection Direction);
+
+    /// <summary>
+    /// Полный план маршрута: узлы, ребра и направление проезда каждого ребра.
+    /// При <c>VirtualStart = true</c> план начинается виртуальным узлом робота
+    /// (<c>Nodes[0]</c> — заглушка, виртуальный узел собирается из <c>Nodes[1]</c>),
+    /// а <c>Edges[0]</c> — виртуальное стартовое ребро без ребра графа.
+    /// </summary>
     private sealed record PlanChain(
         List<WarehouseNode> Nodes,
-        List<WarehouseEdge> Edges,
-        List<RouteEdgeDirection> Directions);
+        List<PlanEdge> Edges,
+        bool VirtualStart);
 }
