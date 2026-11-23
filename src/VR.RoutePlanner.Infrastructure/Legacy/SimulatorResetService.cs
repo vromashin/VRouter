@@ -25,27 +25,43 @@ public sealed class SimulatorResetService(
             return;
         }
 
+        var backup = configuration["Legacy:SimulatorStateBackup"];
+        var stateFile = configuration["Legacy:SimulatorStateFile"];
+        if (!string.IsNullOrWhiteSpace(backup) && !string.IsNullOrWhiteSpace(stateFile))
+        {
+            // Возвращаем выровненное состояние: симулятор сохраняет дрейф в этом файле.
+            await RunAsync($"-n cp {backup} {stateFile}", ct).ConfigureAwait(false);
+            await RunAsync($"-n chown root:root {stateFile}", ct).ConfigureAwait(false);
+        }
+
+        await RunAsync($"-n systemctl restart {_unit}", ct).ConfigureAwait(false);
+        await Task.Delay(TimeSpan.FromSeconds(25), ct).ConfigureAwait(false);
+    }
+
+    private async Task RunAsync(string arguments, CancellationToken ct)
+    {
         using var process = Process.Start(new ProcessStartInfo
         {
             FileName = "sudo",
-            Arguments = $"-n systemctl restart {_unit}",
+            Arguments = arguments,
             RedirectStandardError = true,
             RedirectStandardOutput = true,
             UseShellExecute = false,
         });
 
-        if (process is not null)
+        if (process is null)
         {
-            await process.WaitForExitAsync(ct).ConfigureAwait(false);
-            if (process.ExitCode != 0)
-            {
-                logger.LogWarning(
-                    "Не удалось перезапустить {Unit}: {Error}",
-                    _unit,
-                    await process.StandardError.ReadToEndAsync(ct).ConfigureAwait(false));
-            }
+            return;
         }
 
-        await Task.Delay(TimeSpan.FromSeconds(25), ct).ConfigureAwait(false);
+        await process.WaitForExitAsync(ct).ConfigureAwait(false);
+        if (process.ExitCode != 0)
+        {
+            logger.LogWarning(
+                "Команда sudo {Arguments} завершилась с кодом {Code}: {Error}",
+                arguments,
+                process.ExitCode,
+                await process.StandardError.ReadToEndAsync(ct).ConfigureAwait(false));
+        }
     }
 }
