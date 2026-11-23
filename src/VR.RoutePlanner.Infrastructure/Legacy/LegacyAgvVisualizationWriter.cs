@@ -45,6 +45,13 @@ public sealed class LegacyAgvVisualizationWriter : ILegacyAgvVisualizationWriter
             return;
         }
 
+        // Отбрасываем устаревшие снимки: позиция должна идти только вперед по времени,
+        // иначе на карте появляются скачки между источниками.
+        if (visualization.ReceivedAt.UtcDateTime < row.LastUpdateTime)
+        {
+            return;
+        }
+
         row.PositionX = visualization.PositionX;
         row.PositionY = visualization.PositionY;
         row.Theta = visualization.Theta;

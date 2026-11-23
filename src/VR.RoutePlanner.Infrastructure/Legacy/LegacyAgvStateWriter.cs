@@ -4,6 +4,10 @@ using VR.RoutePlanner.Application.Robots;
 
 namespace VR.RoutePlanner.Infrastructure.Legacy;
 
+/// <summary>
+/// Пишет в <c>public."Agvs"</c> только то, что относится к заказу и узлу: позицию и телеметрию
+/// пишет <see cref="LegacyAgvVisualizationWriter"/>, чтобы карта не получала скачков от двух источников.
+/// </summary>
 public sealed class LegacyAgvStateWriter(
     IDbContextFactory<LegacyReadDbContext> contextFactory,
     ILogger<LegacyAgvStateWriter> logger) : ILegacyAgvStateWriter
@@ -23,18 +27,10 @@ public sealed class LegacyAgvStateWriter(
             return;
         }
 
-        row.PositionX = snapshot.PositionX;
-        row.PositionY = snapshot.PositionY;
-        row.Theta = snapshot.Theta;
-        row.Driving = snapshot.Driving;
-        row.BatteryCharge = snapshot.BatteryCharge;
-        row.ConnectionState = snapshot.ConnectionState;
-        row.CurrentState = snapshot.Driving ? "WORKING" : "IDLE";
-        row.LastNodeId = snapshot.LastNodeId;
+        // Позицию, курс, батарею и LastUpdateTime пишет только писатель visualization.
+        row.LastNodeId = snapshot.LastNodeId ?? row.LastNodeId;
         row.CurrentOrderId = orderId;
-        row.LastUpdateTime = snapshot.ReceivedAt.UtcDateTime;
-        row.UpdatedDate = DateTime.UtcNow;
-        if (!string.IsNullOrWhiteSpace(snapshot.MapId))
+        if (string.IsNullOrWhiteSpace(row.MapId) && !string.IsNullOrWhiteSpace(snapshot.MapId))
         {
             row.MapId = snapshot.MapId;
         }
