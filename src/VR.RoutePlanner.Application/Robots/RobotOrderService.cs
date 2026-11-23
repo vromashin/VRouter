@@ -610,7 +610,22 @@ public sealed class RobotOrderService
             distance);
 
         await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
-        return await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? snapshot;
+        var refreshed = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? snapshot;
+
+        var stillFar = Math.Sqrt(
+            Math.Pow(node.X - refreshed.PositionX, 2) + Math.Pow(node.Y - refreshed.PositionY, 2)) > 0.3;
+        if (stillFar && _simulatorReset is { Enabled: true })
+        {
+            // Симулятор игнорирует initPosition, пока занят: перезапускаем его с выровненным состоянием.
+            _logger.LogWarning(
+                "initPosition не применился (робот {Serial} на {Node}), перезапускаем симулятор",
+                serialNumber,
+                node.NodeId);
+            await _simulatorReset.ResetAsync(ct).ConfigureAwait(false);
+            refreshed = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? refreshed;
+        }
+
+        return refreshed;
     }
 
     /// <summary>
