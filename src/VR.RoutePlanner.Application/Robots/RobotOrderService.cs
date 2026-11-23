@@ -138,6 +138,36 @@ public sealed class RobotOrderService
 
         var snapshot = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false);
 
+        // Симулятор и робот держат orderId прошлого заказа: пока он не очищен, новый заказ
+        // получает NO_ACCEPT. Как в AGVControl, сначала снимаем прежний заказ и ждём очистки.
+        if (!string.IsNullOrWhiteSpace(snapshot?.OrderId))
+        {
+            var cancelPayload = VdaInstantActionPayload.Build(
+                "cancelOrder",
+                Guid.NewGuid().ToString("N"),
+                _time.GetUtcNow());
+            await _publisher
+                .PublishInstantActionAsync(options.Order.Manufacturer, serialNumber, cancelPayload, ct)
+                .ConfigureAwait(false);
+
+            var cleanupDeadline = _time.GetUtcNow().AddSeconds(60);
+            while (_time.GetUtcNow() < cleanupDeadline && !ct.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
+                snapshot = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(snapshot?.OrderId))
+                {
+                    break;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(snapshot?.OrderId))
+            {
+                throw new OrderRejectedException(
+                    RoutePlanReason.ResourceMissing,
+                    $"Робот удерживает заказ {snapshot!.OrderId}, очистка не удалась.");
+            }
+        }
         var graph = await _graphs.LoadAsync(mapId, ct).ConfigureAwait(false);
         if (graph is null)
         {
