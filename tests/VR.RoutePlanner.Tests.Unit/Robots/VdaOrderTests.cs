@@ -63,7 +63,7 @@ public sealed class VdaOrderBuilderTests
 
         Assert.Equal(0.3, first["allowedDeviationXY"]!.GetValue<double>(), 9);
         Assert.Equal(3.14, first["allowedDeviationTheta"]!.GetValue<double>(), 9);
-        Assert.NotNull(first["theta"]);
+        // Как AGVControl: у первого узла theta не задается, курс сохраняется.
         Assert.Equal(0.1, second["allowedDeviationXY"]!.GetValue<double>(), 9);
         Assert.Equal(0.1, second["allowedDeviationTheta"]!.GetValue<double>(), 9);
         Assert.Null(second["theta"]);
@@ -162,6 +162,13 @@ public sealed class VdaOrderBuilderTests
         {
             Assert.True(actual is JsonObject, $"{path}: ожидался объект");
             var actualObject = actual.AsObject();
+
+            // Поле theta необязательно: старый AGVControl не задает курс у части узлов.
+            if (actualObject["theta"] is null)
+            {
+                sampleObject.Remove("theta");
+            }
+
             Assert.Equal(
                 sampleObject.Select(pair => pair.Key).OrderBy(key => key, StringComparer.Ordinal),
                 actualObject.Select(pair => pair.Key).OrderBy(key => key, StringComparer.Ordinal));

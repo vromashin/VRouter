@@ -230,13 +230,9 @@ public static class VdaOrderBuilder
             ["y"] = first ? firstY ?? node.Y : stopY ?? node.Y,
         };
 
-        if (first)
+        // Как AGVControl: у первого узла theta не задаём, робот сохраняет свой курс.
+        if (!first && stopTheta is not null)
         {
-            position["theta"] = firstTheta ?? node.Theta;
-        }
-        else if (false)
-        {
-            // Рабочий узел: робот встает перед ним и смотрит на стеллаж.
             position["theta"] = stopTheta.Value;
         }
 
