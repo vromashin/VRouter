@@ -160,13 +160,31 @@ public sealed class RobotOrderServiceTests
     internal static (RobotOrderService Service, FakeOrderRepository Orders, TestTimeProvider Time, FakeStateReader States) Create(
         int nodes = 3,
         int releasedNodes = 3,
-        bool firstNodeTheta = false)
+        bool firstNodeTheta = false,
+        Application.Traffic.ITrafficCoordinator? traffic = null)
+    {
+        var created = CreateWithTraffic(nodes, releasedNodes, firstNodeTheta, traffic);
+        return (created.Service, created.Orders, created.Time, created.States);
+    }
+
+    internal static (
+        RobotOrderService Service,
+        FakeOrderRepository Orders,
+        TestTimeProvider Time,
+        FakeStateReader States,
+        FakeTrafficCoordinator Traffic) CreateWithTraffic(
+        int nodes = 3,
+        int releasedNodes = 3,
+        bool firstNodeTheta = false,
+        Application.Traffic.ITrafficCoordinator? traffic = null,
+        OrderOptions? order = null)
     {
         var orders = new FakeOrderRepository();
         var states = new FakeStateReader();
         var time = new TestTimeProvider(new DateTimeOffset(2026, 11, 21, 12, 0, 0, TimeSpan.Zero));
+        var trafficFake = new FakeTrafficCoordinator();
         var options = Planning.PlanningFixtures.Options();
-        options.Order = new OrderOptions { ReleasedNodes = releasedNodes, FirstNodeTheta = firstNodeTheta };
+        options.Order = order ?? new OrderOptions { ReleasedNodes = releasedNodes, FirstNodeTheta = firstNodeTheta };
         var service = new RobotOrderService(
             new FakePlanner(nodes),
             new FakeComposer(),
@@ -178,9 +196,10 @@ public sealed class RobotOrderServiceTests
             states,
             new FixedOptions<RoutePlannerOptions>(options),
             time,
-            NullLogger<RobotOrderService>.Instance);
+            NullLogger<RobotOrderService>.Instance,
+            traffic ?? trafficFake);
 
-        return (service, orders, time, states);
+        return (service, orders, time, states, trafficFake);
     }
 
     private static VR.RoutePlanner.Domain.Graph.WarehouseGraph Graph()
@@ -190,6 +209,385 @@ public sealed class RobotOrderServiceTests
             .ToList();
 
         return Planning.PlanningFixtures.Graph(nodes, []);
+    }
+}
+
+/// <summary>
+/// Автомат статусов по таблице §3.1 спеки шага 3: переходы 1–16, АС-8, АС-9, АС-10,
+/// сериализация сообщений одного робота и связь с трафиком.
+/// </summary>
+public sealed class RobotOrderStateMachineTests
+{
+    [Fact]
+    public async Task Row1_Sent_ConfirmingState_BecomesAccepted()
+    {
+        var (service, orders, time, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order();
+        orders.Orders[order.OrderId] = order;
+
+        var accepted = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(order.OrderId, orderUpdateId: 0),
+            CancellationToken.None);
+
+        Assert.Equal(RobotOrderStatuses.Accepted, accepted!.Status);
+        Assert.Equal(time.Now, accepted.AcceptedAt);
+    }
+
+    [Fact]
+    public async Task Row2_Sent_BlockingErrorBeforeMove_Rejected()
+    {
+        var (service, orders, _, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order();
+        orders.Orders[order.OrderId] = order;
+
+        var rejected = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(order.OrderId, errors: ["E|нет связи"]),
+            CancellationToken.None);
+
+        Assert.Equal(RobotOrderStatuses.Rejected, rejected!.Status);
+        Assert.Equal(RobotOrderService.ReasonRobotError, rejected.FailureReason);
+    }
+
+    [Fact]
+    public async Task Row3_Sent_BlockingErrorAfterMove_Failed()
+    {
+        var (service, orders, _, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order();
+        orders.Orders[order.OrderId] = order;
+
+        var failed = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(order.OrderId, errors: ["E|нет связи"], lastNodeId: "wa2"),
+            CancellationToken.None);
+
+        Assert.Equal(RobotOrderStatuses.Failed, failed!.Status);
+        Assert.Equal(RobotOrderService.ReasonRobotError, failed.FailureReason);
+    }
+
+    [Fact]
+    public async Task Row4_Accepted_DrivingOrReachedNode_BecomesExecuting()
+    {
+        var (service, orders, _, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Accepted);
+        orders.Orders[order.OrderId] = order;
+
+        var driving = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(order.OrderId, driving: true),
+            CancellationToken.None);
+        Assert.Equal(RobotOrderStatuses.Executing, driving!.Status);
+
+        var (second, secondOrders, _, _) = RobotOrderServiceTests.Create();
+        secondOrders.Orders[order.OrderId] = order;
+        var reached = await second.ApplyStateAsync(
+            OrderTestData.Snapshot(order.OrderId, lastNodeId: "wa2"),
+            CancellationToken.None);
+        Assert.Equal(RobotOrderStatuses.Executing, reached!.Status);
+    }
+
+    [Fact]
+    public async Task Row5_Executing_BlockingError_Failed()
+    {
+        var (service, orders, _, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Executing);
+        orders.Orders[order.OrderId] = order;
+
+        var failed = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(order.OrderId, errors: ["FATAL|авария"]),
+            CancellationToken.None);
+
+        Assert.Equal(RobotOrderStatuses.Failed, failed!.Status);
+        Assert.Equal(RobotOrderService.ReasonRobotError, failed.FailureReason);
+    }
+
+    [Fact]
+    public async Task Row6_Executing_OnLastPlanNodeOrTarget_Completed()
+    {
+        var (service, orders, time, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Executing, targetNodeId: "wa999");
+        orders.Orders[order.OrderId] = order;
+
+        // lastNodeId совпадает с последним узлом плана, но не с TargetNodeId.
+        var completed = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(order.OrderId, lastNodeId: "wa4"),
+            CancellationToken.None);
+
+        Assert.Equal(RobotOrderStatuses.Completed, completed!.Status);
+        Assert.Equal(time.Now, completed.CompletedAt);
+        Assert.All(completed.Nodes, node => Assert.True(node.Reached));
+    }
+
+    [Fact]
+    public async Task Row6_Executing_RunningAction_DoesNotComplete()
+    {
+        var (service, orders, _, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Executing);
+        orders.Orders[order.OrderId] = order;
+
+        var state = OrderTestData.Snapshot(order.OrderId, lastNodeId: "wa4") with
+        {
+            ActionStates = [new RobotActionState("act-1", "pick", "RUNNING")],
+        };
+
+        var stillExecuting = await service.ApplyStateAsync(state, CancellationToken.None);
+
+        Assert.Equal(RobotOrderStatuses.Executing, stillExecuting!.Status);
+    }
+
+    [Fact]
+    public async Task Row7_EmptyOrderId_AtTarget_ClosesOrder()
+    {
+        var (service, orders, time, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Executing);
+        orders.Orders[order.OrderId] = order;
+
+        var completed = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(null, lastNodeId: "wa4", receivedAt: time.Now),
+            CancellationToken.None);
+
+        Assert.Equal(RobotOrderStatuses.Completed, completed!.Status);
+        Assert.Equal(RobotOrderStatuses.Completed, orders.Orders[order.OrderId].Status);
+        Assert.Equal(time.Now, completed.CompletedAt);
+    }
+
+    [Fact]
+    public async Task Row7_EmptyOrderId_NotAtTarget_KeepsOrder()
+    {
+        var (service, orders, time, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Executing);
+        orders.Orders[order.OrderId] = order;
+
+        var result = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(null, lastNodeId: "wa2", receivedAt: time.Now),
+            CancellationToken.None);
+
+        Assert.Null(result);
+        Assert.Equal(RobotOrderStatuses.Executing, orders.Orders[order.OrderId].Status);
+    }
+
+    [Fact]
+    public async Task Row8_CancelOrderFinished_Cancelled()
+    {
+        var (service, orders, _, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Executing);
+        orders.Orders[order.OrderId] = order;
+
+        var state = OrderTestData.Snapshot(order.OrderId, driving: true) with
+        {
+            ActionStates = [new RobotActionState("act-9", "cancelOrder", "FINISHED")],
+        };
+
+        var cancelled = await service.ApplyStateAsync(state, CancellationToken.None);
+
+        Assert.Equal(RobotOrderStatuses.Cancelled, cancelled!.Status);
+    }
+
+    [Fact]
+    public async Task Row11_HigherOrderUpdate_DoesNotExtendPlan()
+    {
+        var plan = OrderTestData.Plan(3);
+        var (service, orders, _, _) = RobotOrderServiceTests.Create(releasedNodes: 3);
+        var order = OrderTestData.Order(
+            status: RobotOrderStatuses.Executing,
+            planJson: plan) with
+        {
+            OrderUpdateId = 0,
+            ReleasedNodeCount = 3,
+        };
+        orders.Orders[order.OrderId] = order;
+
+        var updated = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(
+                order.OrderId,
+                orderUpdateId: 1,
+                driving: true,
+                nodes: [("wa0", 0, true), ("wa2", 2, true)],
+                lastNodeId: "wa2",
+                lastNodeSequenceId: 2),
+            CancellationToken.None);
+
+        Assert.Equal(0, updated!.OrderUpdateId);
+        Assert.Equal(plan, updated.PlanJson);
+        Assert.Equal(0, orders.Orders[order.OrderId].OrderUpdateId);
+    }
+
+    [Fact]
+    public async Task Row16_TerminalOrder_IgnoresFurtherStates()
+    {
+        var (service, orders, _, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Completed);
+        orders.Orders[order.OrderId] = order;
+
+        var result = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(order.OrderId, errors: ["E|ошибка"], lastNodeId: "wa2"),
+            CancellationToken.None);
+
+        Assert.Equal(RobotOrderStatuses.Completed, result!.Status);
+        Assert.Null(result.FailureReason);
+    }
+
+    [Fact]
+    public async Task MergeNodes_EmptyLastNodeId_DoesNotTakeReachedFromReleased()
+    {
+        var (service, orders, _, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order();
+        orders.Orders[order.OrderId] = order;
+
+        var state = OrderTestData.Snapshot(
+            order.OrderId,
+            nodes: [("wa0", 0, true), ("wa2", 2, true), ("wa4", 4, true)]) with
+        {
+            LastNodeId = null,
+        };
+
+        var updated = await service.ApplyStateAsync(state, CancellationToken.None);
+
+        Assert.All(updated!.Nodes, node => Assert.False(node.Reached));
+        Assert.All(updated.Nodes, node => Assert.True(node.Released));
+        Assert.Equal(RobotOrderStatuses.Accepted, updated.Status);
+    }
+
+    [Fact]
+    public async Task CheckTimeouts_ProgressTimeout_CountedFromLastProgress()
+    {
+        var (service, orders, time, states) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Executing);
+        orders.Orders[order.OrderId] = order;
+
+        var start = OrderTestData.Snapshot(order.OrderId, driving: true, lastNodeId: "wa2", receivedAt: time.Now);
+        states.Snapshots[OrderTestData.Serial] = start;
+        await service.ApplyStateAsync(start, CancellationToken.None);
+
+        time.Now = time.Now.AddSeconds(120);
+        states.Snapshots[OrderTestData.Serial] = start with { ReceivedAt = time.Now };
+
+        var failed = await service.CheckTimeoutsAsync(CancellationToken.None);
+
+        Assert.Equal(1, failed);
+        Assert.Equal(RobotOrderService.ReasonProgressTimeout, orders.Orders[order.OrderId].FailureReason);
+    }
+
+    [Fact]
+    public async Task CheckTimeouts_GrowingLastNodeId_KeepsExecuting()
+    {
+        var (service, orders, time, states) = RobotOrderServiceTests.Create(nodes: 5, releasedNodes: 5);
+        var order = OrderTestData.Order(
+            status: RobotOrderStatuses.Executing,
+            planJson: OrderTestData.Plan(5),
+            targetNodeId: "wa8") with
+        {
+            Nodes =
+            [
+                OrderTestData.Node("ORD_04331", 0, "wa0"),
+                OrderTestData.Node("ORD_04331", 2, "wa2"),
+                OrderTestData.Node("ORD_04331", 4, "wa4"),
+                OrderTestData.Node("ORD_04331", 6, "wa6"),
+                OrderTestData.Node("ORD_04331", 8, "wa8"),
+            ],
+        };
+        orders.Orders[order.OrderId] = order;
+
+        // 150 секунд пути при ProgressTimeoutSeconds = 60: прогресс идет, заказ жив.
+        foreach (var nodeId in new[] { "wa2", "wa4", "wa6" })
+        {
+            time.Now = time.Now.AddSeconds(50);
+            var state = OrderTestData.Snapshot(
+                order.OrderId,
+                driving: true,
+                lastNodeId: nodeId,
+                lastNodeSequenceId: nodeId == "wa2" ? 2 : nodeId == "wa4" ? 4 : 6,
+                receivedAt: time.Now);
+            states.Snapshots[OrderTestData.Serial] = state;
+            await service.ApplyStateAsync(state, CancellationToken.None);
+
+            Assert.Equal(0, await service.CheckTimeoutsAsync(CancellationToken.None));
+            Assert.Equal(RobotOrderStatuses.Executing, orders.Orders[order.OrderId].Status);
+        }
+    }
+
+    [Fact]
+    public async Task CheckTimeouts_FailedByTimeout_ReleasesTraffic()
+    {
+        var (service, orders, time, _, traffic) = RobotOrderServiceTests.CreateWithTraffic();
+        var order = OrderTestData.Order();
+        orders.Orders[order.OrderId] = order;
+        time.Now = order.SentAt!.Value.AddSeconds(11);
+
+        await service.CheckTimeoutsAsync(CancellationToken.None);
+
+        Assert.Contains(OrderTestData.Serial, traffic.Releases);
+    }
+
+    [Fact]
+    public async Task ApplyState_Completed_ReleasesTraffic()
+    {
+        var (service, orders, _, _, traffic) = RobotOrderServiceTests.CreateWithTraffic();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Executing);
+        orders.Orders[order.OrderId] = order;
+
+        await service.ApplyStateAsync(
+            OrderTestData.Snapshot(order.OrderId, lastNodeId: "wa4"),
+            CancellationToken.None);
+
+        Assert.Contains(OrderTestData.Serial, traffic.Releases);
+    }
+
+    [Fact]
+    public async Task ApplyState_TrafficBlocked_DoesNotFailOrder()
+    {
+        var (service, orders, _, _, traffic) = RobotOrderServiceTests.CreateWithTraffic();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Executing);
+        orders.Orders[order.OrderId] = order;
+        traffic.StateResult = Application.Traffic.TrafficReservationResult.Blocked(
+            "98009",
+            Guid.NewGuid(),
+            "801-C1-1");
+
+        var updated = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(order.OrderId, driving: true),
+            CancellationToken.None);
+
+        Assert.Equal(RobotOrderStatuses.Executing, updated!.Status);
+        Assert.Null(updated.FailureReason);
+    }
+
+    [Fact]
+    public async Task ApplyState_TwoStatesInParallel_PublishSingleExtension()
+    {
+        var plan = OrderTestData.Plan(6);
+        var (service, orders, _, _) = RobotOrderServiceTests.Create(nodes: 6, releasedNodes: 3);
+        var order = OrderTestData.Order(
+            status: RobotOrderStatuses.Executing,
+            planJson: plan,
+            targetNodeId: "wa10") with
+        {
+            Nodes =
+            [
+                OrderTestData.Node("ORD_04331", 0, "wa0", reached: true),
+                OrderTestData.Node("ORD_04331", 2, "wa2", reached: true),
+                OrderTestData.Node("ORD_04331", 4, "wa4"),
+                OrderTestData.Node("ORD_04331", 6, "wa6"),
+                OrderTestData.Node("ORD_04331", 8, "wa8"),
+                OrderTestData.Node("ORD_04331", 10, "wa10"),
+            ],
+        };
+        orders.Orders[order.OrderId] = order;
+
+        var state = OrderTestData.Snapshot(
+            order.OrderId,
+            driving: true,
+            nodes: [("wa0", 0, true), ("wa2", 2, true)],
+            lastNodeId: "wa2",
+            lastNodeSequenceId: 2,
+            newBaseRequest: true);
+
+        await Task.WhenAll(
+            service.ApplyStateAsync(state, CancellationToken.None),
+            service.ApplyStateAsync(state, CancellationToken.None));
+
+        var publisher = (FakePublisher)typeof(RobotOrderService)
+            .GetField("_publisher", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .GetValue(service)!;
+
+        Assert.Single(publisher.Orders);
     }
 }
 
@@ -318,6 +716,26 @@ public sealed class AgvControllerTests
         var action = document.RootElement.GetProperty("actions")[0];
         Assert.Equal("pause", action.GetProperty("actionType").GetString());
         Assert.Equal("act-9", action.GetProperty("actionId").GetString());
+    }
+
+    [Fact]
+    public async Task CreateOrder_TrafficBlocked_Returns409()
+    {
+        var created = RobotOrderServiceTests.CreateWithTraffic();
+        created.Traffic.OrderResult = Application.Traffic.TrafficReservationResult.Blocked(
+            "98009",
+            Guid.NewGuid(),
+            "801-tusk-forklift-1102-C1-1");
+        created.States.Snapshots[OrderTestData.Serial] = OrderTestData.Snapshot(null);
+        var controller = new AgvController(created.Service, created.States, created.Orders);
+
+        var result = await controller.CreateOrderAsync(
+            OrderTestData.Serial,
+            new AgvOrderBody("801", "wa4", false),
+            CancellationToken.None);
+
+        Assert.Equal(409, Assert.IsType<ObjectResult>(result).StatusCode);
+        Assert.Empty(created.Orders.Orders);
     }
 
     private static (AgvController Controller, FakeOrderRepository Orders, FakeStateReader States, FakePublisher Publisher) Create()

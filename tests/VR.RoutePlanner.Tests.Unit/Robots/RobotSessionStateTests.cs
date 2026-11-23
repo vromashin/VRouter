@@ -129,7 +129,8 @@ public sealed class RobotSessionStateTests
             reader,
             new FixedOptions<RoutePlannerOptions>(PlanningFixtures.Options()),
             time,
-            NullLogger<RobotOrderService>.Instance);
+            NullLogger<RobotOrderService>.Instance,
+            new FakeTrafficCoordinator());
 
         var order = await service.CreateOrderAsync("801", OrderTestData.Serial, "wa4", false, CancellationToken.None);
 

@@ -57,4 +57,13 @@ public interface IRobotOrderRepository
     /// <param name="ct">Токен отмены.</param>
     /// <returns>Заказы без узлов либо пустой список.</returns>
     Task<IReadOnlyList<RobotOrder>> GetActiveAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Читает незавершенный заказ робота вместе с узлами. Нужен, когда робот очистил
+    /// <c>orderId</c> в том же сообщении, где доехал до цели (риск Р-1).
+    /// </summary>
+    /// <param name="agvSerialNumber">Серийный номер робота.</param>
+    /// <param name="ct">Токен отмены.</param>
+    /// <returns>Активный заказ либо <c>null</c>.</returns>
+    Task<RobotOrder?> GetActiveForRobotAsync(string agvSerialNumber, CancellationToken ct);
 }

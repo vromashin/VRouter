@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using VR.RoutePlanner.Api.Contracts;
 using VR.RoutePlanner.Application.Robots;
+using VR.RoutePlanner.Application.Traffic;
 
 namespace VR.RoutePlanner.Api.Controllers;
 
@@ -80,7 +81,13 @@ public sealed class AgvController : ControllerBase
         }
         catch (OrderRejectedException exception)
         {
-            return NotFoundProblem(exception.Reason, exception.Message);
+            // Трафик влияет только на выдачу заказа: занятый коридор — 409 в том же формате.
+            return string.Equals(
+                exception.Reason,
+                TrafficReservationResult.ReasonBlocked,
+                StringComparison.Ordinal)
+                ? ConflictProblem(TrafficReservationResult.ReasonBlocked, exception.Message)
+                : NotFoundProblem(exception.Reason, exception.Message);
         }
     }
 

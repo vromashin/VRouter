@@ -5,6 +5,7 @@ using VR.RoutePlanner.Application.Legacy;
 using VR.RoutePlanner.Application.Robots;
 using VR.RoutePlanner.Infrastructure.Legacy;
 using VR.RoutePlanner.Infrastructure.Mqtt;
+using System.Collections.Concurrent;
 
 namespace VR.RoutePlanner.Workers;
 
@@ -23,6 +24,8 @@ public sealed class RobotOrderWorker : BackgroundService
     private readonly RobotVisualizationWriter _visualizations;
     private readonly IOptions<LegacyOptions> _legacyOptions;
     private readonly ILogger<RobotOrderWorker> _logger;
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _serialGates =
+        new(StringComparer.Ordinal);
 
     /// <summary>
     /// Создает сервис ведения заказов.
@@ -131,6 +134,10 @@ public sealed class RobotOrderWorker : BackgroundService
         _ = Task.Run(
             async () =>
             {
+                // Сериализация по роботу: два state подряд не должны переставлять запись сессии,
+                // статус заказа и legacy-строку (риск Р-4). Автомат заказа сериализует себя сам.
+                var gate = _serialGates.GetOrAdd(snapshot.SerialNumber, _ => new SemaphoreSlim(1, 1));
+                await gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
                 try
                 {
                     var payload = _reader.GetLatestPayload(snapshot.SerialNumber);
@@ -146,6 +153,10 @@ public sealed class RobotOrderWorker : BackgroundService
                 catch (Exception exception)
                 {
                     _logger.LogError(exception, "Ошибка обновления заказа по state робота {Serial}", snapshot.SerialNumber);
+                }
+                finally
+                {
+                    gate.Release();
                 }
             });
     }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using VR.RoutePlanner.Api.Contracts;
 using VR.RoutePlanner.Api.Controllers;
+using VR.RoutePlanner.Application.Robots;
 using VR.RoutePlanner.Domain.Graph;
 using Xunit;
 
@@ -66,10 +67,12 @@ public sealed class LegacyAgvTaskControllerTests
     {
         var graph = OrderFixtures.Graph([node], []);
         var states = new FakeStateReader();
+        var resolver = new RobotLastNodeResolver(
+            states,
+            new Planning.FakeGraphRepository(graph),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<RobotLastNodeResolver>.Instance);
 
-        return (
-            new LegacyAgvTaskController(states, new Planning.FakeGraphRepository(graph)),
-            states);
+        return (new LegacyAgvTaskController(resolver), states);
     }
 
     private static WarehouseNode Node(string code) =>

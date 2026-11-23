@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using VR.RoutePlanner.Application.Configuration;
 using VR.RoutePlanner.Application.Graph;
 using VR.RoutePlanner.Application.Planning;
+using VR.RoutePlanner.Application.Traffic;
 using VR.RoutePlanner.Domain.Planning;
 using VR.RoutePlanner.Domain.Graph;
 using VR.RoutePlanner.Domain.Robots;
@@ -60,11 +61,22 @@ public sealed class RobotOrderService
     private readonly IRobotOrderPublisher _publisher;
     private readonly IRobotOrderRepository _orders;
     private readonly IRobotStateReader _states;
+    private readonly ITrafficCoordinator _traffic;
     private readonly IOptions<RoutePlannerOptions> _options;
     private readonly TimeProvider _time;
     private readonly ILogger<RobotOrderService> _logger;
     private readonly ConcurrentDictionary<string, DateTimeOffset> _lastUpdate = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, int> _lastUpdateSequence = new(StringComparer.Ordinal);
+
+    /// <summary>Последний замеченный прогресс заказа: узел, номер узла и момент.</summary>
+    private readonly ConcurrentDictionary<string, OrderProgress> _progress = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// По одному обработчику на робота: два <c>state</c> подряд не должны дать два продления
+    /// с одним <c>orderUpdateId</c> (АС-4) и два разных резерва.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _serialGates = new(StringComparer.Ordinal);
+
 
     /// <summary>
     /// Создает сервис заказов.
@@ -80,6 +92,7 @@ public sealed class RobotOrderService
     /// <param name="options">Параметры <c>Routing</c>.</param>
     /// <param name="time">Источник времени.</param>
     /// <param name="logger">Журнал.</param>
+    /// <param name="traffic">Диспетчер трафика: резервы горизонта на <c>state</c> и при выдаче заказа.</param>
     /// <param name="simulatorReset">Сброс симулятора робота, если он включен в конфигурации.</param>
     public RobotOrderService(
         IPathPlanner planner,
@@ -93,6 +106,7 @@ public sealed class RobotOrderService
         IOptions<RoutePlannerOptions> options,
         TimeProvider time,
         ILogger<RobotOrderService> logger,
+        ITrafficCoordinator traffic,
         ISimulatorResetService? simulatorReset = null)
     {
         _simulatorReset = simulatorReset;
@@ -107,6 +121,7 @@ public sealed class RobotOrderService
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(time);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(traffic);
 
         _planner = planner;
         this.composer = composer;
@@ -116,6 +131,7 @@ public sealed class RobotOrderService
         _publisher = publisher;
         _orders = orders;
         _states = states;
+        _traffic = traffic;
         _options = options;
         _time = time;
         _logger = logger;
@@ -309,6 +325,19 @@ public sealed class RobotOrderService
                 SliceNodeCount = chunk.NodeCount,
             });
 
+        // Трафик влияет только на выдачу заказа: горизонт нового плана резервируется атомарно,
+        // при занятом коридоре заказ не публикуется и не сохраняется (409 TRAFFIC_BLOCKED).
+        var traffic = await _traffic
+            .TryReserveForOrderAsync(TrafficSnapshot(serialNumber, mapId, snapshot, now), planJson, ct)
+            .ConfigureAwait(false);
+
+        if (!traffic.Accepted && traffic.ReasonCode == TrafficReservationResult.ReasonBlocked)
+        {
+            throw new OrderRejectedException(
+                TrafficReservationResult.ReasonBlocked,
+                $"Коридор занят роботом {traffic.BlockedBySerial}: ресурс {traffic.BlockedResourceCode}.");
+        }
+
         await _publisher
             .PublishAsync(options.Order.Manufacturer, serialNumber, orderJson, ct)
             .ConfigureAwait(false);
@@ -345,39 +374,62 @@ public sealed class RobotOrderService
 
     /// <summary>
     /// Обновляет статус заказа по сообщению <c>state</c>.
+    ///
+    /// Единственная точка входа автомата. Сообщения одного робота обрабатываются по очереди:
+    /// иначе два <c>state</c> подряд дают два продления с одним <c>orderUpdateId</c> (АС-4).
     /// </summary>
     /// <param name="snapshot">Снимок робота.</param>
     /// <param name="ct">Токен отмены.</param>
-    /// <returns>Заказ после обновления либо <c>null</c>, если заказ не найден.</returns>
+    /// <returns>Заказ после обновления либо <c>null</c>, если заказа нет.</returns>
     public async Task<RobotOrder?> ApplyStateAsync(RobotSnapshot snapshot, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
+        var gate = _serialGates.GetOrAdd(snapshot.SerialNumber, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            return await ApplyStateCoreAsync(snapshot, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private async Task<RobotOrder?> ApplyStateCoreAsync(RobotSnapshot snapshot, CancellationToken ct)
+    {
+        var now = _time.GetUtcNow();
+
         if (string.IsNullOrWhiteSpace(snapshot.OrderId))
         {
-            return null;
+            return await CloseWithoutOrderIdAsync(snapshot, now, ct).ConfigureAwait(false);
         }
 
-        var order = await _orders.GetAsync(snapshot.OrderId, ct).ConfigureAwait(false);
+        var order = await _orders.GetAsync(snapshot.OrderId!, ct).ConfigureAwait(false);
         if (order is null)
         {
             return null;
         }
 
-        var now = _time.GetUtcNow();
         var status = order.Status;
         var failure = order.FailureReason;
         DateTimeOffset? acceptedAt = order.AcceptedAt;
         DateTimeOffset? completedAt = order.CompletedAt;
 
+        // Строка 10 таблицы §3.1: устаревшая версия заказа игнорируется целиком.
         if (snapshot.OrderUpdateId < order.OrderUpdateId)
         {
             return order;
         }
 
-        if (RobotErrorClassifier.HasBlockingError(snapshot) && ActiveStatuses.Contains(status))
+        var blockingError = RobotErrorClassifier.HasBlockingError(snapshot);
+        if (blockingError && ActiveStatuses.Contains(status))
         {
-            status = RobotOrderStatuses.Failed;
+            // Строки 2 и 3: до первого сдвига с первого узла плана заказ еще не поехал — Rejected.
+            status = order.Status == RobotOrderStatuses.Sent && !HasMovedFromFirstNode(order, snapshot.LastNodeId)
+                ? RobotOrderStatuses.Rejected
+                : RobotOrderStatuses.Failed;
             failure = ReasonRobotError;
         }
         else if (status == RobotOrderStatuses.Sent)
@@ -387,28 +439,46 @@ public sealed class RobotOrderService
         }
 
         var nodes = MergeNodes(order, snapshot, out var reachedLast);
+
         if (status == RobotOrderStatuses.Accepted && (snapshot.Driving || nodes.Any(node => node.Reached)))
         {
             status = RobotOrderStatuses.Executing;
         }
 
-        // Закрытие по целевому узлу: робот может не прислать узлы плана, но lastNodeId равен цели.
+        if (ActiveStatuses.Contains(status) && HasFinishedCancelAction(snapshot))
+        {
+            status = RobotOrderStatuses.Cancelled;
+        }
+
+        // Закрытие заказа: робот стоит на последнем узле плана или на цели, не едет и не выполняет
+        // действие. Пустые nodeStates/edgeStates доказательством финиша не считаются (АС-1, Д-2).
         var reachedTarget = !string.IsNullOrWhiteSpace(order.TargetNodeId)
             && string.Equals(snapshot.LastNodeId, order.TargetNodeId, StringComparison.Ordinal);
 
-        if (status == RobotOrderStatuses.Executing && !snapshot.Driving && (reachedLast || reachedTarget))
+        if (status == RobotOrderStatuses.Executing
+            && !snapshot.Driving
+            && !HasRunningAction(snapshot)
+            && (reachedLast || reachedTarget || IsLastPlanNode(order, snapshot.LastNodeId)))
         {
             status = RobotOrderStatuses.Completed;
             completedAt = now;
         }
 
-        if (status == order.Status
-            && nodes.SequenceEqual(order.Nodes)
-            && acceptedAt == order.AcceptedAt
-            && completedAt == order.CompletedAt
-            && failure == order.FailureReason
-            && !ExtendStatuses.Contains(status))
+        if (status == RobotOrderStatuses.Completed)
         {
+            // Заказ закрыт: пройден весь план, отметку получают и узлы без отдельного lastNodeId.
+            nodes = nodes.Select(node => node.Reached ? node : node with { Reached = true }).ToList();
+        }
+
+        var changed = status != order.Status
+            || !nodes.SequenceEqual(order.Nodes)
+            || acceptedAt != order.AcceptedAt
+            || completedAt != order.CompletedAt
+            || failure != order.FailureReason;
+
+        if (!changed && !ExtendStatuses.Contains(status))
+        {
+            await _traffic.OnStateAsync(snapshot, order.PlanJson, ct).ConfigureAwait(false);
             return order;
         }
 
@@ -424,12 +494,70 @@ public sealed class RobotOrderService
         if (ExtendStatuses.Contains(status))
         {
             updated = await ExtendPlanAsync(updated, snapshot, ct).ConfigureAwait(false);
-            nodes = updated.Nodes;
         }
 
         await _orders.SaveAsync(updated, ct).ConfigureAwait(false);
         _logger.LogInformation("Заказ {OrderId}: статус {Status}", updated.OrderId, updated.Status);
+
+        TrackProgress(updated, snapshot, now);
+
+        if (ActiveStatuses.Contains(updated.Status))
+        {
+            await _traffic.OnStateAsync(snapshot, updated.PlanJson, ct).ConfigureAwait(false);
+            return updated;
+        }
+
+        await _traffic.ReleaseAsync(updated.AgvSerialNumber, ct).ConfigureAwait(false);
         return updated;
+    }
+
+    /// <summary>
+    /// Робот очистил <c>orderId</c>. Если у робота есть активный заказ и <c>lastNodeId</c> доказывает
+    /// финиш — заказ закрывается (строка 7 таблицы §3.1, риск Р-1), иначе только освобождаются резервы.
+    /// </summary>
+    private async Task<RobotOrder?> CloseWithoutOrderIdAsync(
+        RobotSnapshot snapshot,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var order = await _orders
+            .GetActiveForRobotAsync(snapshot.SerialNumber, ct)
+            .ConfigureAwait(false);
+
+        if (order is null || !ActiveStatuses.Contains(order.Status))
+        {
+            await _traffic.ReleaseAsync(snapshot.SerialNumber, ct).ConfigureAwait(false);
+            return null;
+        }
+
+        var finished = !string.IsNullOrWhiteSpace(snapshot.LastNodeId)
+            && (string.Equals(snapshot.LastNodeId, order.TargetNodeId, StringComparison.Ordinal)
+                || IsLastPlanNode(order, snapshot.LastNodeId));
+
+        if (!finished)
+        {
+            // Точного совпадения с целью плана нет: заказ не трогаем, чтобы не закрыть чужой.
+            await _traffic.ReleaseAsync(snapshot.SerialNumber, ct).ConfigureAwait(false);
+            return null;
+        }
+
+        var completed = order with
+        {
+            Status = RobotOrderStatuses.Completed,
+            CompletedAt = order.CompletedAt ?? now,
+            Nodes = MergeNodes(order, snapshot, out _)
+                .Select(node => node with { Reached = true })
+                .ToList(),
+        };
+
+        await _orders.SaveAsync(completed, ct).ConfigureAwait(false);
+        await _traffic.ReleaseAsync(snapshot.SerialNumber, ct).ConfigureAwait(false);
+        _logger.LogInformation(
+            "Заказ {OrderId} закрыт по lastNodeId {Node}: робот очистил orderId",
+            completed.OrderId,
+            snapshot.LastNodeId);
+
+        return completed;
     }
 
     /// <summary>
@@ -464,8 +592,10 @@ public sealed class RobotOrderService
             return order;
         }
 
+        // Строка 11 таблицы §3.1: версия робота больше нашей — продление не выполняется,
+        // наш OrderUpdateId не переписывается. Продление идет только вровень с нашей версией.
         if (!string.Equals(snapshot.OrderId, order.OrderId, StringComparison.Ordinal)
-            || snapshot.OrderUpdateId < order.OrderUpdateId)
+            || snapshot.OrderUpdateId != order.OrderUpdateId)
         {
             return order;
         }
@@ -794,9 +924,9 @@ public sealed class RobotOrderService
                 reason = ReasonStateSilence;
             }
             else if (order.Status == RobotOrderStatuses.Executing
-                && (now - (order.AcceptedAt ?? order.SentAt ?? order.CreatedAt)).TotalSeconds
-                    > options.ProgressTimeoutSeconds)
+                && (now - LastProgressAt(order)).TotalSeconds > options.ProgressTimeoutSeconds)
             {
+                // АС-9: таймаут отсчитывается от последнего прогресса, а не от AcceptedAt.
                 reason = ReasonProgressTimeout;
             }
 
@@ -808,12 +938,22 @@ public sealed class RobotOrderService
             await _orders
                 .SaveAsync(order with { Status = RobotOrderStatuses.Failed, FailureReason = reason }, ct)
                 .ConfigureAwait(false);
+            await _traffic.ReleaseAsync(order.AgvSerialNumber, ct).ConfigureAwait(false);
             _logger.LogWarning("Заказ {OrderId} провален: {Reason}", order.OrderId, reason);
             failed++;
         }
 
         return failed;
     }
+
+    /// <summary>
+    /// Момент последнего прогресса заказа: сдвиг <c>lastNodeId</c>/<c>lastNodeSequenceId</c>,
+    /// иначе подтверждение заказа.
+    /// </summary>
+    private DateTimeOffset LastProgressAt(RobotOrder order) =>
+        _progress.TryGetValue(order.OrderId, out var tracked)
+            ? tracked.At
+            : order.AcceptedAt ?? order.SentAt ?? order.CreatedAt;
 
     /// <summary>
     /// Восстанавливает заказы после рестарта: продолжает те, что подтверждены <c>state</c>,
@@ -829,9 +969,18 @@ public sealed class RobotOrderService
             var snapshot = await _states.GetLatestAsync(order.AgvSerialNumber, ct).ConfigureAwait(false);
             if (snapshot is not null && snapshot.OrderId == order.OrderId && snapshot.Driving)
             {
+                // Горизонт резерва восстанавливается тем же расчетом внутри ApplyStateAsync (§2.6).
                 _logger.LogInformation("Заказ {OrderId} продолжен после рестарта", order.OrderId);
                 await ApplyStateAsync(snapshot, ct).ConfigureAwait(false);
                 continue;
+            }
+
+            if (snapshot is null)
+            {
+                _logger.LogWarning(
+                    "Заказ {OrderId}: резерв не восстановлен, ждём state робота {Serial}",
+                    order.OrderId,
+                    order.AgvSerialNumber);
             }
 
             await _orders
@@ -839,6 +988,7 @@ public sealed class RobotOrderService
                     order with { Status = RobotOrderStatuses.Failed, FailureReason = ReasonStateMismatch },
                     ct)
                 .ConfigureAwait(false);
+            await _traffic.ReleaseAsync(order.AgvSerialNumber, ct).ConfigureAwait(false);
             _logger.LogWarning("Заказ {OrderId} провален при восстановлении: {Reason}", order.OrderId, ReasonStateMismatch);
             failed++;
         }
@@ -877,6 +1027,7 @@ public sealed class RobotOrderService
                 await _orders
                     .SaveAsync(order with { Status = RobotOrderStatuses.Cancelled }, ct)
                     .ConfigureAwait(false);
+                await _traffic.ReleaseAsync(serialNumber, ct).ConfigureAwait(false);
             }
         }
 
@@ -940,16 +1091,9 @@ public sealed class RobotOrderService
         out bool reachedLast)
     {
         reachedLast = false;
-        if (snapshot.NodeStates.Count == 0)
-        {
-            // Узлы в состоянии закончились: последний узел заказа считается достигнутым,
-            // если робот сообщает его как lastNodeId (так робот отмечает финиш).
-            var lastOrderNode = order.Nodes.Count > 0 ? order.Nodes[^1] : null;
-            reachedLast = (lastOrderNode is not null && lastOrderNode.Reached)
-                || (lastOrderNode is not null
-                    && !string.IsNullOrWhiteSpace(snapshot.LastNodeId)
-                    && string.Equals(lastOrderNode.NodeId, snapshot.LastNodeId, StringComparison.Ordinal));
 
+        if (order.Nodes.Count == 0)
+        {
             return order.Nodes;
         }
 
@@ -957,30 +1101,170 @@ public sealed class RobotOrderService
             .GroupBy(node => node.NodeId)
             .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
 
+        // АС-8: released значит «разрешено войти», а не «проехал». Reached из released не выводится.
         var merged = order.Nodes
             .Select(node => byNode.TryGetValue(node.NodeId, out var state)
-                ? string.IsNullOrWhiteSpace(snapshot.LastNodeId)
-                    ? node with { Released = node.Released || state.Released, Reached = node.Reached || state.Released }
-                    : node with { Released = node.Released || state.Released }
+                ? node with { Released = node.Released || state.Released }
                 : node)
             .ToList();
 
-        // Достижение подтверждает lastNodeId из состояния: все узлы до него включительно пройдены,
-        // а released значит лишь готовность узла и не является признаком проезда.
+        // Достижение подтверждает только lastNodeId: все узлы до него включительно пройдены.
+        // Первый узел плана считается стартом, а не прогрессом (строка 2 таблицы §3.1).
         if (!string.IsNullOrWhiteSpace(snapshot.LastNodeId))
         {
             var reachedIndex = merged.FindIndex(node =>
                 string.Equals(node.NodeId, snapshot.LastNodeId, StringComparison.Ordinal));
 
-            for (var i = 0; i <= reachedIndex && i < merged.Count; i++)
+            for (var index = 1; index <= reachedIndex && index < merged.Count; index++)
             {
-                merged[i] = merged[i] with { Reached = true };
+                merged[index] = merged[index] with { Reached = true };
             }
         }
 
-        reachedLast = merged.Count > 0 && merged[^1].Reached;
+        reachedLast = merged[^1].Reached;
         return merged;
     }
+
+    /// <summary>
+    /// Последний узел плана заказа: по сохраненным узлам, иначе из <c>PlanJson</c>.
+    /// </summary>
+    private static bool IsLastPlanNode(RobotOrder order, string? nodeId)
+    {
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            return false;
+        }
+
+        var last = LastPlanNodeId(order);
+        return last is not null && string.Equals(last, nodeId, StringComparison.Ordinal);
+    }
+
+    private static string? LastPlanNodeId(RobotOrder order)
+    {
+        if (order.Nodes.Count > 0)
+        {
+            return order.Nodes[^1].NodeId;
+        }
+
+        var nodes = PlanNodeIds(order.PlanJson);
+        return nodes.Count > 0 ? nodes[^1] : null;
+    }
+
+    /// <summary>
+    /// Робот сдвинулся с первого узла плана: нужно для выбора <c>Rejected</c> либо <c>Failed</c>
+    /// при блокирующей ошибке (строки 2 и 3 таблицы §3.1).
+    /// </summary>
+    private static bool HasMovedFromFirstNode(RobotOrder order, string? lastNodeId)
+    {
+        if (string.IsNullOrWhiteSpace(lastNodeId))
+        {
+            return false;
+        }
+
+        var first = order.Nodes.Count > 0
+            ? order.Nodes[0].NodeId
+            : PlanNodeIds(order.PlanJson).FirstOrDefault();
+
+        return first is not null && !string.Equals(first, lastNodeId, StringComparison.Ordinal);
+    }
+
+    private static IReadOnlyList<string> PlanNodeIds(string? planJson)
+    {
+        if (string.IsNullOrWhiteSpace(planJson))
+        {
+            return [];
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(planJson);
+            if (document.RootElement.ValueKind != JsonValueKind.Object
+                || !document.RootElement.TryGetProperty("nodes", out var nodes)
+                || nodes.ValueKind != JsonValueKind.Array)
+            {
+                return [];
+            }
+
+            return nodes.EnumerateArray()
+                .Select(node => node.TryGetProperty("nodeId", out var id) ? id.GetString() : null)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id!)
+                .ToList();
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Робот выполнил <c>cancelOrder</c>: строка 8 таблицы §3.1.
+    /// </summary>
+    private static bool HasFinishedCancelAction(RobotSnapshot snapshot) =>
+        snapshot.ActionStates?.Any(action =>
+            string.Equals(action.ActionType, "cancelOrder", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(action.ActionStatus, "FINISHED", StringComparison.OrdinalIgnoreCase)) == true;
+
+    /// <summary>
+    /// Робот выполняет действие: заказ не закрывается, пока действие в <c>RUNNING</c>/<c>WAITING</c>.
+    /// </summary>
+    private static bool HasRunningAction(RobotSnapshot snapshot) =>
+        snapshot.ActionStates?.Any(action =>
+            string.Equals(action.ActionStatus, "RUNNING", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action.ActionStatus, "WAITING", StringComparison.OrdinalIgnoreCase)) == true;
+
+    /// <summary>
+    /// Запоминает прогресс заказа для <c>PROGRESS_TIMEOUT</c>: таймаут считается от последнего
+    /// сдвига <c>lastNodeId</c>/<c>lastNodeSequenceId</c>, а не от <c>AcceptedAt</c> (АС-9).
+    /// </summary>
+    private void TrackProgress(RobotOrder order, RobotSnapshot snapshot, DateTimeOffset now)
+    {
+        if (!string.Equals(order.Status, RobotOrderStatuses.Executing, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (_progress.TryGetValue(order.OrderId, out var tracked)
+            && string.Equals(tracked.LastNodeId, snapshot.LastNodeId, StringComparison.Ordinal)
+            && tracked.LastNodeSequenceId == snapshot.LastNodeSequenceId)
+        {
+            return;
+        }
+
+        _progress[order.OrderId] = new OrderProgress(snapshot.LastNodeId, snapshot.LastNodeSequenceId, now);
+    }
+
+    /// <summary>
+    /// Снимок для трафика при выдаче заказа: горизонт нового плана считается от его начала.
+    /// </summary>
+    private static RobotSnapshot TrafficSnapshot(
+        string serialNumber,
+        string mapId,
+        RobotSnapshot? snapshot,
+        DateTimeOffset now) =>
+        (snapshot ?? new RobotSnapshot(
+            serialNumber,
+            "UNKNOWN",
+            false,
+            null,
+            0,
+            0,
+            0,
+            0,
+            mapId,
+            0,
+            [],
+            [],
+            now,
+            string.Empty))
+        with
+        {
+            MapId = mapId,
+            LastNodeSequenceId = 0,
+        };
+
+    /// <summary>Последний замеченный прогресс заказа.</summary>
+    private sealed record OrderProgress(string? LastNodeId, int? LastNodeSequenceId, DateTimeOffset At);
 }
 
 /// <summary>

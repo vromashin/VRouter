@@ -104,7 +104,8 @@ public sealed class OrderChunkingTests
             states,
             new FixedOptions<RoutePlannerOptions>(options),
             new TestTimeProvider(new DateTimeOffset(2026, 11, 21, 12, 0, 0, TimeSpan.Zero)),
-            NullLogger<RobotOrderService>.Instance);
+            NullLogger<RobotOrderService>.Instance,
+            new FakeTrafficCoordinator());
 
         return (service, states, publisher, composer);
     }

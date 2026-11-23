@@ -37,6 +37,16 @@ internal sealed class FakeOrderRepository : IRobotOrderRepository
         return Task.FromResult<IReadOnlyList<RobotOrder>>(
             Orders.Values.Where(order => active.Contains(order.Status)).ToList());
     }
+
+    public Task<RobotOrder?> GetActiveForRobotAsync(string agvSerialNumber, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        string[] active = [RobotOrderStatuses.Draft, RobotOrderStatuses.Sent, RobotOrderStatuses.Accepted, RobotOrderStatuses.Executing];
+        return Task.FromResult(Orders.Values
+            .Where(order => order.AgvSerialNumber == agvSerialNumber && active.Contains(order.Status))
+            .OrderByDescending(order => order.CreatedAt)
+            .FirstOrDefault());
+    }
 }
 
 internal sealed class FakeStateReader : IRobotStateReader
@@ -175,6 +185,56 @@ internal sealed class TestTimeProvider(DateTimeOffset start) : TimeProvider
     public DateTimeOffset Now { get; set; } = start;
 
     public override DateTimeOffset GetUtcNow() => Now;
+}
+
+/// <summary>
+/// Подставной диспетчер трафика: запоминает вызовы и позволяет задать отказ.
+/// </summary>
+internal sealed class FakeTrafficCoordinator : Application.Traffic.ITrafficCoordinator
+{
+    public List<(string Serial, string? PlanJson)> Reservations { get; } = [];
+
+    public List<(string Serial, string? PlanJson)> States { get; } = [];
+
+    public List<string> Releases { get; } = [];
+
+    public int Sweeps { get; private set; }
+
+    public Application.Traffic.TrafficReservationResult OrderResult { get; set; } =
+        Application.Traffic.TrafficReservationResult.Accept();
+
+    public Application.Traffic.TrafficReservationResult StateResult { get; set; } =
+        Application.Traffic.TrafficReservationResult.Accept();
+
+    public Task<Application.Traffic.TrafficReservationResult> TryReserveForOrderAsync(
+        RobotSnapshot snapshot,
+        string? planJson,
+        CancellationToken ct)
+    {
+        Reservations.Add((snapshot.SerialNumber, planJson));
+        return Task.FromResult(OrderResult);
+    }
+
+    public Task<Application.Traffic.TrafficReservationResult> OnStateAsync(
+        RobotSnapshot snapshot,
+        string? planJson,
+        CancellationToken ct)
+    {
+        States.Add((snapshot.SerialNumber, planJson));
+        return Task.FromResult(StateResult);
+    }
+
+    public Task<int> ReleaseAsync(string agvSerialNumber, CancellationToken ct)
+    {
+        Releases.Add(agvSerialNumber);
+        return Task.FromResult(1);
+    }
+
+    public Task<int> SweepAsync(DateTimeOffset now, CancellationToken ct)
+    {
+        Sweeps++;
+        return Task.FromResult(0);
+    }
 }
 
 /// <summary>

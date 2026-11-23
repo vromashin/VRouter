@@ -16,6 +16,7 @@ using VR.RoutePlanner.Infrastructure.Legacy;
 using VR.RoutePlanner.Infrastructure.Mqtt;
 using VR.RoutePlanner.Infrastructure.Persistence;
 using VR.RoutePlanner.Infrastructure.Startup;
+using VR.RoutePlanner.Infrastructure.Traffic;
 
 namespace VR.RoutePlanner.Infrastructure;
 
@@ -89,6 +90,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IWaitEstimator, ZeroWaitEstimator>();
         services.AddSingleton<IPathPlanner, AStarPathPlanner>();
         services.AddSingleton<IResourceRepository, ResourceRepository>();
+
+        // Трафик: владельцем резервов объявлен только Workers, он перекрывает ITrafficCoordinator
+        // настоящим диспетчером. Api получает заглушку со своей пустой памятью (риск Р-2).
+        services.AddSingleton<ITrafficResourceLookup, TrafficResourceLookup>();
+        services.AddSingleton<TrafficReservationRegistry>();
+        services.AddSingleton<ITrafficCoordinator, NoOpTrafficCoordinator>();
         services.AddSingleton<MqttRobotStateReader>();
         services.AddSingleton<IRobotVisualizationReader>(
             provider => provider.GetRequiredService<MqttRobotStateReader>());
@@ -102,6 +109,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IVdaOrderComposer, VdaOrderComposer>();
         services.AddSingleton<IHeaderIdSource, TimerHeaderIdSource>();
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IRobotLastNodeResolver, RobotLastNodeResolver>();
         services.AddSingleton<RobotOrderService>();
         services.AddSingleton<IMapRasterProvider, MapRasterProvider>();
         services.AddSingleton<TrafficResourceBuilder>();

@@ -135,6 +135,29 @@ public sealed class RobotOrderRepository : IRobotOrderRepository
             .ToList();
     }
 
+    /// <inheritdoc />
+    public async Task<RobotOrder?> GetActiveForRobotAsync(string agvSerialNumber, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agvSerialNumber);
+
+        await using var context = await _contextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+        var orderId = await context.RobotOrders
+            .AsNoTracking()
+            .Where(item => item.AgvSerialNumber == agvSerialNumber
+                && (item.Status == "Draft"
+                    || item.Status == "Sent"
+                    || item.Status == "Accepted"
+                    || item.Status == "Executing"))
+            .OrderByDescending(item => item.CreatedAt)
+            .Select(item => item.OrderId)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        return orderId is null
+            ? null
+            : await ReadAsync(context, item => item.OrderId == orderId, ct).ConfigureAwait(false);
+    }
+
     private static async Task<RobotOrder?> ReadAsync(
         RoutePlannerDbContext context,
         System.Linq.Expressions.Expression<Func<RobotOrderRecord, bool>> filter,

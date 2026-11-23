@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using VR.RoutePlanner.Api.Contracts;
-using VR.RoutePlanner.Application.Graph;
 using VR.RoutePlanner.Application.Robots;
 
 namespace VR.RoutePlanner.Api.Controllers;
@@ -10,12 +9,11 @@ namespace VR.RoutePlanner.Api.Controllers;
 ///
 /// В AGVControl эндпоинт отвечал 404, если у робота нет узла или карты, из-за чего админка
 /// показывала ошибку. Здесь ответ всегда 200: объект узла либо <c>null</c>.
+/// Резолв узла общий с трафиком: <see cref="IRobotLastNodeResolver"/>.
 /// </summary>
 [ApiController]
 [Route("api/AgvTask")]
-public sealed class LegacyAgvTaskController(
-    IRobotStateReader states,
-    IWarehouseGraphRepository graphs) : ControllerBase
+public sealed class LegacyAgvTaskController(IRobotLastNodeResolver lastNodes) : ControllerBase
 {
     /// <summary>
     /// Отдает последний узел робота из его состояния (<c>state.lastNodeId</c>).
@@ -26,34 +24,26 @@ public sealed class LegacyAgvTaskController(
     [HttpGet("lastnode/{serial}")]
     public async Task<IActionResult> LastNodeAsync(string serial, CancellationToken ct)
     {
-        var snapshot = await states.GetLatestAsync(serial, ct).ConfigureAwait(false);
-        if (snapshot is null
-            || string.IsNullOrWhiteSpace(snapshot.LastNodeId)
-            || string.IsNullOrWhiteSpace(snapshot.MapId))
+        var node = await lastNodes.ResolveAsync(serial, ct).ConfigureAwait(false);
+        if (node is null)
         {
             return Ok(null);
         }
 
-        var graph = await graphs.LoadAsync(snapshot.MapId, ct).ConfigureAwait(false);
-        var node = graph?.Nodes.Values
-            .FirstOrDefault(item => string.Equals(item.NodeId, snapshot.LastNodeId, StringComparison.Ordinal));
-
-        return Ok(node is null
-            ? null
-            : new AgvNodeResponse(
-                node.Id,
-                node.NodeId,
-                "{}",
-                node.MapKey,
-                node.X,
-                node.Y,
-                node.Theta,
-                node.AllowedDeviationXY,
-                node.AllowedDeviationTheta,
-                node.NodeType,
-                null,
-                null,
-                null,
-                null));
+        return Ok(new AgvNodeResponse(
+            node.Id,
+            node.NodeId,
+            "{}",
+            node.MapKey,
+            node.X,
+            node.Y,
+            node.Theta,
+            node.AllowedDeviationXY,
+            node.AllowedDeviationTheta,
+            node.NodeType,
+            null,
+            null,
+            null,
+            null));
     }
 }
