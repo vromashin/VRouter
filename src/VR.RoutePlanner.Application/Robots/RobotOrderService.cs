@@ -585,47 +585,72 @@ public sealed class RobotOrderService
             return snapshot;
         }
 
-        var parameters = new Dictionary<string, object?>(StringComparer.Ordinal)
+        // initPosition применяется только на свободном роботе: ждем, пока он не едет и без действий.
+        var idleDeadline = _time.GetUtcNow().AddSeconds(15);
+        while (_time.GetUtcNow() < idleDeadline && !ct.IsCancellationRequested)
         {
-            ["x"] = node.X,
-            ["y"] = node.Y,
-            ["theta"] = snapshot.Theta,
-            ["mapId"] = snapshot.MapId ?? string.Empty,
-        };
+            if (!snapshot.Driving && (snapshot.ActionStates?.Count ?? 0) == 0)
+            {
+                break;
+            }
 
-        var payload = VdaInstantActionPayload.Build(
-            "initPosition",
-            Guid.NewGuid().ToString("N"),
-            _time.GetUtcNow(),
-            parameters);
+            await Task.Delay(TimeSpan.FromSeconds(1), ct).ConfigureAwait(false);
+            snapshot = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? snapshot;
+        }
 
-        await _publisher
-            .PublishInstantActionAsync(_options.Value.Order.Manufacturer, serialNumber, payload, ct)
-            .ConfigureAwait(false);
-
-        _logger.LogInformation(
-            "Робот {Serial} выровнен по узлу {Node}: расхождение {Distance:F2} м",
-            serialNumber,
-            node.NodeId,
-            distance);
-
-        await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
-        var refreshed = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? snapshot;
-
-        var stillFar = Math.Sqrt(
-            Math.Pow(node.X - refreshed.PositionX, 2) + Math.Pow(node.Y - refreshed.PositionY, 2)) > 0.3;
-        if (stillFar && _simulatorReset is { Enabled: true })
+        for (var attempt = 1; attempt <= 2; attempt++)
         {
-            // Симулятор игнорирует initPosition, пока занят: перезапускаем его с выровненным состоянием.
+            var parameters = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["x"] = node.X,
+                ["y"] = node.Y,
+                ["theta"] = snapshot.Theta,
+                ["mapId"] = snapshot.MapId ?? string.Empty,
+            };
+
+            var payload = VdaInstantActionPayload.Build(
+                "initPosition",
+                Guid.NewGuid().ToString("N"),
+                _time.GetUtcNow(),
+                parameters);
+
+            await _publisher
+                .PublishInstantActionAsync(_options.Value.Order.Manufacturer, serialNumber, payload, ct)
+                .ConfigureAwait(false);
+
+            await Task.Delay(TimeSpan.FromSeconds(3), ct).ConfigureAwait(false);
+            var afterAttempt = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? snapshot;
+            var moved = Math.Sqrt(
+                Math.Pow(node.X - afterAttempt.PositionX, 2) + Math.Pow(node.Y - afterAttempt.PositionY, 2)) <= 0.3;
+
+            _logger.LogInformation(
+                "initPosition попытка {Attempt}: робот {Serial}, узел {Node}, расхождение {Distance:F2} м, применено={Applied}",
+                attempt,
+                serialNumber,
+                node.NodeId,
+                distance,
+                moved);
+
+            if (moved)
+            {
+                return afterAttempt;
+            }
+
+            snapshot = afterAttempt;
+        }
+
+        if (_simulatorReset is { Enabled: true })
+        {
+            // Симулятор игнорирует initPosition: перезапускаем его с выровненным файлом состояния.
             _logger.LogWarning(
                 "initPosition не применился (робот {Serial} на {Node}), перезапускаем симулятор",
                 serialNumber,
                 node.NodeId);
             await _simulatorReset.ResetAsync(ct).ConfigureAwait(false);
-            refreshed = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? refreshed;
+            return await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? snapshot;
         }
 
-        return refreshed;
+        return snapshot;
     }
 
     /// <summary>
