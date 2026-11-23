@@ -63,7 +63,10 @@ public static class VdaOrderBuilder
         int releasedNodeCount = int.MaxValue,
         int orderUpdateId = 0,
         string? terminalActionType = null,
-        string? terminalActionLoadId = null)
+        string? terminalActionLoadId = null,
+        double? containerX = null,
+        double? containerY = null,
+        double? containerTheta = null)
     {
         ArgumentNullException.ThrowIfNull(route);
         ArgumentNullException.ThrowIfNull(graph);
@@ -138,7 +141,10 @@ public static class VdaOrderBuilder
                 isLast ? terminalActionLoadId : null,
                 stopX,
                 stopY,
-                stopTheta));
+                stopTheta,
+                containerX,
+                containerY,
+                containerTheta));
             sequence += 2;
             previous = to;
         }
@@ -213,7 +219,10 @@ public static class VdaOrderBuilder
         string? actionLoadId = null,
         double? stopX = null,
         double? stopY = null,
-        double? stopTheta = null)
+        double? stopTheta = null,
+        double? containerX = null,
+        double? containerY = null,
+        double? containerTheta = null)
     {
         var position = new JsonObject
         {
@@ -242,7 +251,13 @@ public static class VdaOrderBuilder
             ["released"] = released,
             ["nodePosition"] = position,
             ["nodeDescription"] = "{}",
-            ["actions"] = BuildActions(actionType, actionLoadId, node.NodeId, node.X, node.Y, stopTheta),
+            ["actions"] = BuildActions(
+                actionType,
+                actionLoadId,
+                node.NodeId,
+                containerX ?? node.X,
+                containerY ?? node.Y,
+                containerTheta ?? stopTheta),
         };
     }
     /// </summary>

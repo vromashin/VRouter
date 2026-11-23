@@ -315,7 +315,10 @@ public sealed class RobotOrderService
             snapshot?.PositionY,
             snapshot?.Theta,
             actionType,
-            orderId);
+            orderId,
+            slotNode.X,
+            slotNode.Y,
+            Math.Atan2(slotNode.Y - to.Y, slotNode.X - to.X));
 
         await _publisher
             .PublishAsync(options.Order.Manufacturer, serialNumber, orderJson, ct)

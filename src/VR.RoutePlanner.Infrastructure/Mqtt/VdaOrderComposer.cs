@@ -25,7 +25,10 @@ public sealed class VdaOrderComposer : IVdaOrderComposer
         double? firstNodeY = null,
         double? firstNodeTheta = null,
         string? terminalActionType = null,
-        string? terminalActionLoadId = null)
+        string? terminalActionLoadId = null,
+        double? containerX = null,
+        double? containerY = null,
+        double? containerTheta = null)
     {
         ArgumentNullException.ThrowIfNull(route);
         ArgumentNullException.ThrowIfNull(graph);
@@ -46,7 +49,10 @@ public sealed class VdaOrderComposer : IVdaOrderComposer
             releasedNodeCount,
             orderUpdateId: 0,
             terminalActionType: terminalActionType,
-            terminalActionLoadId: terminalActionLoadId);
+            terminalActionLoadId: terminalActionLoadId,
+            containerX: containerX,
+            containerY: containerY,
+            containerTheta: containerTheta);
 
         order["orderId"] = orderId;
         return VdaOrderBuilder.Serialize(order);

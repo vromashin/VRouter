@@ -93,7 +93,10 @@ internal sealed class FakeComposer : IVdaOrderComposer
         double? firstNodeY = null,
         double? firstNodeTheta = null,
         string? terminalActionType = null,
-        string? terminalActionLoadId = null)
+        string? terminalActionLoadId = null,
+        double? containerX = null,
+        double? containerY = null,
+        double? containerTheta = null)
     {
         var nodes = new List<object>();
         var sequence = 0;
