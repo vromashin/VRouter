@@ -12,6 +12,12 @@ public sealed class CostOptions
     /// <summary>Базовая цена поворота на 90 градусов, секунды.</summary>
     public double TurnPenaltySeconds { get; set; } = 2.0;
 
+    /// <summary>
+    /// Штраф за проезд ребра в обратном направлении (задним ходом). Симулятор TUSKROBOTS
+    /// плохо переносит длинный задний ход, поэтому маршруты с проездом «вперед» предпочтительнее.
+    /// </summary>
+    public double BackwardPenaltySeconds { get; set; } = 5.0;
+
     /// <summary>Вес штрафа за тесноту.</summary>
     public double ClearanceWeight { get; set; } = 5.0;
 

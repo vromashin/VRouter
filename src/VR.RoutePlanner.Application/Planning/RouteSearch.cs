@@ -113,7 +113,12 @@ internal sealed class RouteSearch
 
                 var next = new SearchState(traversal.ToNodeId, traversal.Edge.Id);
 
-                var candidate = known + traversal.BaseCost + _costs.TurnCost(turnDegrees);
+                var candidate = known
+                    + traversal.BaseCost
+                    + _costs.TurnCost(turnDegrees)
+                    + (traversal.Direction == RouteEdgeDirection.Backward
+                        ? _costs.BackwardPenaltySeconds
+                        : 0);
                 if (best.TryGetValue(next, out var stored) && stored <= candidate)
                 {
                     continue;

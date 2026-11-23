@@ -14,6 +14,9 @@ public sealed class EdgeCostCalculator
     /// Создает калькулятор по параметрам планировщика.
     /// </summary>
     public bool RespectRotationAllowed => _respectRotationAllowed;
+
+    /// <summary>Штраф за проезд ребра задним ходом.</summary>
+    public double BackwardPenaltySeconds => _cost.BackwardPenaltySeconds;
     /// <param name="options">Параметры секции <c>Routing</c>.</param>
     public EdgeCostCalculator(IOptions<RoutePlannerOptions> options)
         : this((options ?? throw new ArgumentNullException(nameof(options))).Value.Cost, options.Value.RespectRotationAllowed)
