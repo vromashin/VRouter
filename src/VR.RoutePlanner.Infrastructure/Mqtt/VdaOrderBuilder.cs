@@ -25,6 +25,9 @@ public static class VdaOrderBuilder
     /// <summary>Допуск по ориентации остальных узлов, радианы.</summary>
     public const double NodeDeviationTheta = 0.1;
 
+    /// <summary>Смещение паллеты от узла по оси X, метры: длина корпуса робота.</summary>
+    public const double ContainerOffsetMeters = 1.475;
+
     /// <summary>Предельная степень NURBS-траектории.</summary>
     public const int MaxTrajectoryDegree = 3;
 
@@ -257,25 +260,26 @@ public static class VdaOrderBuilder
             return actions;
         }
 
-        // Параметры как в AGVControl: робот знает, откуда брать и куда класть паллету.
+        // Параметры как в AGVControl: паллета впереди робота по оси X на длину корпуса,
+        // тип контейнера 2, авто-возврат в узел и подстройка без препятствий.
         var parameters = new JsonArray
         {
-            new JsonObject { ["key"] = "containerTypeId", ["value"] = "0" },
-            new JsonObject { ["key"] = "containerX", ["value"] = containerX },
+            new JsonObject { ["key"] = "containerTypeId", ["value"] = 2 },
+            new JsonObject { ["key"] = "containerX", ["value"] = containerX + ContainerOffsetMeters },
             new JsonObject { ["key"] = "containerY", ["value"] = containerY },
-            new JsonObject { ["key"] = "containerTheta", ["value"] = containerTheta ?? 0 },
+            new JsonObject { ["key"] = "containerTheta", ["value"] = 0.0 },
             new JsonObject { ["key"] = "onlyFork", ["value"] = true },
             new JsonObject { ["key"] = "autoReturnNode", ["value"] = true },
             new JsonObject { ["key"] = "noScan", ["value"] = false },
-            new JsonObject { ["key"] = "loadId", ["value"] = loadId ?? nodeId },
-            new JsonObject { ["key"] = "stationId", ["value"] = nodeId },
+            new JsonObject { ["key"] = "adjustWithoutOA", ["value"] = true },
         };
 
         actions.Add(new JsonObject
         {
             ["actionId"] = Guid.NewGuid().ToString(),
+            ["actionType"] = actionType,
+            ["actionDescription"] = actionType,
             ["blockingType"] = "SOFT",
-            ["blockingType"] = "HARD",
             ["actionParameters"] = parameters,
         });
 
