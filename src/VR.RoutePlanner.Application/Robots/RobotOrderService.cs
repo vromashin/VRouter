@@ -404,7 +404,10 @@ public sealed class RobotOrderService
 
         if (status == RobotOrderStatuses.Executing)
         {
-            updated = await ExtendPlanAsync(updated, snapshot, ct).ConfigureAwait(false);
+            if (_options.Value.Order.ReleasedNodes > 0)
+            {
+                updated = await ExtendPlanAsync(updated, snapshot, ct).ConfigureAwait(false);
+            }
             nodes = updated.Nodes;
         }
 
