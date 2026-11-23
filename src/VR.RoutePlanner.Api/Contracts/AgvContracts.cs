@@ -83,6 +83,40 @@ public sealed record AgvInstantActionResponse(string ActionId, bool Accepted);
 public sealed record AgvProblemResponse(string Code, string Message);
 
 /// <summary>
+/// Узел карты в ответе <c>GET /api/AgvTask/lastnode/{serial}</c>.
+/// Форма совпадает с <c>AGVModels.Def.Node</c> старого AGVControl.
+/// </summary>
+/// <param name="Id">Внутренний ключ узла.</param>
+/// <param name="NodeId">Внешний идентификатор VDA.</param>
+/// <param name="NodeDescription">Описание; всегда пустой объект <c>{}</c>.</param>
+/// <param name="MapId">Ключ карты.</param>
+/// <param name="PositionX">Координата X, метры.</param>
+/// <param name="PositionY">Координата Y, метры.</param>
+/// <param name="Theta">Ориентация, радианы.</param>
+/// <param name="AllowedDeviationXY">Допуск по XY, метры.</param>
+/// <param name="AllowedDeviationTheta">Допуск по курсу, радианы.</param>
+/// <param name="NodeType">Тип узла.</param>
+/// <param name="CreatedDate">Дата создания; в карте не хранится.</param>
+/// <param name="UpdatedDate">Дата изменения; в карте не хранится.</param>
+/// <param name="CreatedBy">Автор создания; в карте не хранится.</param>
+/// <param name="ModifiedBy">Автор изменения; в карте не хранится.</param>
+public sealed record AgvNodeResponse(
+    Guid Id,
+    string NodeId,
+    string NodeDescription,
+    Guid MapId,
+    double PositionX,
+    double PositionY,
+    double Theta,
+    double? AllowedDeviationXY,
+    double? AllowedDeviationTheta,
+    string NodeType,
+    DateTimeOffset? CreatedDate,
+    DateTimeOffset? UpdatedDate,
+    Guid? CreatedBy,
+    Guid? ModifiedBy);
+
+/// <summary>
 /// Отображение доменных заказов в DTO.
 /// </summary>
 public static class AgvDtoMapper

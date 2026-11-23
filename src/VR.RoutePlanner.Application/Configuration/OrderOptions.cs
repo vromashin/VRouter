@@ -36,10 +36,13 @@ public sealed class OrderOptions
     public string? TerminalActionType { get; set; } = "detectObject";
 
     /// <summary>
-    /// Останавливаться перед слотом wo-* (не заезжая в него). Старый AGVControl заезжает в узел
-    /// слота и выполняет действие там, поэтому для паритета по вилам это можно выключить.
+    /// Отдавать курс робота в первом узле первого сообщения. По умолчанию курс не задается:
+    /// старый AGVControl так и публиковал первый узел, появление поля меняет поведение робота.
     /// </summary>
-    public bool StopBeforeSlot { get; set; } = true;
+    public bool FirstNodeTheta { get; set; }
+
+    /// <summary>Предельное число обновлений плана на один заказ.</summary>
+    public int MaxOrderUpdates { get; set; } = 32;
 
     /// <summary>Проверяет параметры на старте сервиса.</summary>
     /// <returns>Текст ошибки либо <c>null</c>.</returns>
@@ -48,6 +51,11 @@ public sealed class OrderOptions
         if (ReleasedNodes < 0)
         {
             return $"Routing:Order:ReleasedNodes не может быть отрицательным, получено {ReleasedNodes}.";
+        }
+
+        if (MaxOrderUpdates <= 0)
+        {
+            return $"Routing:Order:MaxOrderUpdates должен быть больше нуля, получено {MaxOrderUpdates}.";
         }
 
         if (ProgressTimeoutSeconds <= 0 || AcceptTimeoutSeconds <= 0 || StateSilenceSeconds <= 0)

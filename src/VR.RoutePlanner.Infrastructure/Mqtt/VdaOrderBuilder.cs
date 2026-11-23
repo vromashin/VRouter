@@ -1,164 +1,80 @@
 using System.Text.Json.Nodes;
+using VR.RoutePlanner.Application.Robots;
 using VR.RoutePlanner.Domain.Graph;
 using VR.RoutePlanner.Domain.Planning;
 
 namespace VR.RoutePlanner.Infrastructure.Mqtt;
 
 /// <summary>
-/// Сборка заказа VDA 5050 2.1.0 по образцу заказа, снятого с робота: узлы с четными
-/// <c>sequenceId</c>, ребра с нечетными, траектория NURBS из точек ребра.
+/// Сборка тела VDA-заказа: узлы и ребра сообщения по правилам старого AGVControl.
+///
+/// Нумерация сквозная по полному маршруту: узел четный (<c>2i</c>), ребро нечетное
+/// (<c>2i + 1</c>), ребро всегда равно узлу плюс один. Кусок сообщения меняет только состав
+/// узлов и ребер, но не их номера, поэтому обновление продолжает нумерацию исходного плана.
 /// </summary>
 public static class VdaOrderBuilder
 {
-    /// <summary>Версия протокола в заказе.</summary>
+    /// <summary>Версия протокола VDA 5050 в сообщениях.</summary>
     public const string ProtocolVersion = "2.1.0";
 
-    /// <summary>Допуск по координатам первого узла, метры.</summary>
+    /// <summary>Допуск по XY у первого узла первого сообщения, метры.</summary>
     public const double FirstNodeDeviationXy = 0.3;
 
-    /// <summary>Допуск по ориентации первого узла, радианы.</summary>
+    /// <summary>Допуск по курсу у первого узла первого сообщения, радианы.</summary>
     public const double FirstNodeDeviationTheta = 3.14;
 
-    /// <summary>Допуск по координатам остальных узлов, метры.</summary>
-    public const double NodeDeviationXy = 0.3;
+    /// <summary>Допуск по XY у остальных узлов, метры.</summary>
+    public const double NodeDeviationXy = 0.1;
 
-    /// <summary>Допуск по ориентации остальных узлов, радианы.</summary>
+    /// <summary>Допуск по курсу у остальных узлов, радианы.</summary>
     public const double NodeDeviationTheta = 0.1;
 
-    /// <summary>Смещение паллеты от узла по оси X, метры: длина корпуса робота.</summary>
-    public const double ContainerOffsetMeters = 1.475;
+    private const string OrientationTypeTangential = "TANGENTIAL";
 
-    /// <summary>Предельная степень NURBS-траектории.</summary>
-    public const int MaxTrajectoryDegree = 3;
+    private const string VirtualEdgePrefix = "VIRTUAL_START_";
 
     /// <summary>
     /// Собирает заказ.
     /// </summary>
-    /// <param name="route">Маршрут планировщика.</param>
-    /// <param name="graph">Граф карты: из него берутся точки ребер и координаты узлов.</param>
-    /// <param name="mapId">Идентификатор карты.</param>
-    /// <param name="manufacturer">Производитель робота.</param>
-    /// <param name="serialNumber">Серийный номер робота.</param>
-    /// <param name="orderNumber">Номер заказа; в <c>orderId</c> пишется пятью цифрами.</param>
-    /// <param name="headerId">Идентификатор сообщения из таймера.</param>
-    /// <param name="timestamp">Момент сборки заказа.</param>
-    /// <param name="firstNodeX">Координата X первого узла, если она известна точнее графа.</param>
-    /// <param name="firstNodeY">Координата Y первого узла.</param>
-    /// <param name="firstNodeTheta">Ориентация первого узла, радианы.</param>
-    /// <param name="releasedNodeCount">Сколько первых узлов входит в базовый план.</param>
-    /// <param name="orderUpdateId">Версия заказа.</param>
-    /// <returns>Заказ как JSON-объект.</returns>
-    public static JsonObject Build(
-        PlannedRoute route,
-        WarehouseGraph graph,
-        string mapId,
-        string manufacturer,
-        string serialNumber,
-        long orderNumber,
-        long headerId,
-        DateTimeOffset timestamp,
-        double? firstNodeX = null,
-        double? firstNodeY = null,
-        double? firstNodeTheta = null,
-        int releasedNodeCount = int.MaxValue,
-        int orderUpdateId = 0,
-        string? terminalActionType = null,
-        string? terminalActionLoadId = null,
-        double? containerX = null,
-        double? containerY = null,
-        double? containerTheta = null)
+    /// <param name="request">Запрос сборки.</param>
+    /// <returns>JSON заказа.</returns>
+    /// <exception cref="InvalidOperationException">Маршрут разрывается или ссылается на неизвестное ребро.</exception>
+    public static JsonObject Build(VdaOrderRequest request)
     {
-        ArgumentNullException.ThrowIfNull(route);
-        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(request);
 
-        var edges = EdgeLookup(graph);
+        var plan = ExpandPlan(request);
+        var start = Math.Clamp(request.SliceStartIndex, 0, plan.Nodes.Count - 1);
+        var count = request.SliceNodeCount <= 0
+            ? plan.Nodes.Count - start
+            : Math.Min(request.SliceNodeCount, plan.Nodes.Count - start);
+        var last = start + count - 1;
+
         var nodes = new JsonArray();
-        var orderEdges = new JsonArray();
-
-        WarehouseNode? previous = null;
-        var sequence = 0;
-        foreach (var segment in route.Segments)
+        for (var index = start; index <= last; index++)
         {
-            if (!edges.TryGetValue(segment.EdgeCode, out var edge))
-            {
-                throw new InvalidOperationException($"Ребра {segment.EdgeCode} нет в графе карты.");
-            }
+            nodes.Add(BuildNode(request, plan, index, index == start));
+        }
 
-            var fromId = segment.Direction == RouteEdgeDirection.Forward ? edge.FromNodeId : edge.ToNodeId;
-            var toId = segment.Direction == RouteEdgeDirection.Forward ? edge.ToNodeId : edge.FromNodeId;
-            var from = graph.Nodes[fromId];
-            var to = graph.Nodes[toId];
-
-            if (previous is null)
-            {
-                nodes.Add(BuildNode(
-                from,
-                sequence,
-                mapId,
-                true,
-                firstNodeX,
-                firstNodeY,
-                firstNodeTheta,
-                releasedNodeCount <= 0 || releasedNodeCount > 0));
-                previous = from;
-            }
-            else if (previous.Id != from.Id)
-            {
-                throw new InvalidOperationException(
-                    $"Маршрут разрывается: ребро {segment.EdgeCode} начинается не в узле {previous.NodeId}.");
-            }
-
-            // Как AGVControl: отрицательное или нулевое значение означает «весь маршрут сразу»,
-            // без горизонта и без последующих обновлений плана.
-            var nextReleased = releasedNodeCount <= 0 || releasedNodeCount > (sequence / 2) + 1;
-
-            // Первый перегон: если робот смотрит против направления ребра, едем задним ходом
-            // (orientation = PI), как это делал старый AGVControl.
-            // Ориентация ребра в VDA: 0 если едем по направлению ребра, PI если против.
-            double orientation = fromId == edge.FromNodeId ? 0 : Math.PI;
-
-            orderEdges.Add(BuildEdge(edge, segment.Direction, sequence + 1, from, to, nextReleased, orientation));
-
-            var isLast = ReferenceEquals(segment, route.Segments[route.Segments.Count - 1]);
-            double? stopX = null, stopY = null, stopTheta = null;
-            if (isLast && !string.IsNullOrWhiteSpace(terminalActionType))
-            {
-                // Курс робота на рабочем узле — на стеллаж (из параметров действия), а не по ходу ребра.
-                stopTheta = containerTheta ?? Math.Atan2(to.Y - from.Y, to.X - from.X);
-            }
-
-            nodes.Add(BuildNode(
-                to,
-                sequence + 2,
-                mapId,
-                false,
-                null,
-                null,
-                null,
-                nextReleased,
-                isLast ? terminalActionType : null,
-                isLast ? terminalActionLoadId : null,
-                stopX,
-                stopY,
-                stopTheta,
-                containerX,
-                containerY,
-                containerTheta));
-            sequence += 2;
-            previous = to;
+        var edges = new JsonArray();
+        for (var index = start; index < last; index++)
+        {
+            edges.Add(BuildEdge(request, plan, index, index == start));
         }
 
         return new JsonObject
         {
-            ["headerId"] = headerId,
-            ["timestamp"] = timestamp.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", System.Globalization.CultureInfo.InvariantCulture),
+            ["headerId"] = request.HeaderId,
+            ["timestamp"] = request.Timestamp.UtcDateTime.ToString(
+                "yyyy-MM-ddTHH:mm:ss.fffZ",
+                System.Globalization.CultureInfo.InvariantCulture),
             ["version"] = ProtocolVersion,
-            ["manufacturer"] = manufacturer,
-            ["serialNumber"] = serialNumber,
-            ["orderId"] = $"ORD_{orderNumber:D5}",
-            ["orderUpdateId"] = orderUpdateId,
+            ["manufacturer"] = request.Manufacturer,
+            ["serialNumber"] = request.SerialNumber,
+            ["orderId"] = request.OrderId,
+            ["orderUpdateId"] = request.OrderUpdateId,
             ["nodes"] = nodes,
-            ["edges"] = orderEdges,
+            ["edges"] = edges,
         };
     }
 
@@ -189,11 +105,11 @@ public static class VdaOrderBuilder
         if (ordered.Count > 0)
         {
             var first = ordered[0];
-            var last = ordered[^1];
+            var lastPoint = ordered[^1];
             controlPoints.Add(new JsonObject { ["x"] = first.X, ["y"] = first.Y, ["weight"] = 1 });
             if (ordered.Count > 1)
             {
-                controlPoints.Add(new JsonObject { ["x"] = last.X, ["y"] = last.Y, ["weight"] = 1 });
+                controlPoints.Add(new JsonObject { ["x"] = lastPoint.X, ["y"] = lastPoint.Y, ["weight"] = 1 });
             }
         }
 
@@ -205,117 +121,241 @@ public static class VdaOrderBuilder
         };
     }
 
-    private static JsonObject BuildNode(
-        WarehouseNode node,
-        int sequenceId,
-        string mapId,
-        bool first,
-        double? firstX,
-        double? firstY,
-        double? firstTheta,
-        bool released,
-        string? actionType = null,
-        string? actionLoadId = null,
-        double? stopX = null,
-        double? stopY = null,
-        double? stopTheta = null,
-        double? containerX = null,
-        double? containerY = null,
-        double? containerTheta = null)
+    /// <summary>
+    /// Разворачивает маршрут в узлы и ребра полного плана, проверяя связность.
+    /// </summary>
+    private static PlanChain ExpandPlan(VdaOrderRequest request)
     {
-        var position = new JsonObject
-        {
-            ["x"] = first ? firstX ?? node.X : stopX ?? node.X,
-            ["y"] = first ? firstY ?? node.Y : stopY ?? node.Y,
-        };
+        var lookup = EdgeLookup(request.Graph);
+        var nodes = new List<WarehouseNode>();
+        var edges = new List<WarehouseEdge>();
+        var directions = new List<RouteEdgeDirection>();
 
-        // Как AGVControl: у первого узла theta не задаём, робот сохраняет свой курс.
-        if (!first && stopTheta is not null)
+        foreach (var segment in request.Route.Segments)
         {
-            position["theta"] = stopTheta.Value;
+            if (!lookup.TryGetValue(segment.EdgeCode, out var edge))
+            {
+                throw new InvalidOperationException($"Ребро {segment.EdgeCode} отсутствует в графе.");
+            }
+
+            if (!request.Graph.Nodes.TryGetValue(edge.FromNodeId, out var from)
+                || !request.Graph.Nodes.TryGetValue(edge.ToNodeId, out var to))
+            {
+                throw new InvalidOperationException($"Ребро {segment.EdgeCode} ссылается на узлы вне графа.");
+            }
+
+            if (segment.Direction == RouteEdgeDirection.Backward)
+            {
+                (from, to) = (to, from);
+            }
+
+            if (nodes.Count == 0)
+            {
+                nodes.Add(from);
+            }
+            else if (nodes[^1].Id != from.Id)
+            {
+                throw new InvalidOperationException(
+                    $"Маршрут разрывается: ребро {segment.EdgeCode} начинается не в узле {nodes[^1].NodeId}.");
+            }
+
+            nodes.Add(to);
+            edges.Add(edge);
+            directions.Add(segment.Direction);
         }
 
-        position["allowedDeviationXY"] = first ? FirstNodeDeviationXy : NodeDeviationXy;
-        position["allowedDeviationTheta"] = first ? FirstNodeDeviationTheta : NodeDeviationTheta;
-        position["mapId"] = mapId;
+        if (nodes.Count == 0)
+        {
+            throw new InvalidOperationException("Маршрут пуст: собирать заказ не из чего.");
+        }
+
+        return new PlanChain(nodes, edges, directions);
+    }
+
+    private static JsonObject BuildNode(VdaOrderRequest request, PlanChain plan, int index, bool first)
+    {
+        var node = plan.Nodes[index];
+        var isWorking = WorkingNodeGeometry.IsWorking(node);
+        WorkingNodeStop stop = default;
+        if (isWorking)
+        {
+            stop = WorkingNodeStopResolver.Resolve(
+                request.Graph,
+                plan.Nodes,
+                index,
+                request.RobotX ?? node.X,
+                request.RobotY ?? node.Y);
+        }
+
+        // Узел подхода: маршрут закончился до целевого рабочего узла, действие ставится здесь.
+        var isApproachFallback = request.ApproachTarget is not null
+            && index == plan.Nodes.Count - 1
+            && !isWorking;
+
+        var position = new JsonObject
+        {
+            ["x"] = isWorking ? stop.StopX : node.X,
+            ["y"] = isWorking ? stop.StopY : node.Y,
+        };
+
+        double? theta = null;
+        var containerX = node.X;
+        var containerY = node.Y;
+        double? containerTheta = null;
+
+        if (isWorking)
+        {
+            theta = WorkingNodeGeometry.HasTheta(node) ? stop.Theta : null;
+            containerTheta = stop.Theta;
+        }
+
+        if (isApproachFallback)
+        {
+            var target = request.ApproachTarget!;
+            var course = WorkingNodeGeometry.Course(node.X, node.Y, target.X, target.Y);
+            containerX = target.X;
+            containerY = target.Y;
+            containerTheta = course;
+            theta = WorkingNodeGeometry.HasTheta(target) ? course : null;
+        }
+
+        // Первый узел первого сообщения: поза робота, широкие допуски, курс по флагу.
+        if (first && request.OrderUpdateId <= 0)
+        {
+            position["x"] = request.RobotX ?? node.X;
+            position["y"] = request.RobotY ?? node.Y;
+            if (request.FirstNodeTheta)
+            {
+                position["theta"] = request.RobotTheta ?? node.Theta;
+            }
+
+            position["allowedDeviationXY"] = FirstNodeDeviationXy;
+            position["allowedDeviationTheta"] = FirstNodeDeviationTheta;
+        }
+        else
+        {
+            if (theta is not null)
+            {
+                position["theta"] = theta.Value;
+            }
+
+            position["allowedDeviationXY"] = Math.Max(node.AllowedDeviationXY ?? 0, NodeDeviationXy);
+            position["allowedDeviationTheta"] = Math.Max(node.AllowedDeviationTheta ?? 0, NodeDeviationTheta);
+        }
+
+        position["mapId"] = request.MapId;
+
+        var actions = new JsonArray();
+        var actionNode = isApproachFallback ? request.ApproachTarget! : node;
+        if ((isWorking || isApproachFallback) && request.SendForkActions)
+        {
+            actions.Add(BuildForkAction(actionNode, request, containerX, containerY, containerTheta));
+        }
+
+        // Завершающее действие ставится только в последнем узле всего плана.
+        if (index == plan.Nodes.Count - 1 && !string.IsNullOrWhiteSpace(request.TerminalActionType))
+        {
+            actions.Add(BuildAction(
+                request.TerminalActionType!,
+                containerX,
+                containerY,
+                containerTheta ?? 0));
+        }
 
         return new JsonObject
         {
             ["nodeId"] = node.NodeId,
-            ["sequenceId"] = sequenceId,
-            ["released"] = released,
+            ["sequenceId"] = index * 2,
+            ["released"] = true,
             ["nodePosition"] = position,
             ["nodeDescription"] = "{}",
-            ["actions"] = BuildActions(
-                actionType,
-                actionLoadId,
-                node.NodeId,
-                containerX ?? node.X,
-                containerY ?? node.Y,
-                containerTheta ?? stopTheta),
+            ["actions"] = actions,
         };
     }
-    /// </summary>
-    private static JsonArray BuildActions(
-        string? actionType,
-        string? loadId,
-        string nodeId,
+
+    private static JsonObject BuildEdge(VdaOrderRequest request, PlanChain plan, int index, bool first)
+    {
+        var edge = plan.Edges[index];
+        var from = plan.Nodes[index];
+        var to = plan.Nodes[index + 1];
+
+        // Как в AGVControl: курс задается только у первого ребра сообщения. Если первый
+        // перегон идет против хранения ребра, робот едет задним ходом (orientation = PI).
+        // У остальных ребер orientation = 0 независимо от направления.
+        var orientation = first && plan.Directions[index] == RouteEdgeDirection.Backward
+            ? Math.PI
+            : 0;
+
+        var result = new JsonObject
+        {
+            ["edgeId"] = edge.EdgeId,
+            ["sequenceId"] = (index * 2) + 1,
+            ["startNodeId"] = from.NodeId,
+            ["endNodeId"] = to.NodeId,
+            ["maxSpeed"] = edge.MaxSpeed,
+            ["orientation"] = orientation,
+            ["orientationType"] = string.IsNullOrWhiteSpace(edge.OrientationType)
+                ? OrientationTypeTangential
+                : edge.OrientationType,
+        };
+
+        if (edge.MaxRotationSpeed is not null)
+        {
+            result["maxRotationSpeed"] = edge.MaxRotationSpeed.Value;
+        }
+
+        result["released"] = true;
+        result["trajectory"] = BuildTrajectory(edge.TrajectoryPoints, plan.Directions[index]);
+        result["actions"] = new JsonArray();
+        return result;
+    }
+
+    private static JsonObject BuildForkAction(
+        WarehouseNode node,
+        VdaOrderRequest request,
         double containerX,
         double containerY,
         double? containerTheta)
     {
-        var actions = new JsonArray();
-        if (string.IsNullOrWhiteSpace(actionType))
+        var actionType = node.NodeType.ToUpperInvariant() switch
         {
-            return actions;
-        }
+            "LOADING" => "pick",
+            "UNLOADING" => "drop",
 
-        var direction = containerTheta ?? 0.0;
+            // Тип узла не задает операцию (например слот wo-*): решаем по наличию груза.
+            _ => request.HasLoad ? "drop" : "pick",
+        };
 
-        // Параметры как в AGVControl: паллета в координатах узла слота, курс — на стеллаж.
+        return BuildAction(actionType, containerX, containerY, containerTheta ?? 0);
+    }
+
+    private static JsonObject BuildAction(
+        string actionType,
+        double containerX,
+        double containerY,
+        double containerTheta)
+    {
         var parameters = new JsonArray
         {
             new JsonObject { ["key"] = "containerTypeId", ["value"] = 2 },
             new JsonObject { ["key"] = "containerX", ["value"] = containerX },
             new JsonObject { ["key"] = "containerY", ["value"] = containerY },
-            new JsonObject { ["key"] = "containerTheta", ["value"] = direction },
+            new JsonObject { ["key"] = "containerTheta", ["value"] = containerTheta },
             new JsonObject { ["key"] = "onlyFork", ["value"] = true },
             new JsonObject { ["key"] = "autoReturnNode", ["value"] = true },
             new JsonObject { ["key"] = "noScan", ["value"] = false },
             new JsonObject { ["key"] = "adjustWithoutOA", ["value"] = true },
         };
 
-        actions.Add(new JsonObject
+        return new JsonObject
         {
             ["actionId"] = Guid.NewGuid().ToString(),
             ["actionType"] = actionType,
             ["actionDescription"] = actionType,
             ["blockingType"] = "SOFT",
             ["actionParameters"] = parameters,
-        });
-
-        return actions;
+        };
     }
-
-    private static JsonObject BuildEdge(
-        WarehouseEdge edge,
-        RouteEdgeDirection direction,
-        int sequenceId,
-        WarehouseNode from,
-        WarehouseNode to,
-        bool released,
-        double? orientation = null) => new()
-    {
-        ["edgeId"] = edge.EdgeId,
-        ["sequenceId"] = sequenceId,
-        ["startNodeId"] = from.NodeId,
-        ["endNodeId"] = to.NodeId,
-        ["orientation"] = orientation ?? 0,
-        ["orientationType"] = "TANGENTIAL",
-        ["released"] = released,
-        ["trajectory"] = BuildTrajectory(edge.TrajectoryPoints, direction),
-        ["actions"] = new JsonArray(),
-    };
 
     private static Dictionary<string, WarehouseEdge> EdgeLookup(WarehouseGraph graph)
     {
@@ -327,4 +367,10 @@ public static class VdaOrderBuilder
 
         return result;
     }
+
+    /// <summary>Полный план маршрута: узлы, ребра и направление проезда каждого ребра.</summary>
+    private sealed record PlanChain(
+        List<WarehouseNode> Nodes,
+        List<WarehouseEdge> Edges,
+        List<RouteEdgeDirection> Directions);
 }

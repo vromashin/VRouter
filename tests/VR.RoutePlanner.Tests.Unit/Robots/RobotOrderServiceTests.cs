@@ -82,6 +82,21 @@ public sealed class RobotOrderServiceTests
     }
 
     [Fact]
+    public async Task ApplyState_LastNodeEqualsTarget_MarksCompleted()
+    {
+        var (service, orders, _, _) = Create();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Executing);
+        orders.Orders[order.OrderId] = order;
+
+        var completed = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(order.OrderId, lastNodeId: "wa4"),
+            CancellationToken.None);
+
+        Assert.Equal(RobotOrderStatuses.Completed, completed!.Status);
+        Assert.NotNull(completed.CompletedAt);
+    }
+
+    [Fact]
     public async Task CheckTimeouts_NoAccept_FailsOrder()
     {
         var (service, orders, time, _) = Create();
@@ -143,12 +158,15 @@ public sealed class RobotOrderServiceTests
     }
 
     internal static (RobotOrderService Service, FakeOrderRepository Orders, TestTimeProvider Time, FakeStateReader States) Create(
-        int nodes = 3)
+        int nodes = 3,
+        int releasedNodes = 3,
+        bool firstNodeTheta = false)
     {
         var orders = new FakeOrderRepository();
         var states = new FakeStateReader();
         var time = new TestTimeProvider(new DateTimeOffset(2026, 11, 21, 12, 0, 0, TimeSpan.Zero));
         var options = Planning.PlanningFixtures.Options();
+        options.Order = new OrderOptions { ReleasedNodes = releasedNodes, FirstNodeTheta = firstNodeTheta };
         var service = new RobotOrderService(
             new FakePlanner(nodes),
             new FakeComposer(),

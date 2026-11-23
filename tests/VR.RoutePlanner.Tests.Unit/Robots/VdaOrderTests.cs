@@ -63,8 +63,8 @@ public sealed class VdaOrderBuilderTests
 
         Assert.Equal(0.3, first["allowedDeviationXY"]!.GetValue<double>(), 9);
         Assert.Equal(3.14, first["allowedDeviationTheta"]!.GetValue<double>(), 9);
-        // Как AGVControl: у первого узла theta не задается, курс сохраняется.
-        Assert.Equal(0.3, second["allowedDeviationXY"]!.GetValue<double>(), 9);
+        // Как в образце со стенда и в спеке: у остальных узлов допуск max(поле узла, 0.1).
+        Assert.Equal(0.1, second["allowedDeviationXY"]!.GetValue<double>(), 9);
         Assert.Equal(0.1, second["allowedDeviationTheta"]!.GetValue<double>(), 9);
         Assert.Null(second["theta"]);
         Assert.Equal("801", first["mapId"]!.GetValue<string>());
@@ -109,7 +109,7 @@ public sealed class VdaOrderBuilderTests
             1.5,
             false,
             null);
-        var order = VdaOrderBuilder.Build(route, graph, "801", "Tuskrobots", "98001", 7, 1, DateTimeOffset.UnixEpoch);
+        var order = VdaOrderBuilder.Build(OrderFixtures.Request(route, graph));
 
         var edge = order["edges"]![0]!;
         Assert.Equal("801-wa101-wa102", edge["edgeId"]!.GetValue<string>());
@@ -150,11 +150,16 @@ public sealed class VdaOrderBuilderTests
         var route = OrderFixtures.Route(second.EdgeId, second.EdgeId);
 
         Assert.Throws<InvalidOperationException>(() =>
-            VdaOrderBuilder.Build(route, graph, "801", "Tuskrobots", "98001", 7, 1, DateTimeOffset.UnixEpoch));
+            VdaOrderBuilder.Build(OrderFixtures.Request(route, graph)));
     }
 
     private static string ReadAsset(string fileName) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Robots", "Assets", fileName));
+
+    /// <summary>
+    /// Поля, которые появились в спеке этапа 2.5 и которых нет в образце со стенда.
+    /// </summary>
+    private static readonly string[] AllowedExtraKeys = ["maxSpeed", "maxRotationSpeed"];
 
     private static void CompareStructure(JsonNode sample, JsonNode actual, string path)
     {
@@ -171,7 +176,10 @@ public sealed class VdaOrderBuilderTests
 
             Assert.Equal(
                 sampleObject.Select(pair => pair.Key).OrderBy(key => key, StringComparer.Ordinal),
-                actualObject.Select(pair => pair.Key).OrderBy(key => key, StringComparer.Ordinal));
+                actualObject
+                    .Select(pair => pair.Key)
+                    .Where(key => !AllowedExtraKeys.Contains(key, StringComparer.Ordinal))
+                    .OrderBy(key => key, StringComparer.Ordinal));
 
             foreach (var pair in sampleObject)
             {

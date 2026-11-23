@@ -86,7 +86,8 @@ public static class RobotStateParser
                 ReadString(root, "lastNodeId"),
                 ReadNullableInt(root, "lastNodeSequenceId"),
             ReadBool(root, "newBaseRequest"),
-            ReadActionStates(root));
+            ReadActionStates(root),
+            ReadEdgeStates(root));
 
             return true;
         }
@@ -233,6 +234,42 @@ public static class RobotStateParser
                 && releasedValue.ValueKind == JsonValueKind.True;
 
             result.Add(new RobotNodeState(nodeId!, sequence, released));
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyList<RobotEdgeState> ReadEdgeStates(JsonElement root)
+    {
+        if (!root.TryGetProperty("edgeStates", out var edges) || edges.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<RobotEdgeState>();
+        }
+
+        var result = new List<RobotEdgeState>();
+        foreach (var item in edges.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var edgeId = ReadString(item, "edgeId");
+            if (string.IsNullOrWhiteSpace(edgeId))
+            {
+                continue;
+            }
+
+            var sequence = item.TryGetProperty("sequenceId", out var sequenceValue)
+                && sequenceValue.ValueKind == JsonValueKind.Number
+                && sequenceValue.TryGetInt32(out var parsed)
+                ? parsed
+                : 0;
+
+            var released = item.TryGetProperty("released", out var releasedValue)
+                && releasedValue.ValueKind == JsonValueKind.True;
+
+            result.Add(new RobotEdgeState(edgeId!, sequence, released));
         }
 
         return result;

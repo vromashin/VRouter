@@ -1,6 +1,4 @@
 using System.Text.Json;
-using VR.RoutePlanner.Domain.Graph;
-using VR.RoutePlanner.Domain.Planning;
 
 namespace VR.RoutePlanner.Application.Robots;
 
@@ -13,41 +11,9 @@ public interface IVdaOrderComposer
     /// <summary>
     /// Собирает заказ.
     /// </summary>
-    /// <param name="route">Маршрут планировщика.</param>
-    /// <param name="graph">Граф карты.</param>
-    /// <param name="mapId">Карта.</param>
-    /// <param name="orderId">Идентификатор заказа вида <c>ORD_04330</c>.</param>
-    /// <param name="manufacturer">Производитель робота.</param>
-    /// <param name="serialNumber">Серийный номер робота.</param>
-    /// <param name="orderNumber">Числовая часть номера заказа.</param>
-    /// <param name="headerId">Идентификатор сообщения.</param>
-    /// <param name="releasedNodeCount">Сколько первых узлов входит в базовый план.</param>
-    /// <param name="timestamp">Момент сборки.</param>
-    /// <param name="firstNodeX">Координата X первого узла, если нужна не из графа.</param>
-    /// <param name="firstNodeY">Координата Y первого узла.</param>
-    /// <param name="terminalActionType">Тип действия на последнем узле: pick или drop.</param>
-    /// <param name="terminalActionLoadId">Идентификатор груза для действия.</param>
-    /// <param name="firstNodeTheta">Ориентация первого узла, радианы.</param>
+    /// <param name="request">Запрос сборки: маршрут, граф и границы куска.</param>
     /// <returns>JSON заказа.</returns>
-    string Compose(
-        PlannedRoute route,
-        WarehouseGraph graph,
-        string mapId,
-        string orderId,
-        string manufacturer,
-        string serialNumber,
-        long orderNumber,
-        long headerId,
-        int releasedNodeCount,
-        DateTimeOffset timestamp,
-        double? firstNodeX = null,
-        double? firstNodeY = null,
-        double? firstNodeTheta = null,
-        string? terminalActionType = null,
-        string? terminalActionLoadId = null,
-        double? containerX = null,
-        double? containerY = null,
-        double? containerTheta = null);
+    string Compose(VdaOrderRequest request);
 }
 
 /// <summary>
@@ -61,6 +27,7 @@ public static class VdaInstantActionPayload
     /// <param name="actionType">Тип действия: <c>pause</c>, <c>resume</c>, <c>cancelOrder</c>, <c>startCharging</c>, <c>stopCharging</c>.</param>
     /// <param name="actionId">Идентификатор действия.</param>
     /// <param name="timestamp">Момент отправки.</param>
+    /// <param name="parameters">Параметры действия.</param>
     /// <returns>JSON сообщения.</returns>
     public static string Build(
         string actionType,

@@ -11,7 +11,11 @@ public sealed class RoutePlannerOptions
     /// <summary>Имя секции конфигурации.</summary>
     public const string SectionName = "Routing";
 
-    /// <summary>Количество базовых узлов маршрута. Заполняется этапом 2.</summary>
+    /// <summary>
+    /// Количество базовых узлов маршрута. Не используется: нарезку заказа задает
+    /// <c>Routing:Order:ReleasedNodes</c> (см. <see cref="Robots.OrderChunkPlanner"/>).
+    /// </summary>
+    [System.Obsolete("Не участвует в нарезке заказа: используйте Routing:Order:ReleasedNodes.")]
     public int BaseNodesCount { get; set; } = 40;
 
     /// <summary>Горизонт резервирования в секундах. Заполняется этапом 3.</summary>

@@ -44,6 +44,14 @@ public sealed class RobotOrderService
         RobotOrderStatuses.Executing,
     ];
 
+    /// <summary>Статусы, в которых заказ может получить обновление плана.</summary>
+    private static readonly string[] ExtendStatuses =
+    [
+        RobotOrderStatuses.Sent,
+        RobotOrderStatuses.Accepted,
+        RobotOrderStatuses.Executing,
+    ];
+
     private readonly IPathPlanner _planner;
     private readonly IVdaOrderComposer composer;
     private readonly IHeaderIdSource _headers;
@@ -72,6 +80,7 @@ public sealed class RobotOrderService
     /// <param name="options">Параметры <c>Routing</c>.</param>
     /// <param name="time">Источник времени.</param>
     /// <param name="logger">Журнал.</param>
+    /// <param name="simulatorReset">Сброс симулятора робота, если он включен в конфигурации.</param>
     public RobotOrderService(
         IPathPlanner planner,
         IVdaOrderComposer composer,
@@ -209,44 +218,6 @@ public sealed class RobotOrderService
             throw new OrderRejectedException(RoutePlanReason.NodeNotFound, "Узел старта или цели не найден на карте.");
         }
 
-        // Слот рабочий узел не проезжаем: маршрут строим до соседнего узла, действие выполняем там.
-        var slotNode = to;
-        var stopBeforeSlot = options.Order.StopBeforeSlot
-            && slotNode.NodeId.StartsWith(SlotApproachResolver.SlotPrefix, StringComparison.OrdinalIgnoreCase);
-        if (stopBeforeSlot)
-        {
-            var robotX = snapshot?.PositionX ?? from.X;
-            var robotY = snapshot?.PositionY ?? from.Y;
-            // Предпочитаем соседа, ребро которого направлено В слот: тогда робот едет по ребру
-            // вперед и приезжает лицом к стеллажу, а не кормой.
-            var candidates = graph.Edges.Values
-                .SelectMany(list => list)
-                .Where(edge => edge.FromNodeId == slotNode.Id || edge.ToNodeId == slotNode.Id)
-                .Select(edge => new
-                {
-                    NodeId = edge.FromNodeId == slotNode.Id ? edge.ToNodeId : edge.FromNodeId,
-                    IntoSlot = edge.ToNodeId == slotNode.Id,
-                })
-                .Distinct()
-                .Select(item => new
-                {
-                    Node = graph.Nodes.GetValueOrDefault(item.NodeId),
-                    item.IntoSlot,
-                })
-                .Where(item => item.Node is not null
-                    && !item.Node.NodeId.StartsWith(SlotApproachResolver.SlotPrefix, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(item => Math.Sqrt(Math.Pow(item.Node!.X - slotNode.X, 2) + Math.Pow(item.Node!.Y - slotNode.Y, 2)))
-                .ThenBy(item => item.IntoSlot ? 0 : 1)
-                .ToList();
-
-            var neighbor = candidates.FirstOrDefault()?.Node;
-
-            if (neighbor is not null)
-            {
-                to = neighbor;
-            }
-        }
-
         if (from.Id == to.Id)
         {
             // Робот уже стоит на узле подъезда: движение не нужно, сразу фиксируем выполнение.
@@ -297,46 +268,59 @@ public sealed class RobotOrderService
         var number = await _numbers.NextAsync(ct).ConfigureAwait(false);
         var orderId = $"ORD_{number:D5}";
         var now = _time.GetUtcNow();
+        var headerId = _headers.Next();
 
-        // Тип действия берем из типа узла, как старый AGVControl: LOADING это подбор, UNLOADING выгрузка.
-        var actionType = slotNode.NodeType?.ToUpperInvariant() switch
-        {
-            "LOADING" => "pick",
-            "UNLOADING" => "drop",
-            _ => hasLoad ? "drop" : "pick",
-        };
-        var orderJson = composer.Compose(
+        // Маршрут кончился на узле подхода (цель внутри слота непроезжая): действие pick/drop
+        // ставится в последнем узле маршрута, координаты паллеты берутся у целевого узла.
+        var approachTarget = plan.ApproachNodeId is not null
+            && WorkingNodeGeometry.IsWorking(to)
+            ? to
+            : null;
+
+        var fullRequest = new VdaOrderRequest(
             plan.Route,
             graph,
             mapId,
             orderId,
             options.Order.Manufacturer,
             serialNumber,
-            number,
-            _headers.Next(),
-            options.Order.ReleasedNodes,
+            headerId,
             now,
-            snapshot?.PositionX,
-            snapshot?.PositionY,
-            snapshot?.Theta,
-            actionType,
-            orderId,
-            slotNode.X,
-            slotNode.Y,
-            Math.Atan2(slotNode.Y - to.Y, slotNode.X - to.X));
+            OrderUpdateId: 0,
+            SendForkActions: options.Order.SendForkActions,
+            HasLoad: hasLoad,
+            FirstNodeTheta: options.Order.FirstNodeTheta,
+            RobotX: snapshot?.PositionX,
+            RobotY: snapshot?.PositionY,
+            RobotTheta: snapshot?.Theta,
+            TerminalActionType: options.Order.TerminalActionType,
+            ApproachTarget: approachTarget);
+
+        // В PlanJson лежит полный план: нарезка нужна только для отправки и обновлений.
+        var planJson = composer.Compose(fullRequest);
+        var planNodeCount = CountNodes(planJson);
+        var chunks = OrderChunkPlanner.Slice(planNodeCount, options.Order.ReleasedNodes);
+        var chunk = chunks.Count > 0 ? chunks[0] : new OrderChunk(0, planNodeCount);
+        var orderJson = chunk.StartIndex == 0 && chunk.NodeCount >= planNodeCount
+            ? planJson
+            : composer.Compose(fullRequest with
+            {
+                SliceStartIndex = chunk.StartIndex,
+                SliceNodeCount = chunk.NodeCount,
+            });
 
         await _publisher
             .PublishAsync(options.Order.Manufacturer, serialNumber, orderJson, ct)
             .ConfigureAwait(false);
 
-        var nodes = BuildNodes(orderJson, orderId, options.Order.ReleasedNodes);
+        var nodes = BuildNodes(planJson, orderId, chunk);
         var order = new RobotOrder(
             orderId,
             serialNumber,
             0,
             RobotOrderStatuses.Sent,
-            orderJson,
-            Math.Min(options.Order.ReleasedNodes, nodes.Count),
+            planJson,
+            chunk.NodeCount,
             to.NodeId,
             plan.ApproachNodeId,
             now,
@@ -348,10 +332,12 @@ public sealed class RobotOrderService
 
         await _orders.SaveAsync(order, ct).ConfigureAwait(false);
         _logger.LogInformation(
-            "Заказ {OrderId} роботу {Serial}: узлов {Nodes}, длина {Length:F2} м",
+            "Заказ {OrderId} роботу {Serial}: узлов {Nodes} (в сообщении {Sent}, кусков {Chunks}), длина {Length:F2} м",
             orderId,
             serialNumber,
             nodes.Count,
+            chunk.NodeCount,
+            chunks.Count,
             plan.Route.TotalLengthMeters);
 
         return order;
@@ -406,7 +392,11 @@ public sealed class RobotOrderService
             status = RobotOrderStatuses.Executing;
         }
 
-        if (status == RobotOrderStatuses.Executing && reachedLast && !snapshot.Driving)
+        // Закрытие по целевому узлу: робот может не прислать узлы плана, но lastNodeId равен цели.
+        var reachedTarget = !string.IsNullOrWhiteSpace(order.TargetNodeId)
+            && string.Equals(snapshot.LastNodeId, order.TargetNodeId, StringComparison.Ordinal);
+
+        if (status == RobotOrderStatuses.Executing && !snapshot.Driving && (reachedLast || reachedTarget))
         {
             status = RobotOrderStatuses.Completed;
             completedAt = now;
@@ -417,7 +407,7 @@ public sealed class RobotOrderService
             && acceptedAt == order.AcceptedAt
             && completedAt == order.CompletedAt
             && failure == order.FailureReason
-            && status != RobotOrderStatuses.Executing)
+            && !ExtendStatuses.Contains(status))
         {
             return order;
         }
@@ -431,12 +421,9 @@ public sealed class RobotOrderService
             Nodes = nodes,
         };
 
-        if (status == RobotOrderStatuses.Executing)
+        if (ExtendStatuses.Contains(status))
         {
-            if (_options.Value.Order.ReleasedNodes > 0)
-            {
-                updated = await ExtendPlanAsync(updated, snapshot, ct).ConfigureAwait(false);
-            }
+            updated = await ExtendPlanAsync(updated, snapshot, ct).ConfigureAwait(false);
             nodes = updated.Nodes;
         }
 
@@ -446,21 +433,62 @@ public sealed class RobotOrderService
     }
 
     /// <summary>
-    /// Публикует обновление заказа, когда базовый план почти исчерпан: горизонт сдвигается
-    /// на следующие узлы, <c>orderUpdateId</c> растет.
+    /// Публикует обновление заказа, когда кусок почти исчерпан: план продолжается от последнего
+    /// достигнутого узла, <c>orderUpdateId</c> растет, нумерация исходного плана сохраняется.
     /// </summary>
     private async Task<RobotOrder> ExtendPlanAsync(RobotOrder order, RobotSnapshot snapshot, CancellationToken ct)
     {
+        var orderOptions = _options.Value.Order;
+
+        // В режиме ReleasedNodes = 0 робот получил весь маршрут: чанков и обновлений нет,
+        // newBaseRequest ни к чему не обязывает.
+        if (orderOptions.ReleasedNodes <= 0)
+        {
+            if (snapshot.NewBaseRequest)
+            {
+                _logger.LogInformation(
+                    "Заказ {OrderId}: newBaseRequest проигнорирован, режим ReleasedNodes=0",
+                    order.OrderId);
+            }
+
+            return order;
+        }
+
         if (string.IsNullOrWhiteSpace(order.PlanJson))
         {
             return order;
         }
 
+        if (!ExtendStatuses.Contains(order.Status))
+        {
+            return order;
+        }
+
+        if (!string.Equals(snapshot.OrderId, order.OrderId, StringComparison.Ordinal)
+            || snapshot.OrderUpdateId < order.OrderUpdateId)
+        {
+            return order;
+        }
+
+        if (order.OrderUpdateId >= orderOptions.MaxOrderUpdates)
+        {
+            _logger.LogWarning(
+                "Заказ {OrderId}: достигнут предел обновлений {Max}",
+                order.OrderId,
+                orderOptions.MaxOrderUpdates);
+            return order;
+        }
+
         var reached = order.Nodes.Where(node => node.Reached).Select(node => node.NodeId).ToHashSet(StringComparer.Ordinal);
+
         // AGV выставляет newBaseRequest, когда его базовый план исчерпан: как в AGVControl,
         // строим продолжение от последнего достигнутого узла, не дожидаясь счётчика узлов.
         var remaining = snapshot.NewBaseRequest ? 0 : snapshot.LastNodeSequenceId is { } lastSeq
-            ? VdaOrderUpdater.CountUnreachedReleasedAfterSequence(order.PlanJson, lastSeq)
+            ? VdaOrderUpdater.CountUnreachedInChunk(
+                order.PlanJson,
+                lastSeq,
+                orderOptions.ReleasedNodes,
+                snapshot.NodeStates)
             : VdaOrderUpdater.CountUnreachedReleased(order.PlanJson, reached);
 
         _logger.LogInformation(
@@ -489,7 +517,7 @@ public sealed class RobotOrderService
             return order;
         }
 
-        var releasedNodes = _options.Value.Order.ReleasedNodes;
+        var releasedNodes = orderOptions.ReleasedNodes;
         var updateJson = VdaOrderUpdater.BuildUpdate(
             order.PlanJson,
             order.OrderUpdateId + 1,
@@ -497,7 +525,8 @@ public sealed class RobotOrderService
             _headers.Next(),
             now,
             snapshot.LastNodeId,
-            snapshot.LastNodeSequenceId);
+            snapshot.LastNodeSequenceId,
+            reached);
 
         if (updateJson is null)
         {
@@ -505,7 +534,7 @@ public sealed class RobotOrderService
         }
 
         await _publisher
-            .PublishAsync(_options.Value.Order.Manufacturer, order.AgvSerialNumber, updateJson, ct)
+            .PublishAsync(orderOptions.Manufacturer, order.AgvSerialNumber, updateJson, ct)
             .ConfigureAwait(false);
         _lastUpdate[order.AgvSerialNumber] = now;
         _lastUpdateSequence[order.AgvSerialNumber] = reachedSequence;
@@ -521,7 +550,7 @@ public sealed class RobotOrderService
         {
             PlanJson = updateJson,
             OrderUpdateId = order.OrderUpdateId + 1,
-            ReleasedNodeCount = Math.Min(releasedNodes, updatedNodes.Count),
+            ReleasedNodeCount = updatedNodes.Count,
             Nodes = updatedNodes,
         };
     }
@@ -529,8 +558,6 @@ public sealed class RobotOrderService
     /// <summary>
     /// Проверяет таймауты активных заказов роботов.
     /// </summary>
-    /// <param name="ct">Токен отмены.</param>
-    /// <returns>Сколько заказов провалено по таймауту.</returns>
     /// <summary>
     /// Возвращает заказ по идентификатору.
     /// </summary>
@@ -857,11 +884,11 @@ public sealed class RobotOrderService
     }
 
     private static IReadOnlyList<RobotOrderNode> BuildNodes(
-        string orderJson,
+        string planJson,
         string orderId,
-        int releasedNodes)
+        OrderChunk chunk)
     {
-        using var document = JsonDocument.Parse(orderJson);
+        using var document = JsonDocument.Parse(planJson);
         var nodes = new List<RobotOrderNode>();
         var index = 0;
         foreach (var node in document.RootElement.GetProperty("nodes").EnumerateArray())
@@ -870,13 +897,19 @@ public sealed class RobotOrderService
                 orderId,
                 node.GetProperty("sequenceId").GetInt32(),
                 node.GetProperty("nodeId").GetString() ?? string.Empty,
-                Released: index < releasedNodes,
+                Released: index >= chunk.StartIndex && index <= chunk.EndIndex,
                 Reached: false,
                 ActionCount: node.GetProperty("actions").GetArrayLength()));
             index++;
         }
 
         return nodes;
+    }
+
+    private static int CountNodes(string planJson)
+    {
+        using var document = JsonDocument.Parse(planJson);
+        return document.RootElement.GetProperty("nodes").GetArrayLength();
     }
 
     private static IReadOnlyList<RobotOrderNode> BuildNodesFromPlan(

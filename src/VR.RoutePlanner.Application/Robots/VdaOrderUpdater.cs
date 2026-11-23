@@ -3,8 +3,12 @@ using System.Text.Json.Nodes;
 namespace VR.RoutePlanner.Application.Robots;
 
 /// <summary>
-/// Обновление заказа VDA 5050: из прежнего плана берется хвост от последнего достигнутого
-/// узла, первые <c>releasedNodeCount</c> узлов остаются базовым планом, остальное — горизонтом.
+/// Обновление заказа VDA 5050: продолжение плана от последнего достигнутого узла.
+///
+/// Нумерация узлов и ребер не пересчитывается: первый узел обновления сохраняет свой
+/// <c>sequenceId</c> из исходного плана, первое ребро — <c>sequenceId + 1</c>.
+/// Обновление содержит узел-якорь (на котором стоит робот) и следующие
+/// <c>releasedNodeCount - 1</c> узлов; все узлы и ребра куска <c>released = true</c>.
 /// </summary>
 public static class VdaOrderUpdater
 {
@@ -13,11 +17,12 @@ public static class VdaOrderUpdater
     /// </summary>
     /// <param name="planJson">Прежний план заказа.</param>
     /// <param name="orderUpdateId">Новый номер версии заказа.</param>
-    /// <param name="releasedNodeCount">Сколько узлов обновления входит в базовый план.</param>
+    /// <param name="releasedNodeCount">Сколько узлов в куске обновления включая узел-якорь.</param>
     /// <param name="headerId">Идентификатор сообщения.</param>
     /// <param name="timestamp">Момент сборки.</param>
     /// <param name="lastNodeId">Последний достигнутый узел.</param>
     /// <param name="lastNodeSequenceId">Номер последнего достигнутого узла в плане.</param>
+    /// <param name="reachedNodeIds">Пройденные узлы: нужны, когда нет ни номера, ни узла.</param>
     /// <returns>Новый план либо <c>null</c>, если обновлять нечего.</returns>
     public static string? BuildUpdate(
         string planJson,
@@ -26,7 +31,8 @@ public static class VdaOrderUpdater
         long headerId,
         DateTimeOffset timestamp,
         string? lastNodeId,
-        int? lastNodeSequenceId)
+        int? lastNodeSequenceId,
+        IReadOnlyCollection<string>? reachedNodeIds = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(planJson);
 
@@ -41,48 +47,37 @@ public static class VdaOrderUpdater
 
         var allEdges = plan["edges"]?.AsArray() ?? new JsonArray();
 
-        var startIndex = FindBaseBoundary(allNodes);
-        if (startIndex < 0)
-        {
-            startIndex = FindStartIndex(allNodes, lastNodeId, lastNodeSequenceId);
-        }
+        var startIndex = FindStartIndex(allNodes, lastNodeId, lastNodeSequenceId, reachedNodeIds);
         if (startIndex < 0 || startIndex >= allNodes.Count - 1)
         {
             return null;
         }
 
         var startSequence = allNodes[startIndex]!["sequenceId"]!.GetValue<int>();
+        var count = releasedNodeCount <= 0
+            ? allNodes.Count - startIndex
+            : Math.Min(releasedNodeCount, allNodes.Count - startIndex);
 
         var nodes = new JsonArray();
-        var releasedNodes = new List<int>();
-        for (var index = startIndex; index < allNodes.Count; index++)
+        for (var index = startIndex; index < startIndex + count; index++)
         {
             var node = allNodes[index]!.DeepClone().AsObject();
-            var released = index - startIndex < releasedNodeCount;
-            node["released"] = released;
-            if (released)
-            {
-                releasedNodes.Add(node["sequenceId"]!.GetValue<int>());
-            }
-
+            node["released"] = true;
             nodes.Add(node);
         }
 
-        var firstReleased = releasedNodes.Count > 0 ? releasedNodes[0] : startSequence;
-        var lastReleased = releasedNodes.Count > 0 ? releasedNodes[^1] : startSequence;
+        var lastSequence = startSequence + ((count - 1) * 2);
         var edges = new JsonArray();
         foreach (var edge in allEdges)
         {
             var sequence = edge!["sequenceId"]!.GetValue<int>();
-            if (sequence <= startSequence)
+            if (sequence <= startSequence || sequence > lastSequence)
             {
                 continue;
             }
 
             var clone = edge.DeepClone().AsObject();
-            clone["released"] = releasedNodes.Count > 1
-                && sequence > firstReleased
-                && sequence < lastReleased;
+            clone["released"] = true;
             edges.Add(clone);
         }
 
@@ -103,35 +98,53 @@ public static class VdaOrderUpdater
     }
 
     /// <summary>
-    /// Считает, сколько узлов базового плана осталось непройденными.
+    /// Сколько узлов текущего куска осталось пройти после <paramref name="lastNodeSequenceId"/>.
+    ///
+    /// Основной источник — <c>released</c> из состояния робота: он возвращает ровно тот горизонт,
+    /// который получил. Если узлов в состоянии нет, горизонт считается по плану шагом
+    /// <c>releasedNodes - 1</c> от начала сохраненного плана.
     /// </summary>
-    /// <param name="planJson">План заказа.</param>
-    /// <param name="reachedNodeIds">Достигнутые узлы.</param>
-    /// <returns>Число непройденных узлов с <c>released = true</c>.</returns>
-
-    /// <summary>
-    /// Сколько узлов базового плана ещё не пройдено, если известно, на каком
-    /// <c>sequenceId</c> сейчас робот. Пройденными считаются узлы с меньшим или равным sequenceId.
-    /// </summary>
-    /// <param name="planJson">Сохранённый план заказа.</param>
-    /// <param name="lastNodeSequenceId">Последний достигнутый sequenceId из состояния.</param>
-    /// <returns>Число непройденных узлов базового плана.</returns>
-    public static int CountUnreachedReleasedAfterSequence(string planJson, int lastNodeSequenceId)
+    /// <param name="planJson">Сохраненный план заказа.</param>
+    /// <param name="lastNodeSequenceId">Последний достигнутый <c>sequenceId</c> из состояния.</param>
+    /// <param name="releasedNodes">Размер куска в узлах.</param>
+    /// <param name="nodeStates">Узлы из состояния робота с признаком <c>released</c>.</param>
+    /// <returns>Число непройденных узлов текущего куска.</returns>
+    public static int CountUnreachedInChunk(
+        string planJson,
+        int lastNodeSequenceId,
+        int releasedNodes,
+        IReadOnlyCollection<RobotNodeState>? nodeStates = null)
     {
+        if (nodeStates is { Count: > 0 })
+        {
+            return nodeStates.Count(state => state.Released && state.SequenceId > lastNodeSequenceId);
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(planJson);
 
         var plan = JsonNode.Parse(planJson) as JsonObject;
         var nodes = plan?["nodes"]?.AsArray();
-        if (nodes is null)
+        if (nodes is null || nodes.Count == 0)
         {
             return 0;
         }
 
+        var firstIndex = nodes[0]!["sequenceId"]!.GetValue<int>() / 2;
+        var step = Math.Max(1, releasedNodes - 1);
+        var offset = Math.Max(0, (lastNodeSequenceId / 2) - firstIndex);
+        var chunkEnd = firstIndex + ((offset / step) * step) + Math.Max(0, releasedNodes - 1);
+
         return nodes.Count(node =>
-            node!["released"]!.GetValue<bool>()
-            && node["sequenceId"]!.GetValue<int>() > lastNodeSequenceId);
+            node!["sequenceId"]!.GetValue<int>() > lastNodeSequenceId
+            && node["sequenceId"]!.GetValue<int>() / 2 <= chunkEnd);
     }
 
+    /// <summary>
+    /// Сколько узлов плана ещё не пройдено, если номер узла неизвестен.
+    /// </summary>
+    /// <param name="planJson">Сохраненный план заказа.</param>
+    /// <param name="reachedNodeIds">Достигнутые узлы.</param>
+    /// <returns>Число непройденных узлов.</returns>
     public static int CountUnreachedReleased(string planJson, IReadOnlyCollection<string> reachedNodeIds)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(planJson);
@@ -149,27 +162,15 @@ public static class VdaOrderUpdater
             && !reachedNodeIds.Contains(node["nodeId"]!.GetValue<string>()));
     }
 
-
     /// <summary>
-    /// Индекс последнего узла базового плана. Обновление обязано начинаться с него:
-    /// робот сверяет первый узел обновления с последним базовым узлом состояния.
+    /// Индекс узла-якоря: узел с <paramref name="lastNodeSequenceId"/>, иначе последний узел
+    /// с <paramref name="lastNodeId"/>, иначе первый непройденный узел плана.
     /// </summary>
-    private static int FindBaseBoundary(JsonArray nodes)
-    {
-        var index = -1;
-        for (var i = 0; i < nodes.Count; i++)
-        {
-            var released = nodes[i]?["released"]?.GetValue<bool>() ?? false;
-            if (released)
-            {
-                index = i;
-            }
-        }
-
-        return index;
-    }
-
-    private static int FindStartIndex(JsonArray nodes, string? lastNodeId, int? lastNodeSequenceId)
+    private static int FindStartIndex(
+        JsonArray nodes,
+        string? lastNodeId,
+        int? lastNodeSequenceId,
+        IReadOnlyCollection<string>? reachedNodeIds)
     {
         if (lastNodeSequenceId is not null)
         {
@@ -190,6 +191,17 @@ public static class VdaOrderUpdater
                         nodes[index]!["nodeId"]!.GetValue<string>(),
                         lastNodeId,
                         StringComparison.Ordinal))
+                {
+                    return index;
+                }
+            }
+        }
+
+        if (reachedNodeIds is not null)
+        {
+            for (var index = 0; index < nodes.Count; index++)
+            {
+                if (!reachedNodeIds.Contains(nodes[index]!["nodeId"]!.GetValue<string>()))
                 {
                     return index;
                 }

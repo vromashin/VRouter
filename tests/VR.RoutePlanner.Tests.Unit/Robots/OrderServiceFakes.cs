@@ -43,8 +43,20 @@ internal sealed class FakeStateReader : IRobotStateReader
 {
     public Dictionary<string, RobotSnapshot> Snapshots { get; } = new(StringComparer.Ordinal);
 
-    public Task<RobotSnapshot?> GetLatestAsync(string serialNumber, CancellationToken ct) =>
-        Task.FromResult(Snapshots.GetValueOrDefault(serialNumber));
+    /// <summary>
+    /// Очередь состояний: выдается раньше словаря, нужна сценариям очистки перед новым заказом.
+    /// </summary>
+    public Queue<RobotSnapshot?> Sequence { get; } = new();
+
+    public Task<RobotSnapshot?> GetLatestAsync(string serialNumber, CancellationToken ct)
+    {
+        if (Sequence.Count > 0)
+        {
+            return Task.FromResult(Sequence.Dequeue());
+        }
+
+        return Task.FromResult(Snapshots.GetValueOrDefault(serialNumber));
+    }
 
     public Task<IReadOnlyCollection<RobotSnapshot>> GetAllAsync(CancellationToken ct) =>
         Task.FromResult<IReadOnlyCollection<RobotSnapshot>>(Snapshots.Values.ToList());
@@ -78,52 +90,51 @@ internal sealed class FakePublisher : IRobotOrderPublisher
 
 internal sealed class FakeComposer : IVdaOrderComposer
 {
-    public string Compose(
-        PlannedRoute route,
-        Domain.Graph.WarehouseGraph graph,
-        string mapId,
-        string orderId,
-        string manufacturer,
-        string serialNumber,
-        long orderNumber,
-        long headerId,
-        int releasedNodeCount,
-        DateTimeOffset timestamp,
-        double? firstNodeX = null,
-        double? firstNodeY = null,
-        double? firstNodeTheta = null,
-        string? terminalActionType = null,
-        string? terminalActionLoadId = null,
-        double? containerX = null,
-        double? containerY = null,
-        double? containerTheta = null)
+    /// <summary>Запросы сборки, которые получил подставной сборщик.</summary>
+    public List<VdaOrderRequest> Requests { get; } = new();
+
+    public string Compose(VdaOrderRequest request)
     {
-        var nodes = new List<object>();
-        var sequence = 0;
-        var index = 0;
-        foreach (var _ in route.Segments)
+        Requests.Add(request);
+
+        // Как настоящий сборщик: узлов на один больше, чем сегментов маршрута,
+        // нумерация сквозная (узел 2i, ребро 2i + 1).
+        var all = new List<object>();
+        for (var index = 0; index <= request.Route.Segments.Count; index++)
         {
-            nodes.Add(new
+            all.Add(new
             {
-                nodeId = $"wa{sequence}",
-                sequenceId = sequence,
-                released = index < releasedNodeCount,
+                nodeId = $"wa{index * 2}",
+                sequenceId = index * 2,
+                released = true,
                 actions = Array.Empty<object>(),
             });
-            sequence += 2;
-            index++;
         }
+
+        var start = Math.Clamp(request.SliceStartIndex, 0, Math.Max(0, all.Count - 1));
+        var count = request.SliceNodeCount <= 0
+            ? all.Count - start
+            : Math.Min(request.SliceNodeCount, all.Count - start);
+        var taken = all.Skip(start).Take(count).ToList();
+        var edges = Enumerable.Range(start, Math.Max(0, taken.Count - 1))
+            .Select(index => new
+            {
+                edgeId = $"801-e{index}",
+                sequenceId = (index * 2) + 1,
+                released = true,
+            })
+            .ToList();
 
         return JsonSerializer.Serialize(new
         {
-            headerId,
+            headerId = request.HeaderId,
             version = "2.1.0",
-            manufacturer,
-            serialNumber,
-            orderId,
-            orderUpdateId = 0,
-            nodes,
-            edges = Array.Empty<object>(),
+            manufacturer = request.Manufacturer,
+            serialNumber = request.SerialNumber,
+            orderId = request.OrderId,
+            orderUpdateId = request.OrderUpdateId,
+            nodes = taken,
+            edges,
         });
     }
 }
@@ -132,7 +143,8 @@ internal sealed class FakePlanner(int nodes) : Application.Planning.IPathPlanner
 {
     public Task<RoutePlanResult> PlanAsync(Application.Planning.RoutePlanRequest request, CancellationToken ct)
     {
-        var segments = Enumerable.Range(0, nodes)
+        // Как настоящий планировщик: маршрут из nodes узлов состоит из nodes - 1 сегментов.
+        var segments = Enumerable.Range(0, Math.Max(0, nodes - 1))
             .Select(_ => new RouteSegment(
                 "801-a-b",
                 RouteEdgeDirection.Forward,
@@ -179,14 +191,19 @@ internal static class OrderTestData
         IEnumerable<(string NodeId, int Sequence, bool Released)>? nodes = null,
         IEnumerable<string>? errors = null,
         DateTimeOffset? receivedAt = null,
-        string? lastNodeId = null) => new(
+        string? lastNodeId = null,
+        int? lastNodeSequenceId = null,
+        bool newBaseRequest = false,
+        IEnumerable<(string EdgeId, int Sequence, bool Released)>? edges = null,
+        double positionX = 1,
+        double positionY = 2) => new(
         Serial,
         "ONLINE",
         driving,
         orderId,
         orderUpdateId,
-        1,
-        2,
+        positionX,
+        positionY,
         0,
         "801",
         80,
@@ -194,24 +211,31 @@ internal static class OrderTestData
         nodes?.Select(node => new RobotNodeState(node.NodeId, node.Sequence, node.Released)).ToList() ?? [],
         receivedAt ?? DateTimeOffset.UtcNow,
         "2.1.0",
-        lastNodeId ?? "wa0");
+        lastNodeId ?? "wa0",
+        lastNodeSequenceId,
+        newBaseRequest,
+        null,
+        edges?.Select(edge => new RobotEdgeState(edge.EdgeId, edge.Sequence, edge.Released)).ToList());
 
     public static RobotOrder Order(
         string orderId = "ORD_04331",
         string status = RobotOrderStatuses.Sent,
         DateTimeOffset? sentAt = null,
         DateTimeOffset? acceptedAt = null,
-        IReadOnlyList<RobotOrderNode>? nodes = null)
+        IReadOnlyList<RobotOrderNode>? nodes = null,
+        string planJson = "{}",
+        int orderUpdateId = 0,
+        string? targetNodeId = "wa4")
     {
         var created = new DateTimeOffset(2026, 11, 21, 12, 0, 0, TimeSpan.Zero);
         return new RobotOrder(
             orderId,
             Serial,
-            0,
+            orderUpdateId,
             status,
-            "{}",
+            planJson,
             2,
-            "wa4",
+            targetNodeId,
             null,
             created,
             sentAt ?? created,
@@ -219,6 +243,43 @@ internal static class OrderTestData
             null,
             null,
             nodes ?? [Node(orderId, 0, "wa0"), Node(orderId, 2, "wa2"), Node(orderId, 4, "wa4")]);
+    }
+
+    /// <summary>
+    /// План из <paramref name="nodeCount"/> узлов: узлы <c>wa0, wa2, ...</c>, ребра между ними.
+    /// </summary>
+    public static string Plan(int nodeCount, int firstSequence = 0)
+    {
+        var nodes = Enumerable.Range(0, nodeCount)
+            .Select(index => new
+            {
+                nodeId = $"wa{firstSequence + (index * 2)}",
+                sequenceId = firstSequence + (index * 2),
+                released = true,
+                actions = Array.Empty<object>(),
+            })
+            .ToList();
+
+        var edges = Enumerable.Range(0, Math.Max(0, nodeCount - 1))
+            .Select(index => new
+            {
+                edgeId = $"801-e{index}",
+                sequenceId = firstSequence + (index * 2) + 1,
+                released = true,
+            })
+            .ToList();
+
+        return JsonSerializer.Serialize(new
+        {
+            headerId = 1,
+            version = "2.1.0",
+            manufacturer = "Tuskrobots",
+            serialNumber = Serial,
+            orderId = "ORD_04331",
+            orderUpdateId = 0,
+            nodes,
+            edges,
+        });
     }
 
     public static RobotOrderNode Node(string orderId, int sequence, string nodeId, bool released = true, bool reached = false) =>

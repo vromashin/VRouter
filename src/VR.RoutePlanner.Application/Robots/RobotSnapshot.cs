@@ -9,6 +9,14 @@ namespace VR.RoutePlanner.Application.Robots;
 public sealed record RobotNodeState(string NodeId, int SequenceId, bool Released);
 
 /// <summary>
+/// Состояние ребра маршрута из сообщения <c>state</c> VDA 5050.
+/// </summary>
+/// <param name="EdgeId">Идентификатор ребра.</param>
+/// <param name="SequenceId">Порядковый номер ребра в заказе.</param>
+/// <param name="Released">Ребро выпущено роботу.</param>
+public sealed record RobotEdgeState(string EdgeId, int SequenceId, bool Released);
+
+/// <summary>
 /// Последнее известное состояние робота из топика <c>state</c> VDA 5050.
 /// </summary>
 /// <param name="SerialNumber">Серийный номер робота из сообщения.</param>
@@ -27,12 +35,9 @@ public sealed record RobotNodeState(string NodeId, int SequenceId, bool Released
 /// <param name="Version">Версия протокола из сообщения.</param>
 /// <param name="LastNodeId">Последний узел маршрута из сообщения.</param>
 /// <param name="LastNodeSequenceId">Номер последнего узла в плане.</param>
-/// <summary>Состояние действия робота из state.actionStates.</summary>
-/// <param name="ActionId">Идентификатор действия.</param>
-/// <param name="ActionType">Тип действия.</param>
-/// <param name="ActionStatus">Статус: WAITING, INITIALIZING, RUNNING, FINISHED, FAILED.</param>
-public sealed record RobotActionState(string ActionId, string? ActionType, string? ActionStatus);
-
+/// <param name="NewBaseRequest">Робот запрашивает новый базовый план.</param>
+/// <param name="ActionStates">Состояния действий робота.</param>
+/// <param name="EdgeStates">Состояния ребер маршрута.</param>
 public sealed record RobotSnapshot(
     string SerialNumber,
     string ConnectionState,
@@ -51,4 +56,13 @@ public sealed record RobotSnapshot(
     string? LastNodeId = null,
     int? LastNodeSequenceId = null,
     bool NewBaseRequest = false,
-    IReadOnlyList<RobotActionState>? ActionStates = null);
+    IReadOnlyList<RobotActionState>? ActionStates = null,
+    IReadOnlyList<RobotEdgeState>? EdgeStates = null);
+
+/// <summary>
+/// Состояние действия робота из <c>state.actionStates</c>.
+/// </summary>
+/// <param name="ActionId">Идентификатор действия.</param>
+/// <param name="ActionType">Тип действия.</param>
+/// <param name="ActionStatus">Статус: WAITING, INITIALIZING, RUNNING, FINISHED, FAILED.</param>
+public sealed record RobotActionState(string ActionId, string? ActionType, string? ActionStatus);

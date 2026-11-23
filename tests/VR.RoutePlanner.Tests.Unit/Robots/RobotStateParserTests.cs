@@ -85,6 +85,52 @@ public sealed class RobotStateParserTests
         Assert.True(node.Released);
     }
 
+    [Fact]
+    public void TryParse_EdgeStates_ReadsReleasedEdges()
+    {
+        const string payload = """
+            {
+              "headerId": 7,
+              "timestamp": "2026-11-21T21:20:00.000Z",
+              "version": "2.1.0",
+              "manufacturer": "Tuskrobots",
+              "serialNumber": "98002",
+              "orderId": "ORD_05000",
+              "orderUpdateId": 3,
+              "driving": true,
+              "agvPosition": { "x": 1.5, "y": 2.5, "theta": 0.5, "mapId": "801" },
+              "batteryState": { "batteryCharge": 42.5 },
+              "errors": [],
+              "nodeStates": [ { "nodeId": "wa1", "sequenceId": 1, "released": true } ],
+              "edgeStates": [
+                { "edgeId": "801-wa0-wa1", "sequenceId": 0, "released": true },
+                { "edgeId": "801-wa1-wa2", "sequenceId": 2, "released": false }
+              ]
+            }
+            """;
+
+        Assert.True(RobotStateParser.TryParse(payload, out var snapshot, out var error), error);
+        Assert.NotNull(snapshot);
+
+        var edges = snapshot!.EdgeStates;
+        Assert.NotNull(edges);
+        Assert.Equal(2, edges!.Count);
+        Assert.Equal("801-wa0-wa1", edges[0].EdgeId);
+        Assert.Equal(0, edges[0].SequenceId);
+        Assert.True(edges[0].Released);
+        Assert.False(edges[1].Released);
+    }
+
+    [Fact]
+    public void TryParse_NoEdgeStates_EmptyList()
+    {
+        var payload = ReadAsset("vda-state-after.json");
+
+        Assert.True(RobotStateParser.TryParse(payload, out var snapshot, out var error), error);
+        Assert.NotNull(snapshot!.EdgeStates);
+        Assert.Empty(snapshot.EdgeStates!);
+    }
+
     [Theory]
     [InlineData("{ \"version\": \"2.0.0\", ", "битый JSON")]
     [InlineData("не json вовсе", "битый JSON")]
