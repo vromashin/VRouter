@@ -140,7 +140,12 @@ public sealed class RobotOrderService
 
         // Симулятор и робот держат orderId прошлого заказа: пока он не очищен, новый заказ
         // получает NO_ACCEPT. Как в AGVControl, сначала снимаем прежний заказ и ждём очистки.
-        if (!string.IsNullOrWhiteSpace(snapshot?.OrderId))
+        // Симулятор держит orderId и узлы прошлого заказа; пока они не очищены, новый заказ
+        // принимается молча и не выполняется. Как AGVControl, снимаем заказ и ждём очистки.
+        var hasLeftovers = !string.IsNullOrWhiteSpace(snapshot?.OrderId)
+            || (snapshot?.NodeStates.Count ?? 0) > 0;
+
+        if (hasLeftovers)
         {
             var cancelPayload = VdaInstantActionPayload.Build(
                 "cancelOrder",
@@ -150,25 +155,26 @@ public sealed class RobotOrderService
                 .PublishInstantActionAsync(options.Order.Manufacturer, serialNumber, cancelPayload, ct)
                 .ConfigureAwait(false);
 
-            var cleanupDeadline = _time.GetUtcNow().AddSeconds(12);
+            var cleanupDeadline = _time.GetUtcNow().AddSeconds(15);
             while (_time.GetUtcNow() < cleanupDeadline && !ct.IsCancellationRequested)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
                 snapshot = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false);
-                if (string.IsNullOrWhiteSpace(snapshot?.OrderId))
+                if (string.IsNullOrWhiteSpace(snapshot?.OrderId) && (snapshot?.NodeStates.Count ?? 0) == 0)
                 {
                     break;
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(snapshot?.OrderId))
+            if (!string.IsNullOrWhiteSpace(snapshot?.OrderId) || (snapshot?.NodeStates.Count ?? 0) > 0)
             {
                 // Симулятор оставляет orderId последнего заказа навсегда: не блокируем новый заказ,
                 // робот принимает его и при незавершённом прошлом заказе (проверено на стенде).
                 _logger.LogWarning(
-                    "Робот {Serial} все еще держит orderId {OrderId}, продолжаем отправку нового заказа",
+                    "Робот {Serial} не очистил состояние (orderId={OrderId}, узлов {Nodes}), продолжаем",
                     serialNumber,
-                    snapshot!.OrderId);
+                    snapshot?.OrderId,
+                    snapshot?.NodeStates.Count ?? 0);
             }
         }
         var graph = await _graphs.LoadAsync(mapId, ct).ConfigureAwait(false);
