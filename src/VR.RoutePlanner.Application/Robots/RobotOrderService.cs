@@ -206,7 +206,8 @@ public sealed class RobotOrderService
 
         // Слот рабочий узел не проезжаем: маршрут строим до соседнего узла, действие выполняем там.
         var slotNode = to;
-        var stopBeforeSlot = slotNode.NodeId.StartsWith(SlotApproachResolver.SlotPrefix, StringComparison.OrdinalIgnoreCase);
+        var stopBeforeSlot = options.Order.StopBeforeSlot
+            && slotNode.NodeId.StartsWith(SlotApproachResolver.SlotPrefix, StringComparison.OrdinalIgnoreCase);
         if (stopBeforeSlot)
         {
             var robotX = snapshot?.PositionX ?? from.X;

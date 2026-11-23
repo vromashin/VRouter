@@ -35,6 +35,12 @@ public sealed class OrderOptions
     /// </summary>
     public string? TerminalActionType { get; set; } = "detectObject";
 
+    /// <summary>
+    /// Останавливаться перед слотом wo-* (не заезжая в него). Старый AGVControl заезжает в узел
+    /// слота и выполняет действие там, поэтому для паритета по вилам это можно выключить.
+    /// </summary>
+    public bool StopBeforeSlot { get; set; } = true;
+
     /// <summary>Проверяет параметры на старте сервиса.</summary>
     /// <returns>Текст ошибки либо <c>null</c>.</returns>
     public string? Validate()
