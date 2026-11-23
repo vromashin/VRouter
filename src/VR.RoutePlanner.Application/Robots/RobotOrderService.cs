@@ -33,6 +33,8 @@ public sealed class RobotOrderService
 
     private static readonly TimeSpan UpdateThrottle = TimeSpan.FromSeconds(2);
 
+    private readonly ISimulatorResetService? _simulatorReset;
+
     private static readonly string[] ActiveStatuses =
     [
         RobotOrderStatuses.Draft,
@@ -80,8 +82,10 @@ public sealed class RobotOrderService
         IRobotStateReader states,
         IOptions<RoutePlannerOptions> options,
         TimeProvider time,
-        ILogger<RobotOrderService> logger)
+        ILogger<RobotOrderService> logger,
+        ISimulatorResetService? simulatorReset = null)
     {
+        _simulatorReset = simulatorReset;
         ArgumentNullException.ThrowIfNull(planner);
         ArgumentNullException.ThrowIfNull(composer);
         ArgumentNullException.ThrowIfNull(headers);
@@ -163,6 +167,16 @@ public sealed class RobotOrderService
                 if (string.IsNullOrWhiteSpace(snapshot?.OrderId) && (snapshot?.NodeStates.Count ?? 0) == 0)
                 {
                     break;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(snapshot?.OrderId) || (snapshot?.NodeStates.Count ?? 0) > 0)
+            {
+                // Симулятор не очищает состояние сам: перезапускаем его, если это разрешено настройкой.
+                if (_simulatorReset is { Enabled: true })
+                {
+                    await _simulatorReset.ResetAsync(ct).ConfigureAwait(false);
+                    snapshot = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false);
                 }
             }
 

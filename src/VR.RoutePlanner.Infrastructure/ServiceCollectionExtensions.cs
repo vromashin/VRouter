@@ -108,6 +108,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITrafficResourceBuilder>(provider => provider.GetRequiredService<TrafficResourceBuilder>());
         services.AddDbContextFactory<LegacyReadDbContext>((_, options) => options.UseNpgsql(connectionString));
         services.AddSingleton<ILegacyAgvRepository, LegacyAgvRepository>();
+        services.AddSingleton<ISimulatorResetService, SimulatorResetService>();
         services.Configure<KafkaOptions>(configuration.GetSection(KafkaOptions.SectionName));
         services.Configure<LegacyOptions>(configuration.GetSection(LegacyOptions.SectionName));
         services.AddSingleton<ILegacyAgvStateWriter, LegacyAgvStateWriter>();
