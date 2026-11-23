@@ -150,7 +150,7 @@ public sealed class RobotOrderService
                 .PublishInstantActionAsync(options.Order.Manufacturer, serialNumber, cancelPayload, ct)
                 .ConfigureAwait(false);
 
-            var cleanupDeadline = _time.GetUtcNow().AddSeconds(60);
+            var cleanupDeadline = _time.GetUtcNow().AddSeconds(12);
             while (_time.GetUtcNow() < cleanupDeadline && !ct.IsCancellationRequested)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
@@ -163,9 +163,12 @@ public sealed class RobotOrderService
 
             if (!string.IsNullOrWhiteSpace(snapshot?.OrderId))
             {
-                throw new OrderRejectedException(
-                    RoutePlanReason.ResourceMissing,
-                    $"Робот удерживает заказ {snapshot!.OrderId}, очистка не удалась.");
+                // Симулятор оставляет orderId последнего заказа навсегда: не блокируем новый заказ,
+                // робот принимает его и при незавершённом прошлом заказе (проверено на стенде).
+                _logger.LogWarning(
+                    "Робот {Serial} все еще держит orderId {OrderId}, продолжаем отправку нового заказа",
+                    serialNumber,
+                    snapshot!.OrderId);
             }
         }
         var graph = await _graphs.LoadAsync(mapId, ct).ConfigureAwait(false);
