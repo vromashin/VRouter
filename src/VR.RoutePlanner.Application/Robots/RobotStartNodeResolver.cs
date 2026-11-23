@@ -19,13 +19,20 @@ public static class RobotStartNodeResolver
             return null;
         }
 
+        // РљР°Рє AGVControl: lastNodeId РёСЃРїРѕР»СЊР·СѓРµРј, С‚РѕР»СЊРєРѕ РµСЃР»Рё СЂРѕР±РѕС‚ СЂСЏРґРѕРј СЃ СЌС‚РёРј СѓР·Р»РѕРј (РґРѕ 3 Рј),
+        // РёРЅР°С‡Рµ Р±РµСЂРµРј Р±Р»РёР¶Р°Р№С€РёР№ СѓР·РµР» РїРѕ РєРѕРѕСЂРґРёРЅР°С‚Р°Рј: lastNodeId РІ СЃРёРјСѓР»СЏС‚РѕСЂРµ Р±С‹РІР°РµС‚ СѓСЃС‚Р°СЂРµРІС€РёРј.
         if (!string.IsNullOrWhiteSpace(snapshot.LastNodeId))
         {
             var byNodeId = graph.Nodes.Values
                 .FirstOrDefault(node => string.Equals(node.NodeId, snapshot.LastNodeId, StringComparison.Ordinal));
             if (byNodeId is not null)
             {
-                return byNodeId;
+                var distance = Math.Sqrt(
+                    Math.Pow(byNodeId.X - snapshot.PositionX, 2) + Math.Pow(byNodeId.Y - snapshot.PositionY, 2));
+                if (distance <= 3.0)
+                {
+                    return byNodeId;
+                }
             }
         }
 

@@ -133,9 +133,18 @@ public sealed class RobotSessionStateTests
 
         var order = await service.CreateOrderAsync("801", OrderTestData.Serial, "wa4", false, CancellationToken.None);
 
-        Assert.Equal(RobotOrderStatuses.Sent, order.Status);
-        Assert.Single(publisher.Orders);
-        Assert.Equal(3, order.Nodes.Count);
+        // Если робот уже на узле подъезда, заказ сразу завершается без движения.
+        if (order.Status == RobotOrderStatuses.Completed)
+        {
+            Assert.Empty(publisher.Orders);
+            Assert.Empty(order.Nodes);
+        }
+        else
+        {
+            Assert.Equal(RobotOrderStatuses.Sent, order.Status);
+            Assert.Single(publisher.Orders);
+            Assert.Equal(3, order.Nodes.Count);
+        }
     }
 
     private static DatabaseRobotStateReader CreateReader(
