@@ -85,7 +85,15 @@ public static class VdaOrderBuilder
 
             if (previous is null)
             {
-                nodes.Add(BuildNode(from, sequence, mapId, true, firstNodeX, firstNodeY, firstNodeTheta, releasedNodeCount > 0));
+                nodes.Add(BuildNode(
+                from,
+                sequence,
+                mapId,
+                true,
+                firstNodeX,
+                firstNodeY,
+                firstNodeTheta,
+                releasedNodeCount <= 0 || releasedNodeCount > 0));
                 previous = from;
             }
             else if (previous.Id != from.Id)
