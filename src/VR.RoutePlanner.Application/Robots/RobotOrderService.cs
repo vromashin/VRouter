@@ -234,7 +234,13 @@ public sealed class RobotOrderService
             throw new OrderRejectedException(RoutePlanReason.NodeNotFound, "Узел старта или цели не найден на карте.");
         }
 
-        if (from.Id == to.Id)
+        // Робот уже стоит в целевом рабочем узле: движение не нужно, но действие вил нужно.
+        // Как в эталоне AGVControl, заказ публикуется с узлом позы и дублем узла с действием.
+        var stationary = from.Id == to.Id
+            && WorkingNodeGeometry.IsWorking(to)
+            && options.Order.SendForkActions;
+
+        if (from.Id == to.Id && !stationary)
         {
             // Робот уже стоит на узле подъезда: движение не нужно, сразу фиксируем выполнение.
             var immediateNumber = await _numbers.NextAsync(ct).ConfigureAwait(false);
@@ -263,9 +269,14 @@ public sealed class RobotOrderService
             return immediate;
         }
 
-        var plan = await _planner
-            .PlanAsync(new RoutePlanRequest(mapId, options.DefaultAgvProfile, from.Id, to.Id, hasLoad), ct)
-            .ConfigureAwait(false);
+        // При стоянке в цели планировщик не вызывается: маршрут пуст, узлы собирает сборщик заказа.
+        var plan = stationary
+            ? RoutePlanResult.Success(
+                new PlannedRoute([], 0, 0, 0, 0, double.PositiveInfinity, false, null),
+                null)
+            : await _planner
+                .PlanAsync(new RoutePlanRequest(mapId, options.DefaultAgvProfile, from.Id, to.Id, hasLoad), ct)
+                .ConfigureAwait(false);
         if (!plan.Found || plan.Route is null)
         {
             throw new OrderRejectedException(plan.Reason ?? RoutePlanReason.NoPath, "Маршрут не построен.");
@@ -310,7 +321,8 @@ public sealed class RobotOrderService
             RobotY: snapshot?.PositionY,
             RobotTheta: snapshot?.Theta,
             TerminalActionType: options.Order.TerminalActionType,
-            ApproachTarget: approachTarget);
+            ApproachTarget: approachTarget,
+            StationaryNode: stationary ? to : null);
 
         // В PlanJson лежит полный план: нарезка нужна только для отправки и обновлений.
         var planJson = composer.Compose(fullRequest);
@@ -1125,8 +1137,18 @@ public sealed class RobotOrderService
         // Первый узел плана считается стартом, а не прогрессом (строка 2 таблицы §3.1).
         if (!string.IsNullOrWhiteSpace(snapshot.LastNodeId))
         {
-            var reachedIndex = merged.FindIndex(node =>
-                string.Equals(node.NodeId, snapshot.LastNodeId, StringComparison.Ordinal));
+            // Узел может повторяться (стоянка в цели: узел позы и дубль с действием), поэтому
+            // сначала ищем по паре nodeId + lastNodeSequenceId, затем только по nodeId.
+            var reachedIndex = snapshot.LastNodeSequenceId is { } lastSequence
+                ? merged.FindIndex(node =>
+                    node.SequenceId == lastSequence
+                    && string.Equals(node.NodeId, snapshot.LastNodeId, StringComparison.Ordinal))
+                : -1;
+            if (reachedIndex < 0)
+            {
+                reachedIndex = merged.FindIndex(node =>
+                    string.Equals(node.NodeId, snapshot.LastNodeId, StringComparison.Ordinal));
+            }
 
             for (var index = 1; index <= reachedIndex && index < merged.Count; index++)
             {

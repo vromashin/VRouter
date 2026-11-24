@@ -15,6 +15,9 @@ namespace VR.RoutePlanner.Application.Traffic;
 /// </summary>
 public static class TrafficHorizonCalculator
 {
+    /// <summary>Префикс виртуального стартового ребра заказа.</summary>
+    private const string VirtualEdgePrefix = "VIRTUAL_START_";
+
     /// <summary>
     /// Считает горизонт ресурсов для робота.
     /// </summary>
@@ -104,14 +107,15 @@ public static class TrafficHorizonCalculator
                         continue;
                     }
 
-                    // Виртуальное стартовое ребро VdaOrderBuilder не имеет maxSpeed и не лежит в карте.
-                    if (!edge.TryGetProperty("maxSpeed", out _))
+                    var edgeId = edge.TryGetProperty("edgeId", out var code) ? code.GetString() : null;
+                    if (string.IsNullOrWhiteSpace(edgeId))
                     {
                         continue;
                     }
 
-                    var edgeId = edge.TryGetProperty("edgeId", out var code) ? code.GetString() : null;
-                    if (string.IsNullOrWhiteSpace(edgeId))
+                    // Виртуальное стартовое ребро VdaOrderBuilder (VIRTUAL_START_*) не лежит в карте.
+                    // Признак по префиксу: maxSpeed в ребрах заказа больше нет, как в эталоне AGVControl.
+                    if (edgeId!.StartsWith(VirtualEdgePrefix, StringComparison.Ordinal))
                     {
                         continue;
                     }

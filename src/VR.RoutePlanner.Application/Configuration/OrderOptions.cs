@@ -36,10 +36,10 @@ public sealed class OrderOptions
     public string? TerminalActionType { get; set; } = "detectObject";
 
     /// <summary>
-    /// Отдавать курс робота в первом узле первого сообщения. По умолчанию курс не задается:
-    /// старый AGVControl так и публиковал первый узел, появление поля меняет поведение робота.
+    /// Отдавать курс робота в первом узле первого сообщения, когда поза известна.
+    /// Эталон AGVControl на стенде отдает курс фактической позы (снимок ref-pick-drop, wo-2-7).
     /// </summary>
-    public bool FirstNodeTheta { get; set; }
+    public bool FirstNodeTheta { get; set; } = true;
 
     /// <summary>Предельное число обновлений плана на один заказ.</summary>
     public int MaxOrderUpdates { get; set; } = 32;

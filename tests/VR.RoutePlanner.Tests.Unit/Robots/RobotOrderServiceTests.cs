@@ -177,7 +177,9 @@ public sealed class RobotOrderServiceTests
         int releasedNodes = 3,
         bool firstNodeTheta = false,
         Application.Traffic.ITrafficCoordinator? traffic = null,
-        OrderOptions? order = null)
+        OrderOptions? order = null,
+        VR.RoutePlanner.Domain.Graph.WarehouseGraph? graph = null,
+        IVdaOrderComposer? composer = null)
     {
         var orders = new FakeOrderRepository();
         var states = new FakeStateReader();
@@ -187,9 +189,9 @@ public sealed class RobotOrderServiceTests
         options.Order = order ?? new OrderOptions { ReleasedNodes = releasedNodes, FirstNodeTheta = firstNodeTheta };
         var service = new RobotOrderService(
             new FakePlanner(nodes),
-            new FakeComposer(),
+            composer ?? new FakeComposer(),
             new HeaderIds(),
-            new FakeGraphRepository(Graph()),
+            new FakeGraphRepository(graph ?? Graph()),
             new FakeNumberSource(),
             new FakePublisher(),
             orders,

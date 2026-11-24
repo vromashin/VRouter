@@ -172,7 +172,8 @@ internal static class OrderFixtures
         double? robotY = null,
         double? robotTheta = null,
         string? terminalActionType = null,
-        WarehouseNode? approachTarget = null) => new(
+        WarehouseNode? approachTarget = null,
+        WarehouseNode? stationaryNode = null) => new(
         route,
         graph,
         MapId,
@@ -191,7 +192,8 @@ internal static class OrderFixtures
         robotY,
         robotTheta,
         terminalActionType,
-        approachTarget);
+        approachTarget,
+        stationaryNode);
 
     /// <summary>Собирает заказ для маршрута из двух ребер.</summary>
     public static JsonObject Order(double orderNumber = 7)

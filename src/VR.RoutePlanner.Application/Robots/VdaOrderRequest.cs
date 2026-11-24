@@ -26,6 +26,10 @@ namespace VR.RoutePlanner.Application.Robots;
 /// <param name="RobotTheta">Курс робота, если поза известна.</param>
 /// <param name="TerminalActionType">Тип завершающего действия в последнем узле плана.</param>
 /// <param name="ApproachTarget">Целевой рабочий узел, не попавший в маршрут (точка подхода).</param>
+/// <param name="StationaryNode">
+/// Робот уже стоит в целевом рабочем узле: маршрут пуст, заказ состоит из узла позы и
+/// дубля узла с действием вил, связанных виртуальным ребром.
+/// </param>
 public sealed record VdaOrderRequest(
     PlannedRoute Route,
     WarehouseGraph Graph,
@@ -45,4 +49,5 @@ public sealed record VdaOrderRequest(
     double? RobotY = null,
     double? RobotTheta = null,
     string? TerminalActionType = null,
-    WarehouseNode? ApproachTarget = null);
+    WarehouseNode? ApproachTarget = null,
+    WarehouseNode? StationaryNode = null);

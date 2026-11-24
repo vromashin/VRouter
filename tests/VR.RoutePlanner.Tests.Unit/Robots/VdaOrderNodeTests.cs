@@ -219,7 +219,7 @@ public sealed class VdaOrderNodeTests
     }
 
     [Fact]
-    public void Build_Edges_HaveSpeedAndTangentialOrientation()
+    public void Build_Edges_HaveNoSpeedAndTangentialOrientation()
     {
         var (graph, first, second, _, _, _) = OrderFixtures.TwoEdgeGraph();
         var route = OrderFixtures.Route(first.EdgeId, second.EdgeId);
@@ -228,8 +228,9 @@ public sealed class VdaOrderNodeTests
 
         foreach (var edge in order["edges"]!.AsArray())
         {
-            Assert.Equal(1.0, edge!["maxSpeed"]!.GetValue<double>(), 9);
-            Assert.Null(edge["maxRotationSpeed"]);
+            // D5: эталон AGVControl скоростей ребра не отдает.
+            Assert.False(edge!.AsObject().ContainsKey("maxSpeed"));
+            Assert.False(edge.AsObject().ContainsKey("maxRotationSpeed"));
             Assert.Equal("TANGENTIAL", edge["orientationType"]!.GetValue<string>());
             Assert.True(edge["released"]!.GetValue<bool>());
             Assert.Equal(1, edge["trajectory"]!["degree"]!.GetValue<int>());
@@ -238,7 +239,7 @@ public sealed class VdaOrderNodeTests
     }
 
     [Fact]
-    public void Build_EdgeWithRotationSpeed_WritesMaxRotationSpeed()
+    public void Build_EdgeWithRotationSpeed_DoesNotWriteSpeeds()
     {
         var from = OrderFixtures.Node("wa400", 0, 0);
         var to = OrderFixtures.Node("wa401", 2, 0);
@@ -248,7 +249,10 @@ public sealed class VdaOrderNodeTests
 
         var order = VdaOrderBuilder.Build(OrderFixtures.Request(route, graph));
 
-        Assert.Equal(0.4, order["edges"]![0]!["maxRotationSpeed"]!.GetValue<double>(), 9);
+        // D5: даже заданная в карте скорость поворота в ребро заказа не попадает.
+        var body = order["edges"]![0]!.AsObject();
+        Assert.False(body.ContainsKey("maxRotationSpeed"));
+        Assert.False(body.ContainsKey("maxSpeed"));
     }
 
     [Fact]
