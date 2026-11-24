@@ -134,9 +134,11 @@ public sealed class SimpleTaskWorker(
     internal TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(2);
 
     /// <summary>
-    /// Один VDA-заказ на задачу: первое действие создает заказ с целью всей задачи, каждое
-    /// следующее уходит как <see cref="RobotOrderService.AppendLegAsync"/> после подтверждения
-    /// прошлого плеча по <c>state</c>. Возвращает заказ после публикации последнего плеча.
+    /// Один VDA-заказ на задачу: первое действие создает заказ (сообщение 0 несет только
+    /// движение), каждое следующее уходит как <see cref="RobotOrderService.AppendLegAsync"/>
+    /// сразу после последнего чанка предыдущего плеча, без ожидания подтверждения по <c>state</c>.
+    /// Действие вил ставится в сообщении, которое начинается на узле-якоре (П-2). Возвращает
+    /// заказ после публикации последнего плеча.
     /// </summary>
     /// <param name="task">Задача WMS.</param>
     /// <param name="ct">Токен отмены.</param>
@@ -145,11 +147,25 @@ public sealed class SimpleTaskWorker(
     {
         var serial = await ResolveSerialAsync(ct).ConfigureAwait(false);
         var finalTarget = task.Actions[^1].Location;
+        var sendFork = _orderOptions.Value.Order.SendForkActions;
         RobotOrder? order = null;
+        string? previousTarget = null;
 
-        foreach (var action in task.Actions)
+        for (var index = 0; index < task.Actions.Count; index++)
         {
+            var action = task.Actions[index];
             var hasLoad = action.ActionType != WmsTaskParser.PickUp;
+            var last = index == task.Actions.Count - 1;
+
+            // Действие вил на узле-якоре — действие предыдущего плеча задачи: оно уходит
+            // в сообщении, которое начинается на узле, где робот его выполняет.
+            var anchorAction = index > 0 && sendFork
+                ? ForkActionType(task.Actions[index - 1].ActionType)
+                : null;
+
+            // Действие самого плеча ставится только в последнем плече задачи: за ним нет
+            // сообщения, которое началось бы на его узле.
+            var targetAction = last && sendFork ? ForkActionType(action.ActionType) : null;
 
             if (order is null || order.Status == RobotOrderStatuses.Completed)
             {
@@ -157,15 +173,20 @@ public sealed class SimpleTaskWorker(
                 // следующему действию нужен новый заказ.
                 await WaitFreeAsync(ct).ConfigureAwait(false);
                 order = await orders
-                    .CreateTaskOrderAsync(task.AreaWmsId, serial, action.Location, hasLoad, finalTarget, ct)
+                    .CreateTaskOrderAsync(task.AreaWmsId, serial, action.Location, hasLoad, finalTarget, targetAction, ct)
                     .ConfigureAwait(false);
             }
             else
             {
-                order = await AppendLegWhenFinishedAsync(order.OrderId, action.Location, hasLoad, ct)
+                // Следующее плечо — сразу после последнего чанка предыдущего: продолжение заказа
+                // должно начинаться на последнем отправленном узле, иначе робот его отвергает.
+                await WaitLegReleasedAsync(order.OrderId, previousTarget!, ct).ConfigureAwait(false);
+                order = await orders
+                    .AppendLegAsync(order.OrderId, action.Location, hasLoad, anchorAction, targetAction, ct)
                     .ConfigureAwait(false);
             }
 
+            previousTarget = action.Location;
             logger.LogInformation(
                 "Задача {TaskId}: шаг {Location} под заказом {OrderId}, версия {Version}",
                 task.TaskId,
@@ -177,44 +198,41 @@ public sealed class SimpleTaskWorker(
         return order!;
     }
 
+    /// <summary>Тип действия вил задачи WMS в терминах VDA 5050.</summary>
+    private static string ForkActionType(int actionType) =>
+        actionType == WmsTaskParser.PickUp ? "pick" : "drop";
+
     /// <summary>
-    /// Ждет подтверждения прошлого плеча и публикует следующее. Отказ <c>LEG_NOT_FINISHED</c>
-    /// (state сменился между проверкой и публикацией) повторяется до общего срока ожидания.
+    /// Ждет, пока уйдет последний чанк плеча: сообщение следующего плеча продолжает заказ
+    /// с последнего отправленного узла. Ожидание по публикациям, а не по <c>state</c>:
+    /// подтверждение плеча роботом следующему сообщению не нужно.
     /// </summary>
-    private async Task<RobotOrder> AppendLegWhenFinishedAsync(
-        string orderId,
-        string location,
-        bool hasLoad,
-        CancellationToken ct)
+    private async Task WaitLegReleasedAsync(string orderId, string target, CancellationToken ct)
     {
         var deadline = DateTimeOffset.UtcNow.AddMinutes(15);
         while (!ct.IsCancellationRequested)
         {
-            if (await orders.IsLegFinishedAsync(orderId, ct).ConfigureAwait(false))
+            var current = await orders.GetOrderAsync(orderId, ct).ConfigureAwait(false);
+            if (current is null)
             {
-                try
-                {
-                    return await orders.AppendLegAsync(orderId, location, hasLoad, ct).ConfigureAwait(false);
-                }
-                catch (OrderRejectedException exception)
-                    when (exception.Reason == RobotOrderService.ReasonLegNotFinished && DateTimeOffset.UtcNow < deadline)
-                {
-                    logger.LogInformation("Заказ {OrderId}: плечо еще не подтверждено, ждем", orderId);
-                }
+                throw new InvalidOperationException($"Заказ {orderId} не найден при ожидании плеча к {target}.");
             }
 
-            var current = await orders.GetOrderAsync(orderId, ct).ConfigureAwait(false);
-            if (current is null
-                || current.Status is RobotOrderStatuses.Completed or RobotOrderStatuses.Failed
-                    or RobotOrderStatuses.Cancelled or RobotOrderStatuses.Rejected)
+            if (current.Status is RobotOrderStatuses.Failed or RobotOrderStatuses.Cancelled
+                or RobotOrderStatuses.Rejected)
             {
                 throw new InvalidOperationException(
-                    $"Заказ {orderId} завершился со статусом {current?.Status ?? "нет"} до плеча к {location}.");
+                    $"Заказ {orderId} завершился со статусом {current.Status} до плеча к {target}.");
+            }
+
+            if (string.Equals(LastReleasedNodeId(current), target, StringComparison.Ordinal))
+            {
+                return;
             }
 
             if (DateTimeOffset.UtcNow >= deadline)
             {
-                throw new InvalidOperationException($"Заказ {orderId}: плечо к {location} не дождалось прошлого.");
+                throw new InvalidOperationException($"Заказ {orderId}: последний чанк плеча к {target} не отправлен.");
             }
 
             await Task.Delay(PollInterval, ct).ConfigureAwait(false);
@@ -222,6 +240,20 @@ public sealed class SimpleTaskWorker(
 
         ct.ThrowIfCancellationRequested();
         throw new OperationCanceledException(ct);
+    }
+
+    /// <summary>Последний отправленный (<c>released</c>) узел плана заказа.</summary>
+    private static string? LastReleasedNodeId(RobotOrder order)
+    {
+        for (var index = order.Nodes.Count - 1; index >= 0; index--)
+        {
+            if (order.Nodes[index].Released)
+            {
+                return order.Nodes[index].NodeId;
+            }
+        }
+
+        return null;
     }
 
     private async Task<Guid> ResolveAgvIdAsync(CancellationToken ct)

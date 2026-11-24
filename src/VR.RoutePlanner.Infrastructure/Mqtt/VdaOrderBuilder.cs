@@ -13,9 +13,12 @@ namespace VR.RoutePlanner.Infrastructure.Mqtt;
 /// сообщения меняет только состав узлов и ребер, но не их номера, поэтому обновление
 /// продолжает нумерацию исходного плана, а новое плечо заказа продолжает нумерацию прошлого.
 ///
-/// Исключение — виртуальный старт обновления (робот стоит не в первом узле маршрута):
-/// перед планом появляется виртуальный узел <c>sequenceId = база</c> и виртуальное ребро с
-/// <c>sequenceId = база + 1</c>, остальные номера сдвигаются на два.
+/// Исключение — префикс плана (робот стоит не в первом узле маршрута): перед маршрутом
+/// появляются узел <c>sequenceId = база</c> и ребро с <c>sequenceId = база + 1</c>, остальные
+/// номера сдвигаются на два. Префикс бывает двух видов: поза робота перед первым узлом
+/// (виртуальный узел) и тройка узла-якоря — узел карты без курса, ребро
+/// <c>VIRTUAL_START_&lt;nodeId&gt;</c> (<c>start = end</c>) и дубль узла с курсом к паллете
+/// и действием вил (эталон <c>ref-rev-leg2-pick-drop</c>).
 /// </summary>
 public static class VdaOrderBuilder
 {
@@ -56,6 +59,14 @@ public static class VdaOrderBuilder
         var count = request.SliceNodeCount <= 0
             ? plan.Nodes.Count - start
             : Math.Min(request.SliceNodeCount, plan.Nodes.Count - start);
+
+        // Чанк не должен разрывать тройку «узел-якорь — виртуальное ребро — дубль»: без всех
+        // трех узлов робот не свяжет действие с продолжением заказа, поэтому минимум три узла.
+        if (plan.AnchorStart && start == 0 && count < 3)
+        {
+            count = Math.Min(3, plan.Nodes.Count - start);
+        }
+
         var last = start + count - 1;
 
         var nodes = new JsonArray();
@@ -130,15 +141,32 @@ public static class VdaOrderBuilder
     }
 
     /// <summary>
-    /// Разворачивает маршрут в узлы и ребра полного плана, проверяя связность.
+    /// Разворачивает заказ в узлы и ребра полного плана, проверяя связность.
     /// </summary>
     private static PlanChain ExpandPlan(VdaOrderRequest request)
     {
-        if (request.StationaryNode is { } stationary)
+        var route = RouteChain(request);
+
+        // Сообщение плеча начинается на узле-якоре: тройка «узел — виртуальное ребро — дубль»
+        // перед маршрутом. Маршрут может быть пустым: робот уже стоит в узле-якоре.
+        if (request.AnchorNode is { } anchor)
         {
-            return StationaryPlan(stationary);
+            return AnchorPlan(anchor, route);
         }
 
+        if (route.Nodes.Count == 0)
+        {
+            throw new InvalidOperationException("Маршрут пуст: собирать заказ не из чего.");
+        }
+
+        return NeedsVirtualStart(request, route) ? PrependVirtualStart(route) : route;
+    }
+
+    /// <summary>
+    /// Узлы и ребра маршрута без префикса плана.
+    /// </summary>
+    private static PlanChain RouteChain(VdaOrderRequest request)
+    {
         var lookup = EdgeLookup(request.Graph);
         var nodes = new List<WarehouseNode>();
         var edges = new List<PlanEdge>();
@@ -175,13 +203,7 @@ public static class VdaOrderBuilder
             edges.Add(new PlanEdge(edge, segment.Direction));
         }
 
-        if (nodes.Count == 0)
-        {
-            throw new InvalidOperationException("Маршрут пуст: собирать заказ не из чего.");
-        }
-
-        var plan = new PlanChain(nodes, edges, VirtualStart: false);
-        return NeedsVirtualStart(request, plan) ? PrependVirtualStart(plan) : plan;
+        return new PlanChain(nodes, edges, VirtualStart: false);
     }
 
     /// <summary>
@@ -228,13 +250,36 @@ public static class VdaOrderBuilder
     }
 
     /// <summary>
-    /// План для робота, который уже стоит в целевом рабочем узле. Как в эталоне AGVControl
-    /// (снимок <c>ref-rev-leg2-pick-drop</c>): узел позы робота без действия, затем дубль того же
-    /// узла с курсом к паллете и действием вил, между ними виртуальное ребро
-    /// <c>VIRTUAL_START_&lt;nodeId&gt;</c> без поворота.
+    /// План сообщения, которое начинается на узле-якоре, как в эталоне AGVControl
+    /// (<c>ref-rev-leg2-pick-drop</c>): узел-якорь с координатами карты и без курса, ребро
+    /// <c>VIRTUAL_START_&lt;nodeId&gt;</c> от узла к нему же (робот проходит отрезок сам,
+    /// поворот запрещен), дубль узла с курсом к паллете и действием вил, затем маршрут.
+    /// Пустой маршрут дает сообщение из одной тройки: робот уже стоит в узле-якоре.
     /// </summary>
-    private static PlanChain StationaryPlan(WarehouseNode node) =>
-        new([node, node], [new PlanEdge(null, RouteEdgeDirection.Forward)], VirtualStart: false, Stationary: true);
+    private static PlanChain AnchorPlan(WarehouseNode anchor, PlanChain route)
+    {
+        if (route.Nodes.Count > 0 && route.Nodes[0].Id != anchor.Id)
+        {
+            throw new InvalidOperationException(
+                $"Маршрут начинается не в узле-якоре {anchor.NodeId}, а в {route.Nodes[0].NodeId}.");
+        }
+
+        var nodes = new List<WarehouseNode>(route.Nodes.Count + 2) { anchor };
+        if (route.Nodes.Count == 0)
+        {
+            // Стоянка в узле-якоре: дубль без маршрута, между ними виртуальное ребро.
+            nodes.Add(anchor);
+        }
+        else
+        {
+            nodes.AddRange(route.Nodes);
+        }
+
+        var edges = new List<PlanEdge>(route.Edges.Count + 1) { new(null, RouteEdgeDirection.Forward) };
+        edges.AddRange(route.Edges);
+
+        return new PlanChain(nodes, edges, VirtualStart: false, AnchorStart: true);
+    }
 
     private static JsonObject BuildNode(VdaOrderRequest request, PlanChain plan, int index, bool first)
     {
@@ -251,8 +296,14 @@ public static class VdaOrderBuilder
             stop = ResolveStop(request, plan, index);
         }
 
-        // Цель заказа — последний узел плана. Как в эталоне AGVControl, действие вил и курс
-        // к паллете ставятся только здесь: узел отправления робот только покидает.
+        // Узел-якорь: первый узел сообщения плеча. Координаты карты, курса нет, допуски 0.3/3.14,
+        // действий нет — за ним идет виртуальное ребро и дубль узла с действием.
+        var isAnchorPose = plan.AnchorStart && index == 0;
+
+        // Дубль узла-якоря: здесь и только здесь выполняется действие вил начала плеча.
+        var isAnchorAction = plan.AnchorStart && index == 1;
+
+        // Цель заказа — последний узел плана.
         var isTarget = index == plan.Nodes.Count - 1;
 
         // Узел подхода: маршрут закончился до целевого рабочего узла, действие ставится здесь.
@@ -266,6 +317,17 @@ public static class VdaOrderBuilder
             ["y"] = isWorking ? stop.StopY : node.Y,
         };
 
+        // Действие вил ставится ровно один раз за задачу: на дубле узла-якоря либо в последнем
+        // узле плана. Узел отправления без действия робот только покидает.
+        var anchorAction = isAnchorAction ? request.AnchorActionType : null;
+        var targetAction = (isWorking && isTarget) || isApproachFallback ? request.TargetActionType : null;
+        var actionType = string.IsNullOrWhiteSpace(anchorAction) ? targetAction : anchorAction;
+
+        // Курс к паллете ставится по тому же признаку, что и действие (Д-1): узел без действия
+        // остается точкой проезда, доворачивать вилы некуда.
+        var hasAction = !string.IsNullOrWhiteSpace(actionType)
+            || (isTarget && !string.IsNullOrWhiteSpace(request.TerminalActionType));
+
         double? theta = null;
         var containerX = node.X;
         var containerY = node.Y;
@@ -275,11 +337,12 @@ public static class VdaOrderBuilder
         {
             containerTheta = stop.Theta;
 
-            // Целевой рабочий узел: робот должен довернуться к стеллажу, поэтому курс задается
-            // всегда, когда в узле есть действие вил (иначе вилы выезжают под случайным углом).
-            if (isTarget)
+            // Дубль узла-якоря и целевой рабочий узел: робот должен довернуться к стеллажу,
+            // поэтому курс задается всегда, когда в узле есть действие вил (иначе вилы
+            // выезжают под случайным углом). У узла-якоря курса нет даже при действии.
+            if (isAnchorAction || (isTarget && hasAction))
             {
-                theta = request.SendForkActions ? stop.Theta : (WorkingNodeGeometry.HasTheta(node) ? stop.Theta : null);
+                theta = stop.Theta;
             }
         }
 
@@ -293,16 +356,27 @@ public static class VdaOrderBuilder
             theta = WorkingNodeGeometry.HasTheta(target) ? course : null;
         }
 
-        // Первый узел первого сообщения плеча: поза робота, широкие допуски, курс фактической позы,
-        // если он известен. У узла позы при стоянке в цели курса нет, как в эталоне
-        // (ref-rev-leg2-pick-drop): курс к паллете задает следующий за ним узел с действием.
-        if (first && request.SliceStartIndex == 0 && request.FirstNodeIsPose)
+        if (isAnchorPose)
         {
-            position["x"] = request.RobotX ?? node.X;
-            position["y"] = request.RobotY ?? node.Y;
-            if (request.FirstNodeTheta && request.RobotTheta is { } robotTheta && !plan.Stationary)
+            theta = null;
+        }
+
+        // Первый узел первого сообщения задачи: поза робота, широкие допуски, курс фактической
+        // позы, если он известен. У узла-якоря позы нет: координаты берутся из карты, курса нет.
+        if (first && request.SliceStartIndex == 0)
+        {
+            if (request.FirstNodeIsPose)
             {
-                position["theta"] = robotTheta;
+                position["x"] = request.RobotX ?? node.X;
+                position["y"] = request.RobotY ?? node.Y;
+                if (request.FirstNodeTheta && request.RobotTheta is { } robotTheta && !isAnchorPose)
+                {
+                    position["theta"] = robotTheta;
+                }
+            }
+            else if (theta is not null)
+            {
+                position["theta"] = theta.Value;
             }
 
             position["allowedDeviationXY"] = FirstNodeDeviationXy;
@@ -322,10 +396,9 @@ public static class VdaOrderBuilder
         position["mapId"] = request.MapId;
 
         var actions = new JsonArray();
-        var actionNode = isApproachFallback ? request.ApproachTarget! : node;
-        if (((isWorking && isTarget) || isApproachFallback) && request.SendForkActions)
+        if (!string.IsNullOrWhiteSpace(actionType))
         {
-            actions.Add(BuildForkAction(actionNode, request, containerX, containerY, containerTheta));
+            actions.Add(BuildAction(actionType!, containerX, containerY, containerTheta ?? 0));
         }
 
         // Завершающее действие ставится только в последнем узле всего плана.
@@ -365,7 +438,12 @@ public static class VdaOrderBuilder
         // Как в AGVControl: курс задается только у первого ребра сообщения, у остальных
         // orientation = 0 независимо от направления. Скорости ребра (maxSpeed,
         // maxRotationSpeed) эталон не отдает ни в одном снимке, поэтому их в теле нет.
-        var orientation = first ? FirstEdgeOrientation(request, plan, index, link) : 0;
+        //
+        // Узел-якорь: ребро 0 — виртуальное, первое ребро маршрута (1) начинается на дубле узла,
+        // где робот стоит вилами к паллете, поэтому курс считается по дублю (эталон:
+        // 801-wo-1-6-wa178 и 801-wo-2-7-wa62 дают PI).
+        var firstMovement = plan.AnchorStart ? index == 1 : first;
+        var orientation = firstMovement ? FirstEdgeOrientation(request, plan, index, link) : 0;
 
         return new JsonObject
         {
@@ -424,8 +502,10 @@ public static class VdaOrderBuilder
     }
 
     /// <summary>
-    /// Точка остановки и курс к паллете у рабочего узла плана. При стоянке в цели оба узла
-    /// плана — один и тот же узел, поэтому подход считается как для первого узла маршрута.
+    /// Точка остановки и курс к паллете у рабочего узла плана. У дубля узла-якоря подход
+    /// считается как у первого узла маршрута: робот подъезжает к нему из предыдущего плеча,
+    /// поэтому предыдущий узел плана — он сам, и опорой служит единственный входящий узел карты
+    /// (эталон: курс <c>wo-1-6</c> — 0, <c>wo-2-7</c> — <c>PI</c>).
     /// </summary>
     private static WorkingNodeStop ResolveStop(VdaOrderRequest request, PlanChain plan, int index)
     {
@@ -433,7 +513,7 @@ public static class VdaOrderBuilder
         return WorkingNodeStopResolver.Resolve(
             request.Graph,
             plan.Nodes,
-            plan.Stationary ? 0 : index,
+            plan.AnchorStart && index <= 1 ? 0 : index,
             request.RobotX ?? node.X,
             request.RobotY ?? node.Y);
     }
@@ -474,13 +554,19 @@ public static class VdaOrderBuilder
     {
         var target = plan.Nodes[index + 1];
 
+        // Тройка узла-якоря: ребро идет от узла к нему же (эталон: start = end = wo-1-6).
+        // Виртуальный старт позы: от виртуального узла к первому узлу маршрута.
+        var startNodeId = plan.AnchorStart && index == 0
+            ? plan.Nodes[index].NodeId
+            : plan.VirtualStart && index == 0
+                ? VirtualStartId(target)
+                : plan.Nodes[index].NodeId;
+
         return new JsonObject
         {
             ["edgeId"] = VirtualStartId(target),
             ["sequenceId"] = request.SequenceIdBase + (index * 2) + 1,
-            ["startNodeId"] = plan.VirtualStart && index == 0
-                ? VirtualStartId(target)
-                : plan.Nodes[index].NodeId,
+            ["startNodeId"] = startNodeId,
             ["endNodeId"] = target.NodeId,
             ["orientation"] = null,
             ["orientationType"] = null,
@@ -491,25 +577,6 @@ public static class VdaOrderBuilder
     }
 
     private static string VirtualStartId(WarehouseNode node) => VirtualEdgePrefix + node.NodeId;
-
-    private static JsonObject BuildForkAction(
-        WarehouseNode node,
-        VdaOrderRequest request,
-        double containerX,
-        double containerY,
-        double? containerTheta)
-    {
-        var actionType = node.NodeType.ToUpperInvariant() switch
-        {
-            "LOADING" => "pick",
-            "UNLOADING" => "drop",
-
-            // Тип узла не задает операцию (например слот wo-*): решаем по наличию груза.
-            _ => request.HasLoad ? "drop" : "pick",
-        };
-
-        return BuildAction(actionType, containerX, containerY, containerTheta ?? 0);
-    }
 
     private static JsonObject BuildAction(
         string actionType,
@@ -554,16 +621,20 @@ public static class VdaOrderBuilder
     private sealed record PlanEdge(WarehouseEdge? Edge, RouteEdgeDirection Direction);
 
     /// <summary>
-    /// Полный план маршрута: узлы, ребра и направление проезда каждого ребра.
-    /// При <c>VirtualStart = true</c> план начинается виртуальным узлом робота
+    /// Полный план сообщения: узлы, ребра и направление проезда каждого ребра.
+    ///
+    /// <c>VirtualStart = true</c> — план начинается виртуальным узлом робота
     /// (<c>Nodes[0]</c> — заглушка, виртуальный узел собирается из <c>Nodes[1]</c>),
     /// а <c>Edges[0]</c> — виртуальное стартовое ребро без ребра графа.
-    /// При <c>Stationary = true</c> робот уже в целевом узле: <c>Nodes</c> — два раза один узел
-    /// (поза и действие), <c>Edges[0]</c> — виртуальное ребро между ними.
+    ///
+    /// <c>AnchorStart = true</c> — план начинается тройкой узла-якоря: <c>Nodes[0]</c> — узел
+    /// карты без курса, <c>Edges[0]</c> — виртуальное ребро <c>start = end</c>, <c>Nodes[1]</c> —
+    /// дубль узла с курсом к паллете и действием вил, дальше маршрут. Пустой маршрут дает
+    /// ровно два узла и одно ребро.
     /// </summary>
     private sealed record PlanChain(
         List<WarehouseNode> Nodes,
         List<PlanEdge> Edges,
         bool VirtualStart,
-        bool Stationary = false);
+        bool AnchorStart = false);
 }

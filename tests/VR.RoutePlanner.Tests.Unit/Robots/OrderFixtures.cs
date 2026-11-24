@@ -165,15 +165,15 @@ internal static class OrderFixtures
         int orderUpdateId = 0,
         int sliceStartIndex = 0,
         int sliceNodeCount = 0,
-        bool sendForkActions = true,
-        bool hasLoad = false,
         bool firstNodeTheta = false,
         double? robotX = null,
         double? robotY = null,
         double? robotTheta = null,
         string? terminalActionType = null,
         WarehouseNode? approachTarget = null,
-        WarehouseNode? stationaryNode = null,
+        WarehouseNode? anchorNode = null,
+        string? anchorActionType = null,
+        string? targetActionType = null,
         int sequenceIdBase = 0,
         bool? firstNodeIsPose = null) => new(
         route,
@@ -187,17 +187,17 @@ internal static class OrderFixtures
         orderUpdateId,
         sliceStartIndex,
         sliceNodeCount,
-        sendForkActions,
-        hasLoad,
         firstNodeTheta,
         robotX,
         robotY,
         robotTheta,
         terminalActionType,
         approachTarget,
-        stationaryNode,
+        anchorNode,
+        anchorActionType,
+        targetActionType,
         sequenceIdBase,
-        // Как в сервисе: первое сообщение заказа начинается с позы робота.
+        // Как в сервисе: позу робота получает только первое сообщение задачи.
         firstNodeIsPose ?? orderUpdateId <= 0);
 
     /// <summary>Собирает заказ для маршрута из двух ребер.</summary>

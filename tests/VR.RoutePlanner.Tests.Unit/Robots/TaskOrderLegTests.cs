@@ -108,6 +108,7 @@ public sealed class TaskOrderBuilderTests
             orderUpdateId: 1,
             robotX: start.X,
             robotY: start.Y,
+            targetActionType: "pick",
             terminalActionType: terminal,
             sequenceIdBase: 12,
             firstNodeIsPose: true));
@@ -120,6 +121,18 @@ public sealed class TaskOrderBuilderTests
         var types = ActionTypes(nodes[^1]!);
         Assert.Contains("pick", types);
         Assert.Equal(terminal is not null, types.Contains("detectObject"));
+    }
+
+    [Fact]
+    public void FirstMessage_NoActions()
+    {
+        // Сообщение 0 задачи действий не несет: робот только едет к узлу-якорю.
+        var (graph, edge, _, _) = OrderFixtures.SlotGraph("LOADING");
+        var route = OrderFixtures.Route([(edge.EdgeId, RouteEdgeDirection.Forward)]);
+
+        var order = VdaOrderBuilder.Build(OrderFixtures.Request(route, graph));
+
+        Assert.All(order["nodes"]!.AsArray(), node => Assert.Empty(node!["actions"]!.AsArray()));
     }
 
     internal static int[] Sequences(JsonObject order, string array) =>
@@ -214,7 +227,7 @@ internal sealed class TaskOrderStand
     public RobotSnapshot AtPick(string orderId, int orderUpdateId = 0, bool driving = false) =>
         State(Pick.NodeId, Pick.X - StopOffset, Pick.Y, orderId, orderUpdateId, driving, lastNodeSequenceId: 2);
 
-    /// <summary>Первое плечо задачи: старт -> подбор, цель задачи - выгрузка.</summary>
+    /// <summary>Первое плечо задачи: старт -> подбор, цель задачи - выгрузка. Действий нет.</summary>
     public async Task<RobotOrder> CreateFirstLegAsync()
     {
         State(Start.NodeId, Start.X, Start.Y);
@@ -224,6 +237,7 @@ internal sealed class TaskOrderStand
             Pick.NodeId,
             false,
             Drop.NodeId,
+            targetActionType: null,
             CancellationToken.None);
     }
 
@@ -231,12 +245,13 @@ internal sealed class TaskOrderStand
 }
 
 /// <summary>
-/// Сервис заказа задачи (spec-order-updates, критерии 4-7, 9, 10).
+/// Сервис заказа задачи (spec-order-updates-2, критерии 1-9): сообщение 0 без действий,
+/// сообщение плеча N начинается тройкой узла-якоря, плечи публикуются подряд.
 /// </summary>
 public sealed class TaskOrderServiceTests
 {
     [Fact]
-    public async Task CreateTaskOrder_PublishesOneMessage_KeepsFinalTarget()
+    public async Task CreateTaskOrder_PublishesOneMessageWithoutActions_KeepsFinalTarget()
     {
         var stand = new TaskOrderStand();
 
@@ -250,93 +265,171 @@ public sealed class TaskOrderServiceTests
         Assert.Equal(RobotOrderStatuses.Sent, order.Status);
         Assert.Equal(1, stand.Numbers.Calls);
 
-        // Плечо промежуточное: pick в цели плеча, завершающего действия задачи нет.
+        // П-2: сообщение 0 задачи действий не несет, робот только едет к узлу-якорю.
+        Assert.All(message["nodes"]!.AsArray(), node => Assert.Empty(node!["actions"]!.AsArray()));
         var last = message["nodes"]!.AsArray()[^1]!;
         Assert.Equal(stand.Pick.NodeId, last["nodeId"]!.GetValue<string>());
-        Assert.Equal(["pick"], TaskOrderBuilderTests.ActionTypes(last));
     }
 
     [Fact]
-    public async Task AppendLeg_PublishesUpdateOfSameOrder_ContinuesNumbering()
+    public async Task AppendLeg_StartsWithAnchorTripleAndRoute()
     {
-        var stand = new TaskOrderStand();
+        // Весь план одним сообщением: чанк по умолчанию (3 узла) кончается на тройке.
+        var stand = new TaskOrderStand(new OrderOptions { ReleasedNodes = 0 });
         var first = await stand.CreateFirstLegAsync();
         var firstLast = TaskOrderBuilderTests.Sequences(stand.Message(0), "nodes")[^1];
-        var robot = stand.AtPick(first.OrderId);
+        stand.AtPick(first.OrderId);
 
-        var updated = await stand.Service.AppendLegAsync(first.OrderId, stand.Drop.NodeId, true, CancellationToken.None);
+        var updated = await stand.Service.AppendLegAsync(
+            first.OrderId,
+            stand.Drop.NodeId,
+            hasLoad: true,
+            anchorActionType: "pick",
+            targetActionType: "drop",
+            CancellationToken.None);
 
         Assert.Equal(2, stand.Publisher.Orders.Count);
         var message = stand.Message(1);
+        var nodes = message["nodes"]!.AsArray();
+        var edges = message["edges"]!.AsArray();
+
         Assert.Equal(first.OrderId, message["orderId"]!.GetValue<string>());
         Assert.Equal(1, message["orderUpdateId"]!.GetValue<int>());
-        Assert.Equal([firstLast, firstLast + 2, firstLast + 4], TaskOrderBuilderTests.Sequences(message, "nodes"));
-        Assert.Equal([firstLast + 1, firstLast + 3], TaskOrderBuilderTests.Sequences(message, "edges"));
 
-        var nodes = message["nodes"]!.AsArray();
-        Assert.Equal(robot.PositionX, nodes[0]!["nodePosition"]!["x"]!.GetValue<double>(), 9);
-        Assert.Empty(nodes[0]!["actions"]!.AsArray());
-        Assert.Empty(nodes[1]!["actions"]!.AsArray());
+        // П-3: первый узел — узел-якорь, координаты карты (точка остановки), курса нет, 0.3/3.14.
+        var anchor = nodes[0]!;
+        Assert.Equal(stand.Pick.NodeId, anchor["nodeId"]!.GetValue<string>());
+        Assert.Equal(firstLast, anchor["sequenceId"]!.GetValue<int>());
+        Assert.Empty(anchor["actions"]!.AsArray());
+        Assert.Equal(stand.Pick.X - TaskOrderStand.StopOffset, anchor["nodePosition"]!["x"]!.GetValue<double>(), 9);
+        Assert.Null(anchor["nodePosition"]!["theta"]);
+        Assert.Equal(0.3, anchor["nodePosition"]!["allowedDeviationXY"]!.GetValue<double>(), 9);
+        Assert.Equal(3.14, anchor["nodePosition"]!["allowedDeviationTheta"]!.GetValue<double>(), 9);
+
+        // П-2: виртуальное ребро от узла к нему же, без поворота и без ориентации.
+        var virtualEdge = edges[0]!;
+        Assert.Equal("VIRTUAL_START_" + stand.Pick.NodeId, virtualEdge["edgeId"]!.GetValue<string>());
+        Assert.Equal(firstLast + 1, virtualEdge["sequenceId"]!.GetValue<int>());
+        Assert.Equal(stand.Pick.NodeId, virtualEdge["startNodeId"]!.GetValue<string>());
+        Assert.Equal(stand.Pick.NodeId, virtualEdge["endNodeId"]!.GetValue<string>());
+        Assert.False(virtualEdge["rotationAllowed"]!.GetValue<bool>());
+        Assert.Null(virtualEdge["orientation"]);
+        Assert.Null(virtualEdge["orientationType"]);
+
+        // Дубль узла: курс к паллете, узкие допуски, действие вил начала плеча.
+        var duplicate = nodes[1]!;
+        Assert.Equal(stand.Pick.NodeId, duplicate["nodeId"]!.GetValue<string>());
+        Assert.Equal(firstLast + 2, duplicate["sequenceId"]!.GetValue<int>());
+        Assert.Equal(0.0, duplicate["nodePosition"]!["theta"]!.GetValue<double>(), 9);
+        Assert.Equal(0.1, duplicate["nodePosition"]!["allowedDeviationXY"]!.GetValue<double>(), 9);
+        Assert.Equal(0.1, duplicate["nodePosition"]!["allowedDeviationTheta"]!.GetValue<double>(), 9);
+        Assert.Equal(["pick"], TaskOrderBuilderTests.ActionTypes(duplicate));
+
+        // За дублем — маршрут до цели плеча с действием drop.
         Assert.Equal(stand.Drop.NodeId, nodes[^1]!["nodeId"]!.GetValue<string>());
         Assert.Contains("drop", TaskOrderBuilderTests.ActionTypes(nodes[^1]!));
-        Assert.Contains("detectObject", TaskOrderBuilderTests.ActionTypes(nodes[^1]!));
-
+        Assert.Equal(
+            [firstLast, firstLast + 2, firstLast + 4, firstLast + 6],
+            TaskOrderBuilderTests.Sequences(message, "nodes"));
         Assert.Equal(1, updated.OrderUpdateId);
         Assert.Equal(stand.Drop.NodeId, updated.TargetNodeId);
         Assert.Equal(1, stand.Numbers.Calls);
     }
 
     [Fact]
-    public async Task AppendLeg_RobotDriving_RejectsWithoutPublishing()
+    public async Task AppendLeg_PublishesWithoutWaitingForConfirmation()
     {
         var stand = new TaskOrderStand();
         var first = await stand.CreateFirstLegAsync();
-        stand.AtPick(first.OrderId, driving: true);
 
-        var error = await Assert.ThrowsAsync<OrderRejectedException>(
-            () => stand.Service.AppendLegAsync(first.OrderId, stand.Drop.NodeId, true, CancellationToken.None));
+        // Робот еще едет и стоит в первом узле первого сообщения: подтверждения нет,
+        // но плечо публикуется сразу (П-1), а маршрут строится от цели прошлого плеча (П-5).
+        stand.State(stand.Start.NodeId, stand.Start.X, stand.Start.Y, first.OrderId, driving: true);
 
-        Assert.Equal(RobotOrderService.ReasonLegNotFinished, error.Reason);
-        Assert.Single(stand.Publisher.Orders);
-        Assert.Equal(0, stand.Orders.Orders[first.OrderId].OrderUpdateId);
+        var updated = await stand.Service.AppendLegAsync(
+            first.OrderId,
+            stand.Drop.NodeId,
+            hasLoad: true,
+            anchorActionType: "pick",
+            targetActionType: "drop",
+            CancellationToken.None);
+
+        Assert.Equal(2, stand.Publisher.Orders.Count);
+        Assert.Equal(1, updated.OrderUpdateId);
+        var request = stand.Planner.Requests[^1];
+        Assert.Equal(stand.Pick.Id, request.FromNodeId);
+        Assert.Equal(stand.Drop.Id, request.ToNodeId);
     }
 
     [Fact]
-    public async Task AppendLeg_RobotNotAtLegTarget_RejectsWithoutPublishing()
+    public async Task AppendLeg_NoActionTypes_HasNoActions()
     {
         var stand = new TaskOrderStand();
         var first = await stand.CreateFirstLegAsync();
-        stand.State(stand.Start.NodeId, stand.Start.X, stand.Start.Y, first.OrderId, lastNodeSequenceId: 0);
+        stand.AtPick(first.OrderId);
 
-        Assert.False(await stand.Service.IsLegFinishedAsync(first.OrderId, CancellationToken.None));
-        var error = await Assert.ThrowsAsync<OrderRejectedException>(
-            () => stand.Service.AppendLegAsync(first.OrderId, stand.Drop.NodeId, true, CancellationToken.None));
+        await stand.Service.AppendLegAsync(
+            first.OrderId,
+            stand.Drop.NodeId,
+            hasLoad: true,
+            anchorActionType: null,
+            targetActionType: null,
+            CancellationToken.None);
 
-        Assert.Equal(RobotOrderService.ReasonLegNotFinished, error.Reason);
-        Assert.Single(stand.Publisher.Orders);
+        // hasLoad = true не делает из узла drop: тип действия задает задача, а не груз.
+        Assert.All(
+            stand.Message(1)["nodes"]!.AsArray(),
+            node => Assert.Empty(node!["actions"]!.AsArray()));
     }
 
     [Fact]
-    public async Task AppendLeg_RobotAlreadyInWorkingTarget_PublishesStationaryUpdate()
+    public async Task AppendLeg_RobotAlreadyInAnchor_PublishesAnchorMessageOnly()
     {
         var stand = new TaskOrderStand();
         var first = await stand.CreateFirstLegAsync();
         var firstLast = TaskOrderBuilderTests.Sequences(stand.Message(0), "nodes")[^1];
         stand.AtPick(first.OrderId);
 
-        await stand.Service.AppendLegAsync(first.OrderId, stand.Pick.NodeId, false, CancellationToken.None);
+        // Робот уже в узле-якоре, маршрута нет: порожнее плечо не публикуется,
+        // сообщение с действием собрано по П-2.
+        await stand.Service.AppendLegAsync(
+            first.OrderId,
+            stand.Pick.NodeId,
+            hasLoad: false,
+            anchorActionType: "pick",
+            targetActionType: null,
+            CancellationToken.None);
 
         var message = stand.Message(1);
         var nodes = message["nodes"]!.AsArray();
-        Assert.Equal(1, message["orderUpdateId"]!.GetValue<int>());
-        Assert.Equal([firstLast, firstLast + 2], TaskOrderBuilderTests.Sequences(message, "nodes"));
+        Assert.Equal(2, nodes.Count);
         Assert.All(nodes, node => Assert.Equal(stand.Pick.NodeId, node!["nodeId"]!.GetValue<string>()));
         Assert.Empty(nodes[0]!["actions"]!.AsArray());
         Assert.Equal(["pick"], TaskOrderBuilderTests.ActionTypes(nodes[1]!));
+        Assert.Equal([firstLast, firstLast + 2], TaskOrderBuilderTests.Sequences(message, "nodes"));
 
         var edge = Assert.Single(message["edges"]!.AsArray())!;
         Assert.Equal(firstLast + 1, edge["sequenceId"]!.GetValue<int>());
-        Assert.StartsWith("VIRTUAL_START", edge["edgeId"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Equal("VIRTUAL_START_" + stand.Pick.NodeId, edge["edgeId"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task AppendLeg_NoMovementAndNoAction_NotPublished()
+    {
+        var stand = new TaskOrderStand();
+        var first = await stand.CreateFirstLegAsync();
+        stand.AtPick(first.OrderId);
+
+        var order = await stand.Service.AppendLegAsync(
+            first.OrderId,
+            stand.Pick.NodeId,
+            hasLoad: false,
+            anchorActionType: null,
+            targetActionType: null,
+            CancellationToken.None);
+
+        Assert.Single(stand.Publisher.Orders);
+        Assert.Equal(0, order.OrderUpdateId);
     }
 
     [Fact]
@@ -346,9 +439,15 @@ public sealed class TaskOrderServiceTests
         var first = await stand.CreateFirstLegAsync();
         stand.Time.Now += TimeSpan.FromSeconds(5);
         stand.AtPick(first.OrderId);
-        await stand.Service.AppendLegAsync(first.OrderId, stand.Drop.NodeId, true, CancellationToken.None);
+        await stand.Service.AppendLegAsync(
+            first.OrderId,
+            stand.Drop.NodeId,
+            hasLoad: true,
+            anchorActionType: "pick",
+            targetActionType: "drop",
+            CancellationToken.None);
 
-        // Через 7 с робот еще может принять обновление.
+        // Через 7 с робот еще не принял последнюю версию.
         stand.Time.Now += TimeSpan.FromSeconds(7);
         stand.AtPick(first.OrderId);
         Assert.Equal(0, await stand.Service.CheckTimeoutsAsync(CancellationToken.None));
@@ -373,7 +472,13 @@ public sealed class TaskOrderServiceTests
         var first = await stand.CreateFirstLegAsync();
         stand.Time.Now += TimeSpan.FromSeconds(5);
         stand.AtPick(first.OrderId);
-        await stand.Service.AppendLegAsync(first.OrderId, stand.Drop.NodeId, true, CancellationToken.None);
+        await stand.Service.AppendLegAsync(
+            first.OrderId,
+            stand.Drop.NodeId,
+            hasLoad: true,
+            anchorActionType: "pick",
+            targetActionType: "drop",
+            CancellationToken.None);
 
         stand.Time.Now += TimeSpan.FromSeconds(11);
         stand.AtPick(first.OrderId, orderUpdateId: 1, driving: true);
@@ -405,18 +510,20 @@ public sealed class TaskOrderServiceTests
 }
 
 /// <summary>
-/// Обработчик задач WMS (spec-order-updates, критерий 11): задача из двух действий дает
-/// один заказ, второе действие уходит обновлением того же заказа.
+/// Обработчик задач WMS (spec-order-updates-2, критерий 6): задача из двух действий дает
+/// один заказ, сообщение 0 без действий, второе действие уходит обновлением того же заказа
+/// сразу после первого плеча, без ожидания подтверждения.
 /// </summary>
 public sealed class SimpleTaskWorkerLegTests
 {
     [Fact]
     public async Task PublishLegs_TwoActions_OneOrderTwoMessages()
     {
-        var stand = new TaskOrderStand();
+        // Весь план плеча одним сообщением, чтобы проверять раскладку узлов и действий.
+        var stand = new TaskOrderStand(new OrderOptions { ReleasedNodes = 0 });
 
         // Первое чтение state - робот в старте без заказа; дальше он уже в узле подбора
-        // и подтвердил первое плечо (номер заказа известен: FakeNumberSource начинает с 4331).
+        // (номер заказа известен: FakeNumberSource начинает с 4331).
         stand.States.Sequence.Enqueue(OrderTestData.Snapshot(
             null,
             receivedAt: stand.Time.Now,
@@ -456,6 +563,23 @@ public sealed class SimpleTaskWorkerLegTests
         Assert.Equal(1, order.OrderUpdateId);
         Assert.Equal(stand.Drop.NodeId, order.TargetNodeId);
         Assert.Single(stand.Orders.Orders);
+
+        // Сообщение 0 — только движение к узлу подбора, действий нет (П-2).
+        Assert.All(
+            stand.Message(0)["nodes"]!.AsArray(),
+            node => Assert.Empty(node!["actions"]!.AsArray()));
+
+        // Сообщение 1 начинается на узле-якоре: pick на дубле узла, drop в цели плеча.
+        var nodes = stand.Message(1)["nodes"]!.AsArray();
+        Assert.Equal(stand.Pick.NodeId, nodes[0]!["nodeId"]!.GetValue<string>());
+        Assert.Empty(nodes[0]!["actions"]!.AsArray());
+        Assert.Equal(stand.Pick.NodeId, nodes[1]!["nodeId"]!.GetValue<string>());
+        Assert.Equal(["pick"], TaskOrderBuilderTests.ActionTypes(nodes[1]!));
+        Assert.Equal(stand.Drop.NodeId, nodes[^1]!["nodeId"]!.GetValue<string>());
+        Assert.Contains("drop", TaskOrderBuilderTests.ActionTypes(nodes[^1]!));
+        Assert.Equal(
+            "VIRTUAL_START_" + stand.Pick.NodeId,
+            stand.Message(1)["edges"]!.AsArray()[0]!["edgeId"]!.GetValue<string>());
     }
 
     private sealed class EmptyAgvRepository : ILegacyAgvRepository

@@ -17,7 +17,7 @@ public sealed class VdaOrderNodeTests
         var (graph, edge, start, slot) = OrderFixtures.SlotGraph();
         var route = OrderFixtures.Route([(edge.EdgeId, RouteEdgeDirection.Forward)]);
 
-        var order = VdaOrderBuilder.Build(OrderFixtures.Request(route, graph));
+        var order = VdaOrderBuilder.Build(OrderFixtures.Request(route, graph, targetActionType: "pick"));
 
         var node = order["nodes"]![1]!;
         Assert.Equal("wo-1-1", node["nodeId"]!.GetValue<string>());
@@ -62,53 +62,30 @@ public sealed class VdaOrderNodeTests
     }
 
     [Fact]
-    public void Build_LoadingNode_UsesPickAndKeepsTheta()
+    public void Build_TargetActionType_DoesNotDependOnNodeType()
     {
         var (graph, edge, _, slot) = OrderFixtures.SlotGraph("LOADING");
         var route = OrderFixtures.Route([(edge.EdgeId, RouteEdgeDirection.Forward)]);
 
-        var order = VdaOrderBuilder.Build(OrderFixtures.Request(route, graph));
+        // Тип действия задает сервис, а не тип узла: на LOADING-узле может стоять drop.
+        var order = VdaOrderBuilder.Build(OrderFixtures.Request(route, graph, targetActionType: "drop"));
 
         var node = order["nodes"]![1]!;
-        Assert.Equal("pick", node["actions"]![0]!["actionType"]!.GetValue<string>());
+        Assert.Equal("drop", node["actions"]![0]!["actionType"]!.GetValue<string>());
         Assert.Equal(0.0, node["nodePosition"]!["theta"]!.GetValue<double>(), 9);
         Assert.Equal(slot.NodeId, node["nodeId"]!.GetValue<string>());
     }
 
     [Fact]
-    public void Build_UnloadingNode_UsesDrop()
-    {
-        var (graph, edge, _, _) = OrderFixtures.SlotGraph("UNLOADING");
-        var route = OrderFixtures.Route([(edge.EdgeId, RouteEdgeDirection.Forward)]);
-
-        var order = VdaOrderBuilder.Build(OrderFixtures.Request(route, graph));
-
-        Assert.Equal("drop", order["nodes"]![1]!["actions"]![0]!["actionType"]!.GetValue<string>());
-    }
-
-    [Fact]
-    public void Build_WorkingNodeWithoutType_UsesHasLoad()
-    {
-        var (graph, edge, _, _) = OrderFixtures.SlotGraph("WAYPOINT");
-        var route = OrderFixtures.Route([(edge.EdgeId, RouteEdgeDirection.Forward)]);
-
-        var pick = VdaOrderBuilder.Build(OrderFixtures.Request(route, graph, hasLoad: false));
-        var drop = VdaOrderBuilder.Build(OrderFixtures.Request(route, graph, hasLoad: true));
-
-        // Код узла wo-* делает узел рабочим, тип WAYPOINT не задает операцию — решает hasLoad.
-        Assert.Equal("pick", pick["nodes"]![1]!["actions"]![0]!["actionType"]!.GetValue<string>());
-        Assert.Equal("drop", drop["nodes"]![1]!["actions"]![0]!["actionType"]!.GetValue<string>());
-    }
-
-    [Fact]
-    public void Build_SendForkActionsFalse_HasNoActions()
+    public void Build_NoActionTypes_HasNoActionsAndNoTheta()
     {
         var (graph, edge, _, _) = OrderFixtures.SlotGraph();
         var route = OrderFixtures.Route([(edge.EdgeId, RouteEdgeDirection.Forward)]);
 
-        var order = VdaOrderBuilder.Build(OrderFixtures.Request(route, graph, sendForkActions: false));
+        var order = VdaOrderBuilder.Build(OrderFixtures.Request(route, graph));
 
         Assert.All(order["nodes"]!.AsArray(), node => Assert.Empty(node!["actions"]!.AsArray()));
+        Assert.All(order["nodes"]!.AsArray(), node => Assert.Null(node!["nodePosition"]!["theta"]));
     }
 
     [Fact]
@@ -207,7 +184,8 @@ public sealed class VdaOrderNodeTests
         var order = VdaOrderBuilder.Build(OrderFixtures.Request(
             route,
             graph,
-            approachTarget: slot));
+            approachTarget: slot,
+            targetActionType: "pick"));
 
         var node = order["nodes"]![1]!;
         Assert.Equal(neighbor.NodeId, node["nodeId"]!.GetValue<string>());

@@ -17,32 +17,56 @@ namespace VR.RoutePlanner.Tests.Unit.Robots;
 public sealed class VdaOrderReferenceTests
 {
     [Fact]
-    public void Build_StartAtWorkingNode_DepartureNodeHasNoActionAndTheta()
+    public void Build_MessageStartingAtAnchor_FirstNodeIsAnchorWithoutTheta()
     {
         var (graph, slot, _, far) = SlotDepartureGraph();
         var route = RouteFromSlot();
 
-        // Первое сообщение плеча (order update): первый узел — поза робота, а не курс к паллете.
+        // Сообщение плеча N > 0 начинается на узле-якоре: координаты карты, курса нет,
+        // допуски 0.3/3.14. Действие вил — на дубле узла за виртуальным ребром.
         var order = VdaOrderBuilder.Build(OrderFixtures.Request(
             route,
             graph,
             orderUpdateId: 1,
             firstNodeTheta: true,
-            robotX: 2.525,
-            robotY: 0,
+            robotX: 3.0,
+            robotY: 0.1,
             robotTheta: 1.0,
-            firstNodeIsPose: true));
+            anchorNode: slot,
+            anchorActionType: "drop"));
 
         var nodes = order["nodes"]!.AsArray();
-        var departure = nodes[0]!["nodePosition"]!;
-        Assert.Equal(slot.NodeId, nodes[0]!["nodeId"]!.GetValue<string>());
-        Assert.Empty(nodes[0]!["actions"]!.AsArray());
-        Assert.Equal(2.525, departure["x"]!.GetValue<double>(), 9);
-        Assert.Equal(1.0, departure["theta"]!.GetValue<double>(), 9);
-        Assert.Equal(0.3, departure["allowedDeviationXY"]!.GetValue<double>(), 9);
-        Assert.Equal(3.14, departure["allowedDeviationTheta"]!.GetValue<double>(), 9);
+        var edges = order["edges"]!.AsArray();
+        Assert.Equal(4, nodes.Count);
+        Assert.Equal(3, edges.Count);
+
+        var pose = nodes[0]!;
+        Assert.Equal(slot.NodeId, pose["nodeId"]!.GetValue<string>());
+        Assert.Equal(0, pose["sequenceId"]!.GetValue<int>());
+        Assert.Empty(pose["actions"]!.AsArray());
+        Assert.Equal(2.525, pose["nodePosition"]!["x"]!.GetValue<double>(), 9);
+        Assert.Null(pose["nodePosition"]!["theta"]);
+        Assert.Equal(0.3, pose["nodePosition"]!["allowedDeviationXY"]!.GetValue<double>(), 9);
+        Assert.Equal(3.14, pose["nodePosition"]!["allowedDeviationTheta"]!.GetValue<double>(), 9);
+
+        var edge = edges[0]!;
+        Assert.Equal("VIRTUAL_START_" + slot.NodeId, edge["edgeId"]!.GetValue<string>());
+        Assert.Equal(slot.NodeId, edge["startNodeId"]!.GetValue<string>());
+        Assert.Equal(slot.NodeId, edge["endNodeId"]!.GetValue<string>());
+        Assert.False(edge["rotationAllowed"]!.GetValue<bool>());
+
+        // Робот уходит из узла задним ходом (стоит вилами к стеллажу): первое ребро маршрута — PI.
+        Assert.Equal(Math.PI, edges[1]!["orientation"]!.GetValue<double>(), 9);
+        Assert.Equal(0.0, edges[2]!["orientation"]!.GetValue<double>(), 9);
+
+        var duplicate = nodes[1]!;
+        Assert.Equal(slot.NodeId, duplicate["nodeId"]!.GetValue<string>());
+        Assert.Equal(2, duplicate["sequenceId"]!.GetValue<int>());
+        Assert.Equal(0.0, duplicate["nodePosition"]!["theta"]!.GetValue<double>(), 9);
+        Assert.Equal(["drop"], TaskOrderBuilderTests.ActionTypes(duplicate));
+
         Assert.Equal(far.NodeId, nodes[^1]!["nodeId"]!.GetValue<string>());
-        Assert.All(nodes, node => Assert.Empty(node!["actions"]!.AsArray()));
+        Assert.All(nodes.Skip(2), node => Assert.Empty(node!["actions"]!.AsArray()));
     }
 
     [Fact]
@@ -142,7 +166,8 @@ public sealed class VdaOrderReferenceTests
             robotX: 2.525,
             robotY: 0,
             robotTheta: 0,
-            stationaryNode: slot));
+            anchorNode: slot,
+            anchorActionType: "pick"));
 
         var nodes = order["nodes"]!.AsArray();
         var edges = order["edges"]!.AsArray();

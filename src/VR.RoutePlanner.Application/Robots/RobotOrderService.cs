@@ -36,9 +36,6 @@ public sealed class RobotOrderService
     /// <summary>Код причины отказа: робот не поднял <c>orderUpdateId</c> до опубликованного обновления.</summary>
     public const string ReasonUpdateNotAccepted = "UPDATE_NOT_ACCEPTED";
 
-    /// <summary>Код отказа <see cref="AppendLegAsync"/>: предыдущее плечо не подтверждено по <c>state</c>.</summary>
-    public const string ReasonLegNotFinished = "LEG_NOT_FINISHED";
-
     /// <summary>Код отказа <see cref="AppendLegAsync"/>: заказ не найден или уже не в работе.</summary>
     public const string ReasonOrderNotActive = "ORDER_NOT_ACTIVE";
 
@@ -155,7 +152,8 @@ public sealed class RobotOrderService
     }
 
     /// <summary>
-    /// Создает и публикует заказ роботу.
+    /// Создает и публикует заказ роботу на один узел. Тип действия вил в цели выводится из
+    /// <paramref name="hasLoad"/>: порожний робот забирает паллету, груженый ставит.
     /// </summary>
     /// <param name="mapId">Карта.</param>
     /// <param name="serialNumber">Серийный номер робота.</param>
@@ -171,18 +169,33 @@ public sealed class RobotOrderService
         string targetNodeId,
         bool hasLoad,
         CancellationToken ct) =>
-        CreateTaskOrderAsync(mapId, serialNumber, targetNodeId, hasLoad, targetNodeId, ct);
+        CreateTaskOrderAsync(
+            mapId,
+            serialNumber,
+            targetNodeId,
+            hasLoad,
+            targetNodeId,
+            hasLoad ? "drop" : "pick",
+            ct);
 
     /// <summary>
     /// Создает и публикует заказ на всю задачу: первое сообщение (<c>orderUpdateId = 0</c>) ведет
     /// робота к цели первого плеча, а заказ закрывается только в цели всей задачи. Следующие
     /// плечи добавляет <see cref="AppendLegAsync"/>.
+    ///
+    /// Первое сообщение задачи действий вил не несет: робот только едет к узлу-якорю первого
+    /// действия. Действие ставится в последнем узле плана, только если задача им заканчивается
+    /// (плечо последнее).
     /// </summary>
     /// <param name="mapId">Карта.</param>
     /// <param name="serialNumber">Серийный номер робота.</param>
     /// <param name="firstLegTargetNodeId">Цель первого плеча: до нее строится маршрут.</param>
     /// <param name="hasLoad">Робот везет груз на первом плече.</param>
     /// <param name="finalTargetNodeId">Цель всей задачи: по ней заказ получает <c>Completed</c>.</param>
+    /// <param name="targetActionType">
+    /// Тип действия вил в цели плеча; <c>null</c> — действий нет (за задачей есть следующее плечо,
+    /// и действие уедет в сообщении, которое начнется на этом узле).
+    /// </param>
     /// <param name="ct">Токен отмены.</param>
     /// <returns>Созданный заказ.</returns>
     /// <exception cref="OrderInProgressException">У робота уже есть незавершенный заказ.</exception>
@@ -193,6 +206,7 @@ public sealed class RobotOrderService
         string firstLegTargetNodeId,
         bool hasLoad,
         string finalTargetNodeId,
+        string? targetActionType,
         CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(mapId);
@@ -230,11 +244,15 @@ public sealed class RobotOrderService
             throw new OrderRejectedException(RoutePlanReason.NodeNotFound, "Узел старта или цели не найден на карте.");
         }
 
-        // Робот уже стоит в целевом рабочем узле: движение не нужно, но действие вил нужно.
-        // Как в эталоне AGVControl, заказ публикуется с узлом позы и дублем узла с действием.
+        // Действие вил первого плеча: только если задача им заканчивается. Иначе действие
+        // уедет в сообщении, которое начнется на этом узле (плечо N > 0).
+        var legAction = options.Order.SendForkActions ? targetActionType : null;
+
+        // Робот уже стоит в целевом рабочем узле, а действие вил нужно: движение не требуется,
+        // но сообщение публикуется по раскладке узла-якоря (эталон ref-rev-leg2-pick-drop).
         var stationary = from.Id == to.Id
             && WorkingNodeGeometry.IsWorking(to)
-            && options.Order.SendForkActions;
+            && legAction is not null;
 
         if (from.Id == to.Id && !stationary)
         {
@@ -310,8 +328,6 @@ public sealed class RobotOrderService
             headerId,
             now,
             OrderUpdateId: 0,
-            SendForkActions: options.Order.SendForkActions,
-            HasLoad: hasLoad,
             FirstNodeTheta: options.Order.FirstNodeTheta,
             RobotX: snapshot?.PositionX,
             RobotY: snapshot?.PositionY,
@@ -319,7 +335,11 @@ public sealed class RobotOrderService
             // Завершающее действие только в последнем плече задачи (Д-4).
             TerminalActionType: singleLeg ? options.Order.TerminalActionType : null,
             ApproachTarget: approachTarget,
-            StationaryNode: stationary ? to : null,
+            // Стоянка в узле: сообщение начинается тройкой узла-якоря, маршрута нет,
+            // действие вил стоит на дубле узла.
+            AnchorNode: stationary ? to : null,
+            AnchorActionType: stationary ? legAction : null,
+            TargetActionType: stationary ? null : legAction,
             SequenceIdBase: 0,
             FirstNodeIsPose: true);
 
@@ -386,47 +406,36 @@ public sealed class RobotOrderService
     }
 
     /// <summary>
-    /// Предыдущее плечо заказа подтверждено по последнему <c>state</c>: робот стоит в последнем
-    /// узле текущего сообщения, не едет, действий в работе нет, действие плеча не <c>FAILED</c>.
-    /// Тот же предикат проверяет <see cref="AppendLegAsync"/> перед публикацией.
-    /// </summary>
-    /// <param name="orderId">Заказ задачи.</param>
-    /// <param name="ct">Токен отмены.</param>
-    /// <returns><c>true</c>, если можно публиковать следующее плечо.</returns>
-    public async Task<bool> IsLegFinishedAsync(string orderId, CancellationToken ct)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(orderId);
-
-        var order = await _orders.GetAsync(orderId, ct).ConfigureAwait(false);
-        if (order is null || !ExtendStatuses.Contains(order.Status))
-        {
-            return false;
-        }
-
-        var snapshot = await _states.GetLatestAsync(order.AgvSerialNumber, ct).ConfigureAwait(false);
-        return IsLegFinished(order, snapshot);
-    }
-
-    /// <summary>
     /// Добавляет к заказу задачи следующее плечо: публикует <c>order update</c> с тем же
     /// <c>orderId</c>, <c>orderUpdateId + 1</c> и нумерацией, продолжающей прошлое сообщение.
-    /// Первый узел — поза робота, действие вил — в цели плеча. Публикация только после
-    /// подтверждения прошлого плеча по <c>state</c> (Д-5): <c>blockingType: SOFT</c> не удержит
-    /// робота на узле, и заранее выданное плечо увезло бы его с незавершенным <c>pick</c>.
+    ///
+    /// Сообщение плеча начинается на узле-якоре — последнем узле плана заказа, где робот
+    /// выполняет действие вил: узел-якорь без курса, ребро <c>VIRTUAL_START_&lt;nodeId&gt;</c>,
+    /// дубль узла с курсом к паллете и действием <paramref name="anchorActionType"/>, затем
+    /// маршрут до цели плеча с действием <paramref name="targetActionType"/>. Подтверждение
+    /// прошлого плеча по <c>state</c> не ожидается: публикация идет сразу (поправка 2, П-1).
     /// </summary>
     /// <param name="orderId">Заказ задачи.</param>
     /// <param name="targetNodeId">Цель плеча.</param>
     /// <param name="hasLoad">Робот везет груз на этом плече.</param>
+    /// <param name="anchorActionType">
+    /// Тип действия вил на узле-якоре (действие предыдущего плеча); <c>null</c> — без действия.
+    /// </param>
+    /// <param name="targetActionType">
+    /// Тип действия вил в цели плеча; <c>null</c> — без действия (за плечом есть следующее).
+    /// </param>
     /// <param name="ct">Токен отмены.</param>
     /// <returns>Заказ после публикации плеча.</returns>
     /// <exception cref="OrderRejectedException">
-    /// <c>LEG_NOT_FINISHED</c>, <c>ORDER_NOT_ACTIVE</c>, <c>MAX_ORDER_UPDATES</c> или причина
-    /// планировщика; сообщение при этом не публикуется.
+    /// <c>ORDER_NOT_ACTIVE</c>, <c>MAX_ORDER_UPDATES</c> или причина планировщика; сообщение
+    /// при этом не публикуется.
     /// </exception>
     public async Task<RobotOrder> AppendLegAsync(
         string orderId,
         string targetNodeId,
         bool hasLoad,
+        string? anchorActionType,
+        string? targetActionType,
         CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(orderId);
@@ -441,7 +450,8 @@ public sealed class RobotOrderService
         await gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            return await AppendLegCoreAsync(orderId, targetNodeId, hasLoad, ct).ConfigureAwait(false);
+            return await AppendLegCoreAsync(orderId, targetNodeId, hasLoad, anchorActionType, targetActionType, ct)
+                .ConfigureAwait(false);
         }
         finally
         {
@@ -453,6 +463,8 @@ public sealed class RobotOrderService
         string orderId,
         string targetNodeId,
         bool hasLoad,
+        string? anchorActionType,
+        string? targetActionType,
         CancellationToken ct)
     {
         var options = _options.Value;
@@ -466,15 +478,6 @@ public sealed class RobotOrderService
                 $"Заказ {orderId} не в работе (статус {order?.Status ?? "нет"}).");
         }
 
-        var snapshot = await _states.GetLatestAsync(order.AgvSerialNumber, ct).ConfigureAwait(false);
-        if (!IsLegFinished(order, snapshot))
-        {
-            throw new OrderRejectedException(
-                ReasonLegNotFinished,
-                $"Заказ {orderId}: прошлое плечо не подтверждено (lastNodeId={snapshot?.LastNodeId}, "
-                + $"seq={snapshot?.LastNodeSequenceId}, driving={snapshot?.Driving}).");
-        }
-
         if (order.OrderUpdateId >= options.Order.MaxOrderUpdates)
         {
             throw new OrderRejectedException(
@@ -482,7 +485,11 @@ public sealed class RobotOrderService
                 $"Заказ {orderId}: достигнут предел обновлений {options.Order.MaxOrderUpdates}.");
         }
 
-        var mapId = PlanMapId(order.PlanJson) ?? snapshot!.MapId;
+        // Поза робота нужна только для геометрии точки остановки: публикация плеча от нее
+        // не зависит (П-1), поэтому ожидания подтверждения здесь нет.
+        var snapshot = await _states.GetLatestAsync(order.AgvSerialNumber, ct).ConfigureAwait(false);
+
+        var mapId = PlanMapId(order.PlanJson) ?? snapshot?.MapId;
         var graph = string.IsNullOrWhiteSpace(mapId)
             ? null
             : await _graphs.LoadAsync(mapId, ct).ConfigureAwait(false);
@@ -491,20 +498,31 @@ public sealed class RobotOrderService
             throw new OrderRejectedException(RoutePlanReason.MapNotFound, $"Карта '{mapId}' не найдена.");
         }
 
-        var from = RobotStartNodeResolver.Resolve(graph, snapshot);
+        // Старт плеча — последний узел плана заказа (П-5), а не узел по снимку робота:
+        // робот может стоять между узлами, а продолжение заказа должно начинаться там,
+        // где кончилось предыдущее сообщение.
+        var from = LegStartNode(graph, order) ?? RobotStartNodeResolver.Resolve(graph, snapshot);
         var to = graph.Nodes.Values.FirstOrDefault(node => node.NodeId == targetNodeId);
         if (from is null || to is null)
         {
             throw new OrderRejectedException(RoutePlanReason.NodeNotFound, "Узел старта или цели не найден на карте.");
         }
 
-        var stationary = from.Id == to.Id
-            && WorkingNodeGeometry.IsWorking(to)
-            && options.Order.SendForkActions;
+        var sendFork = options.Order.SendForkActions;
+        var anchorAction = sendFork ? anchorActionType : null;
+        var endAction = sendFork ? targetActionType : null;
 
-        if (from.Id == to.Id && !stationary)
+        // Действие узла-якоря уже стоит в плане заказа (первое сообщение со стоянкой в узле
+        // сразу несло действие): повторять его нельзя, иначе робот выполнит вилы дважды.
+        if (anchorAction is not null && PlanHasAction(order.PlanJson, from.NodeId, anchorAction))
         {
-            // Д-7: робот уже в цели плеча, узел не рабочий: движения и действий нет.
+            anchorAction = null;
+        }
+
+        var empty = from.Id == to.Id;
+        if (empty && anchorAction is null && endAction is null)
+        {
+            // Д-7: робот уже в цели плеча, движения и действий нет — сообщение не публикуется.
             _logger.LogInformation(
                 "Заказ {OrderId}: плечо к {Node} выполнено без публикации, робот уже в узле",
                 orderId,
@@ -512,7 +530,7 @@ public sealed class RobotOrderService
             return order;
         }
 
-        var plan = stationary
+        var plan = empty
             ? RoutePlanResult.Success(
                 new PlannedRoute([], 0, 0, 0, 0, double.PositiveInfinity, false, null),
                 null)
@@ -537,18 +555,20 @@ public sealed class RobotOrderService
             _headers.Next(),
             now,
             OrderUpdateId: updateId,
-            SendForkActions: options.Order.SendForkActions,
-            HasLoad: hasLoad,
             FirstNodeTheta: options.Order.FirstNodeTheta,
-            RobotX: snapshot!.PositionX,
-            RobotY: snapshot.PositionY,
-            RobotTheta: snapshot.Theta,
+            RobotX: snapshot?.PositionX,
+            RobotY: snapshot?.PositionY,
+            RobotTheta: snapshot?.Theta,
             TerminalActionType: lastLeg ? options.Order.TerminalActionType : null,
             ApproachTarget: plan.ApproachNodeId is not null && WorkingNodeGeometry.IsWorking(to) ? to : null,
-            StationaryNode: stationary ? to : null,
+            // П-2 и П-4: сообщение начинается тройкой узла-якоря, маршрут идет за ней.
+            AnchorNode: from,
+            AnchorActionType: anchorAction,
+            TargetActionType: endAction,
             // Д-2: номера продолжают прошлое сообщение (эталон: последний узел 12 -> поза 12).
             SequenceIdBase: LastPlanSequenceId(order) ?? 0,
-            FirstNodeIsPose: true);
+            // П-3: первый узел сообщения N > 0 — узел-якорь с координатами карты и без курса.
+            FirstNodeIsPose: false);
 
         var planJson = composer.Compose(request);
         var planNodeCount = CountNodes(planJson);
@@ -1268,32 +1288,56 @@ public sealed class RobotOrderService
     }
 
     /// <summary>
-    /// Условие <c>LEG_FINISHED</c> (Д-5): <c>state</c> относится к текущей версии заказа, робот не
-    /// едет, стоит в последнем узле текущего сообщения (по <c>lastNodeSequenceId</c>, если он
-    /// пришел), нет действий в <c>RUNNING/WAITING</c> и действие плеча не <c>FAILED</c>.
+    /// Стартовый узел плеча: последний узел плана заказа (П-5). Робот мог не доехать до него
+    /// или стоять между узлами — продолжение заказа все равно начинается там, где кончилось
+    /// предыдущее сообщение, иначе робот отвергает update как невалидное продолжение.
     /// </summary>
-    private static bool IsLegFinished(RobotOrder order, RobotSnapshot? snapshot)
+    private static WarehouseNode? LegStartNode(WarehouseGraph graph, RobotOrder order)
     {
-        if (snapshot is null
-            || snapshot.Driving
-            || !string.Equals(snapshot.OrderId, order.OrderId, StringComparison.Ordinal)
-            || snapshot.OrderUpdateId < order.OrderUpdateId
-            || HasRunningAction(snapshot)
-            || HasFailedPlanAction(order, snapshot))
+        var nodes = PlanNodeIds(order.PlanJson);
+        if (nodes.Count == 0)
+        {
+            return null;
+        }
+
+        var last = nodes[^1];
+        return graph.Nodes.Values.FirstOrDefault(node => string.Equals(node.NodeId, last, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// В плане заказа уже есть действие этого типа в узле: повторно его не ставим.
+    /// </summary>
+    private static bool PlanHasAction(string? planJson, string nodeId, string actionType)
+    {
+        var root = ParsePlan(planJson);
+        if (root is not { } plan
+            || !plan.TryGetProperty("nodes", out var nodes)
+            || nodes.ValueKind != JsonValueKind.Array)
         {
             return false;
         }
 
-        var lastNodeId = LastPlanNodeId(order);
-        if (lastNodeId is null
-            || !string.Equals(snapshot.LastNodeId, lastNodeId, StringComparison.Ordinal))
+        foreach (var node in nodes.EnumerateArray())
         {
-            return false;
+            if (!node.TryGetProperty("nodeId", out var id)
+                || !string.Equals(id.GetString(), nodeId, StringComparison.Ordinal)
+                || !node.TryGetProperty("actions", out var actions)
+                || actions.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var action in actions.EnumerateArray())
+            {
+                if (action.TryGetProperty("actionType", out var type)
+                    && string.Equals(type.GetString(), actionType, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
         }
 
-        // Номер узла не пришел: достаточно совпадения lastNodeId и остановки.
-        return snapshot.LastNodeSequenceId is not { } sequence
-            || sequence == LastPlanSequenceId(order);
+        return false;
     }
 
     /// <summary>
@@ -1358,19 +1402,13 @@ public sealed class RobotOrderService
     }
 
     /// <summary>
-    /// <c>sequenceId</c> последнего узла текущего сообщения: верхняя граница нумерации и база
-    /// следующего плеча. По сохраненным узлам, иначе из <c>PlanJson</c>.
+    /// <c>sequenceId</c> последнего узла плана заказа: база нумерации следующего сообщения.
+    /// Берется из <c>PlanJson</c> — полного плана плеча, а не из сохраненных узлов: узлы
+    /// описывают только отправленный кусок, и его последний узел может быть серединой маршрута.
     /// </summary>
-    private static int? LastPlanSequenceId(RobotOrder order)
-    {
-        if (order.Nodes.Count > 0)
-        {
-            return order.Nodes[^1].SequenceId;
-        }
-
-        var sequences = PlanSequenceRange(order.PlanJson);
-        return sequences?.Last;
-    }
+    private static int? LastPlanSequenceId(RobotOrder order) =>
+        PlanSequenceRange(order.PlanJson)?.Last
+        ?? (order.Nodes.Count > 0 ? order.Nodes[^1].SequenceId : null);
 
     /// <summary>Первый и последний <c>sequenceId</c> узлов сообщения.</summary>
     private static (int First, int Last)? PlanSequenceRange(string? planJson)
