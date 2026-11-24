@@ -179,7 +179,8 @@ public sealed class RobotOrderServiceTests
         Application.Traffic.ITrafficCoordinator? traffic = null,
         OrderOptions? order = null,
         VR.RoutePlanner.Domain.Graph.WarehouseGraph? graph = null,
-        IVdaOrderComposer? composer = null)
+        IVdaOrderComposer? composer = null,
+        FakePublisher? publisher = null)
     {
         var orders = new FakeOrderRepository();
         var states = new FakeStateReader();
@@ -193,7 +194,7 @@ public sealed class RobotOrderServiceTests
             new HeaderIds(),
             new FakeGraphRepository(graph ?? Graph()),
             new FakeNumberSource(),
-            new FakePublisher(),
+            publisher ?? new FakePublisher(),
             orders,
             states,
             new FixedOptions<RoutePlannerOptions>(options),

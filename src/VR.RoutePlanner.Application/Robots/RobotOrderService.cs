@@ -747,8 +747,10 @@ public sealed class RobotOrderService
             return snapshot;
         }
 
-        var distance = Math.Sqrt(
-            Math.Pow(node.X - snapshot.PositionX, 2) + Math.Pow(node.Y - snapshot.PositionY, 2));
+        // Рабочий узел на карте стоит в позиции паллеты, а робот останавливается на 1.475 м
+        // в стороне подъезда. Сверять позу с координатами узла нельзя: получается ложное
+        // расхождение, а initPosition уводит робота внутрь стеллажа к паллете.
+        var (target, distance) = PoseCorrection(node, snapshot.PositionX, snapshot.PositionY);
         if (distance <= 0.3)
         {
             return snapshot;
@@ -759,7 +761,7 @@ public sealed class RobotOrderService
         if (_simulatorReset is { Enabled: true })
         {
             _logger.LogWarning(
-                "Поза робота {Serial} расходится с узлом {Node} на {Distance:F2} м: перезапуск симулятора с выровненным состоянием",
+                "Поза робота {Serial} расходится с точкой остановки узла {Node} на {Distance:F2} м: перезапуск симулятора с выровненным состоянием",
                 serialNumber,
                 node.NodeId,
                 distance);
@@ -784,8 +786,8 @@ public sealed class RobotOrderService
         {
             var parameters = new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["x"] = node.X,
-                ["y"] = node.Y,
+                ["x"] = target.X,
+                ["y"] = target.Y,
                 ["theta"] = snapshot.Theta,
                 ["mapId"] = snapshot.MapId ?? string.Empty,
             };
@@ -803,7 +805,7 @@ public sealed class RobotOrderService
             await Task.Delay(TimeSpan.FromSeconds(3), ct).ConfigureAwait(false);
             var afterAttempt = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? snapshot;
             var moved = Math.Sqrt(
-                Math.Pow(node.X - afterAttempt.PositionX, 2) + Math.Pow(node.Y - afterAttempt.PositionY, 2)) <= 0.3;
+                Math.Pow(target.X - afterAttempt.PositionX, 2) + Math.Pow(target.Y - afterAttempt.PositionY, 2)) <= 0.3;
 
             _logger.LogInformation(
                 "initPosition попытка {Attempt}: робот {Serial}, узел {Node}, расхождение {Distance:F2} м, применено={Applied}",
@@ -834,6 +836,41 @@ public sealed class RobotOrderService
 
         return snapshot;
     }
+
+    /// <summary>
+    /// Куда и насколько расходится поза робота относительно узла.
+    /// Для обычного узла сверяемся с его координатами. Для рабочего узла допустимы три
+    /// положения: сам узел (паллета) и две точки остановки по оси вил; расхождением считается
+    /// расстояние до ближайшего из них, а коррекция всегда направляется в точку остановки,
+    /// ближайшую к роботу, то есть в сторону подъезда, а не в стеллаж.
+    /// </summary>
+    /// <param name="node">Узел, на котором числится робот.</param>
+    /// <param name="robotX">Текущая координата X робота.</param>
+    /// <param name="robotY">Текущая координата Y робота.</param>
+    /// <returns>Цель коррекции и текущее расхождение, метры.</returns>
+    private static ((double X, double Y) Target, double Distance) PoseCorrection(
+        WarehouseNode node,
+        double robotX,
+        double robotY)
+    {
+        var nodeDistance = Distance(node.X, node.Y, robotX, robotY);
+        if (!WorkingNodeGeometry.IsWorking(node))
+        {
+            return ((node.X, node.Y), nodeDistance);
+        }
+
+        var front = WorkingNodeGeometry.Front(node, node.Theta);
+        var rear = WorkingNodeGeometry.Rear(node, node.Theta);
+        var frontDistance = Distance(front.X, front.Y, robotX, robotY);
+        var rearDistance = Distance(rear.X, rear.Y, robotX, robotY);
+
+        var target = frontDistance <= rearDistance ? front : rear;
+        var distance = Math.Min(nodeDistance, Math.Min(frontDistance, rearDistance));
+        return (target, distance);
+    }
+
+    private static double Distance(double x1, double y1, double x2, double y2) =>
+        Math.Sqrt(Math.Pow(x2 - x1, 2) + Math.Pow(y2 - y1, 2));
 
     /// <summary>
     /// Отправляет pick/drop как instantAction, как это делает AGVControl: координаты паллеты
