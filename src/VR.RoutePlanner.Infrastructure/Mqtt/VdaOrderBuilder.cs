@@ -258,7 +258,9 @@ public static class VdaOrderBuilder
 
         if (isWorking)
         {
-            theta = WorkingNodeGeometry.HasTheta(node) ? stop.Theta : null;
+            // Рабочий узел: робот должен довернуться к стеллажу, поэтому курс задается всегда,
+            // когда в узле есть действие вил (иначе вилы выезжают под случайным углом).
+            theta = request.SendForkActions ? stop.Theta : (WorkingNodeGeometry.HasTheta(node) ? stop.Theta : null);
             containerTheta = stop.Theta;
         }
 

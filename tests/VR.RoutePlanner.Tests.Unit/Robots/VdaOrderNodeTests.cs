@@ -30,10 +30,10 @@ public sealed class VdaOrderNodeTests
         var distance = Math.Sqrt(Math.Pow(stopX - slot.X, 2) + Math.Pow(stopY - slot.Y, 2));
         Assert.Equal(WorkingNodeGeometry.WrkLength, distance, 6);
 
-        // Курс подхода — от единственного входящего узла к слоту (вдоль +X), остановка позади слота.
-        // Тип слота WORKING: поля theta нет (как в AGVControl, там theta обнуляется для WORKING),
-        // курс подхода уходит только в containerTheta действия.
-        Assert.Null(position["theta"]);
+        // Курс подхода — от единственного входящего узла к слоту (вдоль +X).
+        // Робот должен довернуться к стеллажу, поэтому theta узла задается курсом подхода,
+        // даже если тип узла WORKING; containerTheta дублирует его для действия вил.
+        Assert.Equal(0.0, position["theta"]!.GetValue<double>(), 9);
         Assert.Equal(slot.X - WorkingNodeGeometry.WrkLength, stopX, 6);
         Assert.Equal(0.0, stopY, 9);
         Assert.Equal(0.1, position["allowedDeviationXY"]!.GetValue<double>(), 9);
