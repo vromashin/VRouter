@@ -180,7 +180,9 @@ public sealed class RobotOrderServiceTests
         OrderOptions? order = null,
         VR.RoutePlanner.Domain.Graph.WarehouseGraph? graph = null,
         IVdaOrderComposer? composer = null,
-        FakePublisher? publisher = null)
+        FakePublisher? publisher = null,
+        Application.Planning.IPathPlanner? planner = null,
+        IRobotOrderNumberSource? numbers = null)
     {
         var orders = new FakeOrderRepository();
         var states = new FakeStateReader();
@@ -189,11 +191,11 @@ public sealed class RobotOrderServiceTests
         var options = Planning.PlanningFixtures.Options();
         options.Order = order ?? new OrderOptions { ReleasedNodes = releasedNodes, FirstNodeTheta = firstNodeTheta };
         var service = new RobotOrderService(
-            new FakePlanner(nodes),
+            planner ?? new FakePlanner(nodes),
             composer ?? new FakeComposer(),
             new HeaderIds(),
             new FakeGraphRepository(graph ?? Graph()),
-            new FakeNumberSource(),
+            numbers ?? new FakeNumberSource(),
             publisher ?? new FakePublisher(),
             orders,
             states,
@@ -302,20 +304,66 @@ public sealed class RobotOrderStateMachineTests
     }
 
     [Fact]
-    public async Task Row6_Executing_OnLastPlanNodeOrTarget_Completed()
+    public async Task Row6_Executing_OnLastNodeOfIntermediateLeg_StaysExecuting()
     {
-        var (service, orders, time, _) = RobotOrderServiceTests.Create();
+        var (service, orders, _, _) = RobotOrderServiceTests.Create();
         var order = OrderTestData.Order(status: RobotOrderStatuses.Executing, targetNodeId: "wa999");
         orders.Orders[order.OrderId] = order;
 
-        // lastNodeId совпадает с последним узлом плана, но не с TargetNodeId.
+        // lastNodeId совпадает с последним узлом сообщения (конец плеча), но не с целью задачи.
+        var result = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(order.OrderId, lastNodeId: "wa4", lastNodeSequenceId: 4),
+            CancellationToken.None);
+
+        Assert.Equal(RobotOrderStatuses.Executing, result!.Status);
+        Assert.Null(result.CompletedAt);
+    }
+
+    [Fact]
+    public async Task Row6_Executing_OnLastNodeAtTaskTarget_Completed()
+    {
+        var (service, orders, time, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Executing, targetNodeId: "wa4");
+        orders.Orders[order.OrderId] = order;
+
         var completed = await service.ApplyStateAsync(
-            OrderTestData.Snapshot(order.OrderId, lastNodeId: "wa4"),
+            OrderTestData.Snapshot(order.OrderId, lastNodeId: "wa4", lastNodeSequenceId: 4),
             CancellationToken.None);
 
         Assert.Equal(RobotOrderStatuses.Completed, completed!.Status);
         Assert.Equal(time.Now, completed.CompletedAt);
         Assert.All(completed.Nodes, node => Assert.True(node.Reached));
+    }
+
+    [Fact]
+    public async Task Row6_Executing_AtTaskTargetButNotLastNodeOfMessage_StaysExecuting()
+    {
+        var (service, orders, _, _) = RobotOrderServiceTests.Create();
+
+        // Цель задачи встречается в середине сообщения: последний узел не достигнут.
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Executing, targetNodeId: "wa2");
+        orders.Orders[order.OrderId] = order;
+
+        var result = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(order.OrderId, lastNodeId: "wa2", lastNodeSequenceId: 2),
+            CancellationToken.None);
+
+        Assert.Equal(RobotOrderStatuses.Executing, result!.Status);
+    }
+
+    [Fact]
+    public async Task Row7_EmptyOrderId_OnLastPlanNodeNotTarget_KeepsOrder()
+    {
+        var (service, orders, time, _) = RobotOrderServiceTests.Create();
+        var order = OrderTestData.Order(status: RobotOrderStatuses.Executing, targetNodeId: "wa999");
+        orders.Orders[order.OrderId] = order;
+
+        var result = await service.ApplyStateAsync(
+            OrderTestData.Snapshot(null, lastNodeId: "wa4", receivedAt: time.Now),
+            CancellationToken.None);
+
+        Assert.Null(result);
+        Assert.Equal(RobotOrderStatuses.Executing, orders.Orders[order.OrderId].Status);
     }
 
     [Fact]

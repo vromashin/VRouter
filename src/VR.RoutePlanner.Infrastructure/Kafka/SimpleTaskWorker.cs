@@ -110,28 +110,12 @@ public sealed class SimpleTaskWorker(
 
         try
         {
-            foreach (var action in task.Actions)
+            var order = await PublishLegsAsync(task, ct).ConfigureAwait(false);
+
+            var outcome = await WaitCompletionAsync(order.OrderId, ct).ConfigureAwait(false);
+            if (!string.Equals(outcome, RobotOrderStatuses.Completed, StringComparison.Ordinal))
             {
-                var hasLoad = action.ActionType != WmsTaskParser.PickUp;
-                await WaitFreeAsync(ct).ConfigureAwait(false);
-                var order = await orders
-                    .CreateOrderAsync(task.AreaWmsId, await ResolveSerialAsync(ct).ConfigureAwait(false), action.Location, hasLoad, ct)
-                    .ConfigureAwait(false);
-
-                logger.LogInformation(
-                    "Задача {TaskId}: шаг {Location} под заказом {OrderId}",
-                    task.TaskId,
-                    action.Location,
-                    order.OrderId);
-
-                var outcome = await WaitCompletionAsync(order.OrderId, ct).ConfigureAwait(false);
-                if (!string.Equals(outcome, RobotOrderStatuses.Completed, StringComparison.Ordinal))
-                {
-                    throw new InvalidOperationException($"Заказ {order.OrderId} завершился со статусом {outcome}.");
-                }
-
-                // Действие pick/drop выполняется узлом заказа (перенос логики AGVControl),
-                // отдельный instantAction больше не отправляем, иначе действие дублируется.
+                throw new InvalidOperationException($"Заказ {order.OrderId} завершился со статусом {outcome}.");
             }
 
             await PublishAsync(producer, settings, new { TaskId = task.TaskId, Status = "Finished", AgvId = await ResolveAgvIdAsync(ct).ConfigureAwait(false) }, ct)
@@ -144,6 +128,100 @@ public sealed class SimpleTaskWorker(
             await PublishAsync(producer, settings, new { TaskId = task.TaskId, Status = "Failed", AgvId = await ResolveAgvIdAsync(ct).ConfigureAwait(false) }, ct)
                 .ConfigureAwait(false);
         }
+    }
+
+    /// <summary>Шаг опроса состояния заказа. В тестах уменьшается.</summary>
+    internal TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Один VDA-заказ на задачу: первое действие создает заказ с целью всей задачи, каждое
+    /// следующее уходит как <see cref="RobotOrderService.AppendLegAsync"/> после подтверждения
+    /// прошлого плеча по <c>state</c>. Возвращает заказ после публикации последнего плеча.
+    /// </summary>
+    /// <param name="task">Задача WMS.</param>
+    /// <param name="ct">Токен отмены.</param>
+    /// <returns>Заказ задачи.</returns>
+    internal async Task<RobotOrder> PublishLegsAsync(WmsTask task, CancellationToken ct)
+    {
+        var serial = await ResolveSerialAsync(ct).ConfigureAwait(false);
+        var finalTarget = task.Actions[^1].Location;
+        RobotOrder? order = null;
+
+        foreach (var action in task.Actions)
+        {
+            var hasLoad = action.ActionType != WmsTaskParser.PickUp;
+
+            if (order is null || order.Status == RobotOrderStatuses.Completed)
+            {
+                // Completed здесь только у заказа, закрытого сразу (робот уже в нерабочем узле):
+                // следующему действию нужен новый заказ.
+                await WaitFreeAsync(ct).ConfigureAwait(false);
+                order = await orders
+                    .CreateTaskOrderAsync(task.AreaWmsId, serial, action.Location, hasLoad, finalTarget, ct)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                order = await AppendLegWhenFinishedAsync(order.OrderId, action.Location, hasLoad, ct)
+                    .ConfigureAwait(false);
+            }
+
+            logger.LogInformation(
+                "Задача {TaskId}: шаг {Location} под заказом {OrderId}, версия {Version}",
+                task.TaskId,
+                action.Location,
+                order.OrderId,
+                order.OrderUpdateId);
+        }
+
+        return order!;
+    }
+
+    /// <summary>
+    /// Ждет подтверждения прошлого плеча и публикует следующее. Отказ <c>LEG_NOT_FINISHED</c>
+    /// (state сменился между проверкой и публикацией) повторяется до общего срока ожидания.
+    /// </summary>
+    private async Task<RobotOrder> AppendLegWhenFinishedAsync(
+        string orderId,
+        string location,
+        bool hasLoad,
+        CancellationToken ct)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddMinutes(15);
+        while (!ct.IsCancellationRequested)
+        {
+            if (await orders.IsLegFinishedAsync(orderId, ct).ConfigureAwait(false))
+            {
+                try
+                {
+                    return await orders.AppendLegAsync(orderId, location, hasLoad, ct).ConfigureAwait(false);
+                }
+                catch (OrderRejectedException exception)
+                    when (exception.Reason == RobotOrderService.ReasonLegNotFinished && DateTimeOffset.UtcNow < deadline)
+                {
+                    logger.LogInformation("Заказ {OrderId}: плечо еще не подтверждено, ждем", orderId);
+                }
+            }
+
+            var current = await orders.GetOrderAsync(orderId, ct).ConfigureAwait(false);
+            if (current is null
+                || current.Status is RobotOrderStatuses.Completed or RobotOrderStatuses.Failed
+                    or RobotOrderStatuses.Cancelled or RobotOrderStatuses.Rejected)
+            {
+                throw new InvalidOperationException(
+                    $"Заказ {orderId} завершился со статусом {current?.Status ?? "нет"} до плеча к {location}.");
+            }
+
+            if (DateTimeOffset.UtcNow >= deadline)
+            {
+                throw new InvalidOperationException($"Заказ {orderId}: плечо к {location} не дождалось прошлого.");
+            }
+
+            await Task.Delay(PollInterval, ct).ConfigureAwait(false);
+        }
+
+        ct.ThrowIfCancellationRequested();
+        throw new OperationCanceledException(ct);
     }
 
     private async Task<Guid> ResolveAgvIdAsync(CancellationToken ct)
@@ -216,12 +294,14 @@ public sealed class SimpleTaskWorker(
                 return RobotOrderStatuses.Failed;
             }
 
-            if (order.Status is RobotOrderStatuses.Completed or RobotOrderStatuses.Failed or RobotOrderStatuses.Cancelled)
+            // Completed -> Finished, любой иной терминальный статус -> Failed (Д-6).
+            if (order.Status is RobotOrderStatuses.Completed or RobotOrderStatuses.Failed
+                or RobotOrderStatuses.Cancelled or RobotOrderStatuses.Rejected)
             {
                 return order.Status;
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
+            await Task.Delay(PollInterval, ct).ConfigureAwait(false);
         }
 
         return RobotOrderStatuses.Failed;

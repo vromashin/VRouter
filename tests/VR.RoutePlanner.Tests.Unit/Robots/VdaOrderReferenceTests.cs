@@ -22,13 +22,25 @@ public sealed class VdaOrderReferenceTests
         var (graph, slot, _, far) = SlotDepartureGraph();
         var route = RouteFromSlot();
 
-        // Обновление без позы робота: первый узел собирается как обычный узел плана.
-        var order = VdaOrderBuilder.Build(OrderFixtures.Request(route, graph, orderUpdateId: 1));
+        // Первое сообщение плеча (order update): первый узел — поза робота, а не курс к паллете.
+        var order = VdaOrderBuilder.Build(OrderFixtures.Request(
+            route,
+            graph,
+            orderUpdateId: 1,
+            firstNodeTheta: true,
+            robotX: 2.525,
+            robotY: 0,
+            robotTheta: 1.0,
+            firstNodeIsPose: true));
 
         var nodes = order["nodes"]!.AsArray();
+        var departure = nodes[0]!["nodePosition"]!;
         Assert.Equal(slot.NodeId, nodes[0]!["nodeId"]!.GetValue<string>());
         Assert.Empty(nodes[0]!["actions"]!.AsArray());
-        Assert.Null(nodes[0]!["nodePosition"]!["theta"]);
+        Assert.Equal(2.525, departure["x"]!.GetValue<double>(), 9);
+        Assert.Equal(1.0, departure["theta"]!.GetValue<double>(), 9);
+        Assert.Equal(0.3, departure["allowedDeviationXY"]!.GetValue<double>(), 9);
+        Assert.Equal(3.14, departure["allowedDeviationTheta"]!.GetValue<double>(), 9);
         Assert.Equal(far.NodeId, nodes[^1]!["nodeId"]!.GetValue<string>());
         Assert.All(nodes, node => Assert.Empty(node!["actions"]!.AsArray()));
     }

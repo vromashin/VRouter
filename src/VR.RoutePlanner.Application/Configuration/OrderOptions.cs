@@ -17,6 +17,12 @@ public sealed class OrderOptions
     /// <summary>Ожидание подтверждения заказа роботом, секунды.</summary>
     public double AcceptTimeoutSeconds { get; set; } = 10;
 
+    /// <summary>
+    /// Ожидание, пока робот поднимет <c>orderUpdateId</c> до опубликованного обновления, секунды.
+    /// Дольше — заказ проваливается с <c>UPDATE_NOT_ACCEPTED</c>.
+    /// </summary>
+    public double UpdateAcceptTimeoutSeconds { get; set; } = 10;
+
     /// <summary>Молчание робота по <c>state</c>, после которого заказ проваливается, секунды.</summary>
     public double StateSilenceSeconds { get; set; } = 15;
 
@@ -61,6 +67,11 @@ public sealed class OrderOptions
         if (ProgressTimeoutSeconds <= 0 || AcceptTimeoutSeconds <= 0 || StateSilenceSeconds <= 0)
         {
             return "Таймауты Routing:Order должны быть больше нуля.";
+        }
+
+        if (UpdateAcceptTimeoutSeconds <= 0)
+        {
+            return $"Routing:Order:UpdateAcceptTimeoutSeconds должен быть больше нуля, получено {UpdateAcceptTimeoutSeconds}.";
         }
 
         if (string.IsNullOrWhiteSpace(Manufacturer))

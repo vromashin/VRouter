@@ -76,7 +76,33 @@ internal sealed class FakeNumberSource : IRobotOrderNumberSource
 {
     public long Next { get; set; } = 4331;
 
-    public Task<long> NextAsync(CancellationToken ct) => Task.FromResult(Next++);
+    /// <summary>Сколько раз запрошен номер заказа.</summary>
+    public int Calls { get; private set; }
+
+    public Task<long> NextAsync(CancellationToken ct)
+    {
+        Calls++;
+        return Task.FromResult(Next++);
+    }
+}
+
+/// <summary>
+/// Планировщик по таблице: маршрут для пары (откуда, куда). Нужен тестам с настоящим сборщиком,
+/// которому требуются ребра графа.
+/// </summary>
+internal sealed class TablePlanner : Application.Planning.IPathPlanner
+{
+    public Dictionary<(Guid From, Guid To), PlannedRoute> Routes { get; } = new();
+
+    public List<Application.Planning.RoutePlanRequest> Requests { get; } = new();
+
+    public Task<RoutePlanResult> PlanAsync(Application.Planning.RoutePlanRequest request, CancellationToken ct)
+    {
+        Requests.Add(request);
+        return Task.FromResult(Routes.TryGetValue((request.FromNodeId, request.ToNodeId), out var route)
+            ? RoutePlanResult.Success(route, null)
+            : RoutePlanResult.NotFound(RoutePlanReason.NoPath));
+    }
 }
 
 internal sealed class FakePublisher : IRobotOrderPublisher

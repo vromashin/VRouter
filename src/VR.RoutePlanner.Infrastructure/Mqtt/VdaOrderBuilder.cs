@@ -8,13 +8,14 @@ namespace VR.RoutePlanner.Infrastructure.Mqtt;
 /// <summary>
 /// Сборка тела VDA-заказа: узлы и ребра сообщения по правилам старого AGVControl.
 ///
-/// Нумерация сквозная по полному маршруту: узел четный (<c>2i</c>), ребро нечетное
-/// (<c>2i + 1</c>), ребро всегда равно узлу плюс один. Кусок сообщения меняет только состав
-/// узлов и ребер, но не их номера, поэтому обновление продолжает нумерацию исходного плана.
+/// Нумерация сквозная по полному маршруту от базы <c>SequenceIdBase</c>: узел
+/// <c>база + 2i</c>, ребро <c>база + 2i + 1</c>, ребро всегда равно узлу плюс один. Кусок
+/// сообщения меняет только состав узлов и ребер, но не их номера, поэтому обновление
+/// продолжает нумерацию исходного плана, а новое плечо заказа продолжает нумерацию прошлого.
 ///
 /// Исключение — виртуальный старт обновления (робот стоит не в первом узле маршрута):
-/// перед планом появляется виртуальный узел <c>sequenceId = 0</c> и виртуальное ребро с
-/// <c>sequenceId = 1</c>, остальные номера сдвигаются на два.
+/// перед планом появляется виртуальный узел <c>sequenceId = база</c> и виртуальное ребро с
+/// <c>sequenceId = база + 1</c>, остальные номера сдвигаются на два.
 /// </summary>
 public static class VdaOrderBuilder
 {
@@ -193,7 +194,8 @@ public static class VdaOrderBuilder
     /// </summary>
     private static bool NeedsVirtualStart(VdaOrderRequest request, PlanChain plan)
     {
-        if (request.OrderUpdateId <= 0 || request.SliceStartIndex > 0)
+        // Первое сообщение плеча само начинается с позы робота: виртуальное ребро не нужно.
+        if (request.OrderUpdateId <= 0 || request.SliceStartIndex > 0 || request.FirstNodeIsPose)
         {
             return false;
         }
@@ -211,8 +213,8 @@ public static class VdaOrderBuilder
     /// <summary>
     /// Ставит перед планом виртуальный узел с текущей позой робота и виртуальное ребро
     /// <c>VIRTUAL_START_&lt;nodeId&gt;</c> к первому узлу маршрута. Номера сдвигаются на два:
-    /// виртуальный узел получает <c>sequenceId = 0</c>, виртуальное ребро — <c>1</c>,
-    /// первый узел маршрута становится <c>2</c>.
+    /// виртуальный узел получает <c>sequenceId = база</c>, виртуальное ребро — <c>база + 1</c>,
+    /// первый узел маршрута становится <c>база + 2</c>.
     /// </summary>
     private static PlanChain PrependVirtualStart(PlanChain plan)
     {
@@ -291,10 +293,10 @@ public static class VdaOrderBuilder
             theta = WorkingNodeGeometry.HasTheta(target) ? course : null;
         }
 
-        // Первый узел первого сообщения: поза робота, широкие допуски, курс фактической позы,
+        // Первый узел первого сообщения плеча: поза робота, широкие допуски, курс фактической позы,
         // если он известен. У узла позы при стоянке в цели курса нет, как в эталоне
         // (ref-rev-leg2-pick-drop): курс к паллете задает следующий за ним узел с действием.
-        if (first && request.OrderUpdateId <= 0)
+        if (first && request.SliceStartIndex == 0 && request.FirstNodeIsPose)
         {
             position["x"] = request.RobotX ?? node.X;
             position["y"] = request.RobotY ?? node.Y;
@@ -339,7 +341,7 @@ public static class VdaOrderBuilder
         return new JsonObject
         {
             ["nodeId"] = node.NodeId,
-            ["sequenceId"] = index * 2,
+            ["sequenceId"] = request.SequenceIdBase + (index * 2),
             ["released"] = true,
             ["nodePosition"] = position,
             ["nodeDescription"] = "{}",
@@ -355,7 +357,7 @@ public static class VdaOrderBuilder
 
         if (link.Edge is null)
         {
-            return BuildVirtualStartEdge(plan, index);
+            return BuildVirtualStartEdge(request, plan, index);
         }
 
         var edge = link.Edge;
@@ -368,7 +370,7 @@ public static class VdaOrderBuilder
         return new JsonObject
         {
             ["edgeId"] = edge.EdgeId,
-            ["sequenceId"] = (index * 2) + 1,
+            ["sequenceId"] = request.SequenceIdBase + (index * 2) + 1,
             ["startNodeId"] = from.NodeId,
             ["endNodeId"] = to.NodeId,
             ["orientation"] = orientation,
@@ -455,7 +457,7 @@ public static class VdaOrderBuilder
         return new JsonObject
         {
             ["nodeId"] = VirtualStartId(target),
-            ["sequenceId"] = 0,
+            ["sequenceId"] = request.SequenceIdBase,
             ["released"] = true,
             ["nodePosition"] = position,
             ["nodeDescription"] = "{}",
@@ -468,14 +470,14 @@ public static class VdaOrderBuilder
     /// Как <c>CreateVirtualEdge</c> в AGVControl: курса нет, поворот запрещен,
     /// скорость и траектория не задаются — робот проходит этот отрезок сам.
     /// </summary>
-    private static JsonObject BuildVirtualStartEdge(PlanChain plan, int index)
+    private static JsonObject BuildVirtualStartEdge(VdaOrderRequest request, PlanChain plan, int index)
     {
         var target = plan.Nodes[index + 1];
 
         return new JsonObject
         {
             ["edgeId"] = VirtualStartId(target),
-            ["sequenceId"] = (index * 2) + 1,
+            ["sequenceId"] = request.SequenceIdBase + (index * 2) + 1,
             ["startNodeId"] = plan.VirtualStart && index == 0
                 ? VirtualStartId(target)
                 : plan.Nodes[index].NodeId,

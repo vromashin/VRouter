@@ -30,6 +30,14 @@ namespace VR.RoutePlanner.Application.Robots;
 /// Робот уже стоит в целевом рабочем узле: маршрут пуст, заказ состоит из узла позы и
 /// дубля узла с действием вил, связанных виртуальным ребром.
 /// </param>
+/// <param name="SequenceIdBase">
+/// База нумерации: узел <c>SequenceIdBase + index*2</c>, ребро <c>+1</c>. Первое сообщение
+/// заказа — <c>0</c>, первое сообщение плеча N — <c>sequenceId</c> последнего узла предыдущего сообщения.
+/// </param>
+/// <param name="FirstNodeIsPose">
+/// Первый узел сообщения получает фактическую позу робота и допуски 0.3/3.14.
+/// <c>true</c> для первого сообщения каждого плеча.
+/// </param>
 public sealed record VdaOrderRequest(
     PlannedRoute Route,
     WarehouseGraph Graph,
@@ -50,4 +58,6 @@ public sealed record VdaOrderRequest(
     double? RobotTheta = null,
     string? TerminalActionType = null,
     WarehouseNode? ApproachTarget = null,
-    WarehouseNode? StationaryNode = null);
+    WarehouseNode? StationaryNode = null,
+    int SequenceIdBase = 0,
+    bool FirstNodeIsPose = false);

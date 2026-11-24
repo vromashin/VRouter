@@ -173,7 +173,9 @@ internal static class OrderFixtures
         double? robotTheta = null,
         string? terminalActionType = null,
         WarehouseNode? approachTarget = null,
-        WarehouseNode? stationaryNode = null) => new(
+        WarehouseNode? stationaryNode = null,
+        int sequenceIdBase = 0,
+        bool? firstNodeIsPose = null) => new(
         route,
         graph,
         MapId,
@@ -193,7 +195,10 @@ internal static class OrderFixtures
         robotTheta,
         terminalActionType,
         approachTarget,
-        stationaryNode);
+        stationaryNode,
+        sequenceIdBase,
+        // Как в сервисе: первое сообщение заказа начинается с позы робота.
+        firstNodeIsPose ?? orderUpdateId <= 0);
 
     /// <summary>Собирает заказ для маршрута из двух ребер.</summary>
     public static JsonObject Order(double orderNumber = 7)
