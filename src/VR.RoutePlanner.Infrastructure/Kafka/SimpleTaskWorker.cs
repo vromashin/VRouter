@@ -130,8 +130,8 @@ public sealed class SimpleTaskWorker(
                     throw new InvalidOperationException($"Заказ {order.OrderId} завершился со статусом {outcome}.");
                 }
 
-                // Вилы: pick/drop отдельным instantAction, как в AGVControl.
-                await RunForkAsync(order.AgvSerialNumber, action.ActionType == WmsTaskParser.PickUp, ct).ConfigureAwait(false);
+                // Действие pick/drop выполняется узлом заказа (перенос логики AGVControl),
+                // отдельный instantAction больше не отправляем, иначе действие дублируется.
             }
 
             await PublishAsync(producer, settings, new { TaskId = task.TaskId, Status = "Finished", AgvId = await ResolveAgvIdAsync(ct).ConfigureAwait(false) }, ct)
