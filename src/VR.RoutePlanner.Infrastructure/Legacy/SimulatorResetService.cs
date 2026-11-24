@@ -27,14 +27,19 @@ public sealed class SimulatorResetService(
 
         var backup = configuration["Legacy:SimulatorStateBackup"];
         var stateFile = configuration["Legacy:SimulatorStateFile"];
+
+        // Сначала останавливаем сервис: при остановке симулятор сохраняет текущее (дрейфующее)
+        // состояние в файл, поэтому копию нужно класть уже после остановки, иначе она затирается.
+        await RunAsync($"-n systemctl stop {_unit}", ct).ConfigureAwait(false);
+        await Task.Delay(TimeSpan.FromSeconds(3), ct).ConfigureAwait(false);
+
         if (!string.IsNullOrWhiteSpace(backup) && !string.IsNullOrWhiteSpace(stateFile))
         {
-            // Возвращаем выровненное состояние: симулятор сохраняет дрейф в этом файле.
             await RunAsync($"-n cp {backup} {stateFile}", ct).ConfigureAwait(false);
             await RunAsync($"-n chown root:root {stateFile}", ct).ConfigureAwait(false);
         }
 
-        await RunAsync($"-n systemctl restart {_unit}", ct).ConfigureAwait(false);
+        await RunAsync($"-n systemctl start {_unit}", ct).ConfigureAwait(false);
         await Task.Delay(TimeSpan.FromSeconds(25), ct).ConfigureAwait(false);
     }
 
