@@ -168,10 +168,10 @@ public sealed class RobotOrderService
 
         var snapshot = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false);
 
-        // Симулятор и робот держат orderId прошлого заказа: пока он не очищен, новый заказ
-        // получает NO_ACCEPT. Как в AGVControl, сначала снимаем прежний заказ и ждём очистки.
-        // Симулятор держит orderId и узлы прошлого заказа; пока они не очищены, новый заказ
-        // принимается молча и не выполняется. Как AGVControl, снимаем заказ и ждём очистки.
+        // Робот держит orderId прошлого заказа, и пока он не снят, новый заказ не принимается
+        // (проверено на стенде: публикация сразу после завершения прошлого заказа дала NO_ACCEPT).
+        // Снимаем прежний заказ и ждем очистки состояния, как раньше. Ожидание относится
+        // к особенностям симулятора; на реальном роботе состояние очищается по cancelOrder.
         var hasLeftovers = !string.IsNullOrWhiteSpace(snapshot?.OrderId)
             || (snapshot?.NodeStates.Count ?? 0) > 0;
 
@@ -196,14 +196,12 @@ public sealed class RobotOrderService
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(snapshot?.OrderId) || (snapshot?.NodeStates.Count ?? 0) > 0)
+            if ((!string.IsNullOrWhiteSpace(snapshot?.OrderId) || (snapshot?.NodeStates.Count ?? 0) > 0)
+                && _simulatorReset is { Enabled: true })
             {
                 // Симулятор не очищает состояние сам: перезапускаем его, если это разрешено настройкой.
-                if (_simulatorReset is { Enabled: true })
-                {
-                    await _simulatorReset.ResetAsync(ct).ConfigureAwait(false);
-                    snapshot = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false);
-                }
+                await _simulatorReset.ResetAsync(ct).ConfigureAwait(false);
+                snapshot = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false);
             }
 
             if (!string.IsNullOrWhiteSpace(snapshot?.OrderId) || (snapshot?.NodeStates.Count ?? 0) > 0)
@@ -223,10 +221,10 @@ public sealed class RobotOrderService
             throw new OrderRejectedException(RoutePlanReason.MapNotFound, $"Карта '{mapId}' не найдена.");
         }
 
-        // Симулятор накапливает расхождение позы с узлом: VDA-действие initPosition возвращает
-        // робота в координаты узла lastNodeId, иначе он «едет», но не доходит до узла.
-        snapshot = await CorrectPoseAsync(serialNumber, snapshot, graph, ct).ConfigureAwait(false);
-
+        // Как AGVControl: поза робота перед заказом не корректируется. Первый узел получает
+        // фактические X/Y/theta с широкими допусками, поэтому initPosition не нужен.
+        // В потоке заказа AGVControl его не отправляет: для рабочего узла такая коррекция
+        // уводила робота внутрь стеллажа к паллете.
         var from = RobotStartNodeResolver.Resolve(graph, snapshot);
         var to = graph.Nodes.Values.FirstOrDefault(node => node.NodeId == targetNodeId);
         if (from is null || to is null)
@@ -720,157 +718,6 @@ public sealed class RobotOrderService
         var active = await _orders.GetActiveAsync(ct).ConfigureAwait(false);
         return active.Any(order => string.Equals(order.AgvSerialNumber, serialNumber, StringComparison.Ordinal));
     }
-
-    /// <summary>
-    /// Выравнивает позу робота по узлу lastNodeId, если симулятор накопил расхождение.
-    /// </summary>
-    /// <param name="serialNumber">Серийный номер робота.</param>
-    /// <param name="snapshot">Текущее состояние робота.</param>
-    /// <param name="graph">Граф карты.</param>
-    /// <param name="ct">Отмена.</param>
-    /// <returns>Обновленное состояние.</returns>
-    private async Task<RobotSnapshot?> CorrectPoseAsync(
-        string serialNumber,
-        RobotSnapshot? snapshot,
-        WarehouseGraph graph,
-        CancellationToken ct)
-    {
-        if (snapshot is null || string.IsNullOrWhiteSpace(snapshot.LastNodeId))
-        {
-            return snapshot;
-        }
-
-        var node = graph.Nodes.Values
-            .FirstOrDefault(item => string.Equals(item.NodeId, snapshot.LastNodeId, StringComparison.Ordinal));
-        if (node is null)
-        {
-            return snapshot;
-        }
-
-        // Рабочий узел на карте стоит в позиции паллеты, а робот останавливается на 1.475 м
-        // в стороне подъезда. Сверять позу с координатами узла нельзя: получается ложное
-        // расхождение, а initPosition уводит робота внутрь стеллажа к паллете.
-        var (target, distance) = PoseCorrection(node, snapshot.PositionX, snapshot.PositionY);
-        if (distance <= 0.3)
-        {
-            return snapshot;
-        }
-
-        // Симулятор игнорирует initPosition, если поза уже разошлась: надежный путь —
-        // перезапуск с выровненным файлом состояния (настройка Legacy:SimulatorUnit).
-        if (_simulatorReset is { Enabled: true })
-        {
-            _logger.LogWarning(
-                "Поза робота {Serial} расходится с точкой остановки узла {Node} на {Distance:F2} м: перезапуск симулятора с выровненным состоянием",
-                serialNumber,
-                node.NodeId,
-                distance);
-            await _simulatorReset.ResetAsync(ct).ConfigureAwait(false);
-            return await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? snapshot;
-        }
-
-        // initPosition применяется только на свободном роботе: ждем, пока он не едет и без действий.
-        var idleDeadline = _time.GetUtcNow().AddSeconds(15);
-        while (_time.GetUtcNow() < idleDeadline && !ct.IsCancellationRequested)
-        {
-            if (!snapshot.Driving && (snapshot.ActionStates?.Count ?? 0) == 0)
-            {
-                break;
-            }
-
-            await Task.Delay(TimeSpan.FromSeconds(1), ct).ConfigureAwait(false);
-            snapshot = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? snapshot;
-        }
-
-        for (var attempt = 1; attempt <= 2; attempt++)
-        {
-            var parameters = new Dictionary<string, object?>(StringComparer.Ordinal)
-            {
-                ["x"] = target.X,
-                ["y"] = target.Y,
-                ["theta"] = snapshot.Theta,
-                ["mapId"] = snapshot.MapId ?? string.Empty,
-            };
-
-            var payload = VdaInstantActionPayload.Build(
-                "initPosition",
-                Guid.NewGuid().ToString("N"),
-                _time.GetUtcNow(),
-                parameters);
-
-            await _publisher
-                .PublishInstantActionAsync(_options.Value.Order.Manufacturer, serialNumber, payload, ct)
-                .ConfigureAwait(false);
-
-            await Task.Delay(TimeSpan.FromSeconds(3), ct).ConfigureAwait(false);
-            var afterAttempt = await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? snapshot;
-            var moved = Math.Sqrt(
-                Math.Pow(target.X - afterAttempt.PositionX, 2) + Math.Pow(target.Y - afterAttempt.PositionY, 2)) <= 0.3;
-
-            _logger.LogInformation(
-                "initPosition попытка {Attempt}: робот {Serial}, узел {Node}, расхождение {Distance:F2} м, применено={Applied}",
-                attempt,
-                serialNumber,
-                node.NodeId,
-                distance,
-                moved);
-
-            if (moved)
-            {
-                return afterAttempt;
-            }
-
-            snapshot = afterAttempt;
-        }
-
-        if (_simulatorReset is { Enabled: true })
-        {
-            // Симулятор игнорирует initPosition: перезапускаем его с выровненным файлом состояния.
-            _logger.LogWarning(
-                "initPosition не применился (робот {Serial} на {Node}), перезапускаем симулятор",
-                serialNumber,
-                node.NodeId);
-            await _simulatorReset.ResetAsync(ct).ConfigureAwait(false);
-            return await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? snapshot;
-        }
-
-        return snapshot;
-    }
-
-    /// <summary>
-    /// Куда и насколько расходится поза робота относительно узла.
-    /// Для обычного узла сверяемся с его координатами. Для рабочего узла допустимы три
-    /// положения: сам узел (паллета) и две точки остановки по оси вил; расхождением считается
-    /// расстояние до ближайшего из них, а коррекция всегда направляется в точку остановки,
-    /// ближайшую к роботу, то есть в сторону подъезда, а не в стеллаж.
-    /// </summary>
-    /// <param name="node">Узел, на котором числится робот.</param>
-    /// <param name="robotX">Текущая координата X робота.</param>
-    /// <param name="robotY">Текущая координата Y робота.</param>
-    /// <returns>Цель коррекции и текущее расхождение, метры.</returns>
-    private static ((double X, double Y) Target, double Distance) PoseCorrection(
-        WarehouseNode node,
-        double robotX,
-        double robotY)
-    {
-        var nodeDistance = Distance(node.X, node.Y, robotX, robotY);
-        if (!WorkingNodeGeometry.IsWorking(node))
-        {
-            return ((node.X, node.Y), nodeDistance);
-        }
-
-        var front = WorkingNodeGeometry.Front(node, node.Theta);
-        var rear = WorkingNodeGeometry.Rear(node, node.Theta);
-        var frontDistance = Distance(front.X, front.Y, robotX, robotY);
-        var rearDistance = Distance(rear.X, rear.Y, robotX, robotY);
-
-        var target = frontDistance <= rearDistance ? front : rear;
-        var distance = Math.Min(nodeDistance, Math.Min(frontDistance, rearDistance));
-        return (target, distance);
-    }
-
-    private static double Distance(double x1, double y1, double x2, double y2) =>
-        Math.Sqrt(Math.Pow(x2 - x1, 2) + Math.Pow(y2 - y1, 2));
 
     /// <summary>
     /// Отправляет pick/drop как instantAction, как это делает AGVControl: координаты паллеты

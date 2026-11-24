@@ -6,16 +6,16 @@ using Xunit;
 namespace VR.RoutePlanner.Tests.Unit.Robots;
 
 /// <summary>
-/// Коррекция позы перед заказом: рабочий узел на карте стоит в позиции паллеты,
-/// поэтому сверять позу робота с его координатами нельзя, иначе initPosition
-/// отправляет робота внутрь стеллажа, а на стенде запускается перезапуск симулятора.
+/// Старт заказа по правилу AGVControl: поза робота перед заказом не корректируется,
+/// initPosition в потоке заказа не отправляется. Первый узел получает фактические
+/// координаты робота с широкими допусками, поэтому коррекция не нужна.
 /// </summary>
-public sealed class PoseCorrectionTests
+public sealed class OrderStartPoseTests
 {
     private const double WrkLength = 1.475;
 
     [Fact]
-    public async Task CreateOrder_RobotAtWorkingStopPoint_NoPoseCorrection()
+    public async Task CreateOrder_RobotAtWorkingStopPoint_SendsNoPoseCorrection()
     {
         var (graph, _, _, slot) = OrderFixtures.SlotGraph();
         var publisher = new FakePublisher();
@@ -25,7 +25,6 @@ public sealed class PoseCorrectionTests
             composer: new VdaOrderComposer(),
             publisher: publisher);
 
-        // Робот стоит там, где он и должен стоять: на точке остановки перед паллетой.
         created.States.Snapshots[OrderTestData.Serial] = OrderTestData.Snapshot(
             null,
             lastNodeId: slot.NodeId,
@@ -39,13 +38,11 @@ public sealed class PoseCorrectionTests
             false,
             CancellationToken.None);
 
-        Assert.DoesNotContain(
-            publisher.Actions,
-            action => action.Payload.Contains("initPosition", StringComparison.Ordinal));
+        Assert.Empty(publisher.Actions);
     }
 
     [Fact]
-    public async Task CreateOrder_PoseFarFromWorkingNode_CorrectsToStopPointNotToRack()
+    public async Task CreateOrder_PoseFarFromWorkingNode_KeepsPoseAndSendsNoCorrection()
     {
         var (graph, _, _, slot) = OrderFixtures.SlotGraph();
         var publisher = new FakePublisher();
@@ -55,10 +52,11 @@ public sealed class PoseCorrectionTests
             composer: new VdaOrderComposer(),
             publisher: publisher);
 
+        var robotX = slot.X + 6;
         created.States.Snapshots[OrderTestData.Serial] = OrderTestData.Snapshot(
             null,
             lastNodeId: slot.NodeId,
-            positionX: slot.X + 6,
+            positionX: robotX,
             positionY: slot.Y);
 
         await created.Service.CreateOrderAsync(
@@ -68,17 +66,12 @@ public sealed class PoseCorrectionTests
             false,
             CancellationToken.None);
 
-        var initPosition = publisher.Actions
-            .First(action => action.Payload.Contains("initPosition", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            publisher.Actions,
+            action => action.Payload.Contains("initPosition", StringComparison.Ordinal));
 
-        var payload = JsonNode.Parse(initPosition.Payload)!;
-        var x = payload["actions"]![0]!["actionParameters"]!
-            .AsArray()
-            .First(item => item!["key"]!.GetValue<string>() == "x")!["value"]!
-            .GetValue<double>();
-
-        // Цель коррекции - точка остановки со стороны робота, а не паллета в стеллаже.
-        Assert.Equal(slot.X + WrkLength, x, 9);
-        Assert.NotEqual(slot.X, x);
+        var order = JsonNode.Parse(Assert.Single(publisher.Orders).Payload)!;
+        var firstNode = order["nodes"]!.AsArray()[0]!;
+        Assert.Equal(robotX, firstNode["nodePosition"]!["x"]!.GetValue<double>(), 9);
     }
 }

@@ -30,7 +30,16 @@ public sealed class SimulatorResetService(
 
         // Сначала останавливаем сервис: при остановке симулятор сохраняет текущее (дрейфующее)
         // состояние в файл, поэтому копию нужно класть уже после остановки, иначе она затирается.
-        await RunAsync($"-n systemctl stop {_unit}", ct).ConfigureAwait(false);
+        if (!await RunAsync($"-n systemctl stop {_unit}", ct).ConfigureAwait(false))
+        {
+            // Без прав на systemctl перезапуск невозможен: ждать и копировать файл бессмысленно,
+            // иначе каждый заказ висит лишние 28 секунд впустую.
+            logger.LogWarning(
+                "Перезапуск симулятора {Unit} невозможен: команда остановки не выполнена",
+                _unit);
+            return;
+        }
+
         await Task.Delay(TimeSpan.FromSeconds(3), ct).ConfigureAwait(false);
 
         if (!string.IsNullOrWhiteSpace(backup) && !string.IsNullOrWhiteSpace(stateFile))
@@ -43,7 +52,7 @@ public sealed class SimulatorResetService(
         await Task.Delay(TimeSpan.FromSeconds(25), ct).ConfigureAwait(false);
     }
 
-    private async Task RunAsync(string arguments, CancellationToken ct)
+    private async Task<bool> RunAsync(string arguments, CancellationToken ct)
     {
         using var process = Process.Start(new ProcessStartInfo
         {
@@ -56,7 +65,7 @@ public sealed class SimulatorResetService(
 
         if (process is null)
         {
-            return;
+            return false;
         }
 
         await process.WaitForExitAsync(ct).ConfigureAwait(false);
@@ -67,6 +76,9 @@ public sealed class SimulatorResetService(
                 arguments,
                 process.ExitCode,
                 await process.StandardError.ReadToEndAsync(ct).ConfigureAwait(false));
+            return false;
         }
+
+        return true;
     }
 }
