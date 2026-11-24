@@ -69,7 +69,12 @@ public static class WorkingNodeStopResolver
             approachY = robotY;
         }
 
-        var theta = WorkingNodeGeometry.Course(approachX, approachY, node.X, node.Y);
+        // Стеллажи на карте выровнены по осям: курс к паллете должен быть кратен 90 градусам.
+        // Иначе диагональный подход дает 45 градусов и вилы смотрят мимо стеллажа.
+        var rawTheta = WorkingNodeGeometry.Course(approachX, approachY, node.X, node.Y);
+        var quarter = Math.PI / 2;
+        var theta = Math.Round(rawTheta / quarter) * quarter;
+        theta = Math.Atan2(Math.Sin(theta), Math.Cos(theta));
         var stop = WorkingNodeGeometry.StopPoint(node, theta, approachX, approachY);
         return new WorkingNodeStop(approachX, approachY, theta, stop.X, stop.Y);
     }
