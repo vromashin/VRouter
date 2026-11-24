@@ -742,6 +742,19 @@ public sealed class RobotOrderService
             return snapshot;
         }
 
+        // Симулятор игнорирует initPosition, если поза уже разошлась: надежный путь —
+        // перезапуск с выровненным файлом состояния (настройка Legacy:SimulatorUnit).
+        if (_simulatorReset is { Enabled: true })
+        {
+            _logger.LogWarning(
+                "Поза робота {Serial} расходится с узлом {Node} на {Distance:F2} м: перезапуск симулятора с выровненным состоянием",
+                serialNumber,
+                node.NodeId,
+                distance);
+            await _simulatorReset.ResetAsync(ct).ConfigureAwait(false);
+            return await _states.GetLatestAsync(serialNumber, ct).ConfigureAwait(false) ?? snapshot;
+        }
+
         // initPosition применяется только на свободном роботе: ждем, пока он не едет и без действий.
         var idleDeadline = _time.GetUtcNow().AddSeconds(15);
         while (_time.GetUtcNow() < idleDeadline && !ct.IsCancellationRequested)
