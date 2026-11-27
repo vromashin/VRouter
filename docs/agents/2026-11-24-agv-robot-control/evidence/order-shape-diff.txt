@@ -1,0 +1,10 @@
+[old] route wo-2-10 -> wo-1-6, nodes=9, edges=8
+  node wo-2-10 seq=0 x=11.2790336608887 y=26.3286895751953 theta=-2.84555745124817 dev=0.3/3.14 actions=
+  node wo-1-6 seq=16 x=12.695 y=31.26 theta= dev=0.1/0.1 actions=
+  edge 801-wo-2-10-wa59 seq=1 orient=3.14159265358979 cp=(9.71,26.3)->(11.39,26.3) maxSpeed=
+  edge 801-wo-1-6-wa178 seq=15 orient=0 cp=(12.64,31.26)->(14.17,31.26) maxSpeed=
+[our] route wa58 -> wo-2-7, nodes=6, edges=5
+  node wa58 seq=0 x=11.3905048370361 y=25.1978378295898 theta= dev=0.3/3.14 actions=
+  node wo-2-7 seq=10 x=11.185 y=29.05 theta=3.14159265358979 dev=0.1/0.1 actions=pick
+  edge 801-wa58-wa59 seq=1 orient=0 cp=(11.39,25.29)->(11.39,26.3) maxSpeed=10
+  edge 801-wo-2-7-wa62 seq=9 orient=0 cp=(11.39,29.05)->(9.71,29.05) maxSpeed=10

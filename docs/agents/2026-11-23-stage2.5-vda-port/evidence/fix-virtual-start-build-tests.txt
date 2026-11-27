@@ -1,0 +1,21 @@
+Сборка и тесты после правки замечаний контролёра (ветка ai/stage2.5-vda-port, коммит 5d7df3d).
+
+dotnet build VR.RoutePlanner.sln -c Release
+  Сборка успешно завершена.
+    Предупреждений: 0
+    Ошибок: 0
+
+dotnet test tests\VR.RoutePlanner.Tests.Unit\VR.RoutePlanner.Tests.Unit.csproj -c Release --filter "FullyQualifiedName~VdaOrder"
+  Пройден!: не пройдено 0, пройдено 32, пропущено 0, всего 32. - VR.RoutePlanner.Tests.Unit.dll (net9.0)
+  (в том числе 4 новых теста VdaOrderVirtualStartTests)
+
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1   (exit code 0)
+  Сборка успешно завершена. Предупреждений: 0, Ошибок: 0
+  Пройден!: не пройдено 0, пройдено 1, пропущено 0, всего 1. - VR.RoutePlanner.Tests.Load.dll (net9.0)
+  Пройден!: не пройдено 0, пройдено 1, пропущено 0, всего 1. - VR.RoutePlanner.Tests.Simulation.dll (net9.0)
+  Пройден!: не пройдено 0, пройдено 13, пропущено 0, всего 13. - VR.RoutePlanner.Tests.Contracts.dll (net9.0)
+  Пройден!: не пройдено 0, пройдено 260, пропущено 0, всего 260. - VR.RoutePlanner.Tests.Unit.dll (net9.0)
+  Пройден!: не пройдено 0, пройдено 44, пропущено 0, всего 44. - VR.RoutePlanner.Tests.Integration.dll (net9.0)
+
+git -C C:\Users\User\source\repos\AGVControl status --porcelain
+  пусто

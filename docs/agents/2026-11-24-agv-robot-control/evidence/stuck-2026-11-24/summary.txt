@@ -1,0 +1,32 @@
+== когда снято ==
+Tue Nov 24 08:29:50 PM MSK 2026
+
+== юниты ==
+active
+active
+active
+Tue Nov 24 08:29:50 PM MSK 2026
+
+== робот ==
+orderId ORD_00204 orderUpdateId 1 driving True
+lastNodeId wa148 lastNodeSequenceId 22
+errors []
+actions []
+nodeStates 10 edgeStates 10
+pos 7.921231746673584 36.20767593383789 -2.2046117782592773 init False
+
+== файлы ==
+total 68
+drwxrwxr-x  2 vr   vr     260 Nov 24 20:29 .
+drwxrwxrwt 22 root root  4160 Nov 24 20:28 ..
+-rw-rw-r--  1 vr   vr    3512 Nov 24 20:29 db-orders.txt
+-rw-rw-r--  1 vr   vr     546 Nov 24 20:29 q.sql
+-rw-rw-r--  1 vr   vr       0 Nov 24 20:28 robot-state.err
+-rw-rw-r--  1 vr   vr    9826 Nov 24 20:29 robot-state.json
+-rw-rw-r--  1 vr   vr     586 Nov 24 20:29 simulator-state.ini
+-rw-rw-r--  1 vr   vr     373 Nov 24 20:29 summary.txt
+-rw-rw-r--  1 vr   vr       0 Nov 24 20:29 tasks-events.err
+-rw-rw-r--  1 vr   vr       0 Nov 24 20:29 tasks-events.log
+-rw-rw-r--  1 vr   vr      53 Nov 24 20:29 units.txt
+-rw-rw-r--  1 vr   vr    6183 Nov 24 20:29 workers.log
+-rw-rw-r--  1 vr   vr   27634 Nov 24 20:29 workers-tail.log

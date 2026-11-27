@@ -1,0 +1,40 @@
+ROUTE ['wo-2-7', 'wa62', 'wa177', 'wa163', 'wa178', 'wo-1-6'] vs ['wo-2-7', 'wa62', 'wa63', 'wa163', 'wa178', 'wo-1-6']
+
+node       | REF (old AGV)                      | OURS                              
+----------------------------------------------------------------------------------------
+wo-2-7     | theta=3.135660171508789 dev=0.3/3.14 | theta=absent dev=0.3/3.14         
+           | xy=11.2736,29.0095                 | xy=11.2814,29.0563                
+           | actions=[('pick', 'SOFT')]         | actions=[('drop', 'SOFT')]        
+wa62       | theta=absent dev=0.1/0.1           | theta=absent dev=0.1/0.1          
+           | xy=11.39,29.05                     | xy=11.39,29.05                    
+wa177      | -                                  | missing                           
+wa163      | theta=absent dev=0.1/0.1           | theta=absent dev=0.1/0.1          
+           | xy=12.64,30.23                     | xy=12.64,30.23                    
+wa178      | theta=absent dev=0.1/0.1           | theta=absent dev=0.1/0.1          
+           | xy=12.64,31.26                     | xy=12.64,31.26                    
+wo-1-6     | theta=0 dev=0.1/0.1                | theta=0 dev=0.1/0.1               
+           | xy=12.695,31.26                    | xy=12.695,31.26                   
+           | actions=[('drop', 'SOFT')]         | actions=[('drop', 'SOFT')]        
+
+EDGES
+edgeId                                           | ref.ori  | our.ori  | extra keys in ours
+801-wo-2-7-wa62                                  | 3.141592653589793 | 0        | maxRotationSpeed,maxSpeed
+801-wa62-wa177                                   | 0        | absent   | 
+801-wa163-wa177                                  | 0        | absent   | 
+801-wa163-wa178                                  | 0        | 0        | maxRotationSpeed,maxSpeed
+801-wo-1-6-wa178                                 | 0        | 0        | maxRotationSpeed,maxSpeed
+801-wa62-wa63                                    | absent   | 0        | 
+801-wa63-wa163                                   | absent   | 0        | 
+
+ref edge control points:
+  801-wo-2-7-wa62                          (9.71,29.05) -> (11.39,29.05)
+  801-wa62-wa177                           (11.39,29.05) -> (12.64,29.37)
+  801-wa163-wa177                          (12.64,29.37) -> (12.64,30.23)
+  801-wa163-wa178                          (12.64,30.23) -> (12.64,31.26)
+  801-wo-1-6-wa178                         (12.64,31.26) -> (14.17,31.26)
+our edge control points:
+  801-wo-2-7-wa62                          (9.71,29.05) -> (11.39,29.05)
+  801-wa62-wa63                            (11.39,29.05) -> (11.39,30.08)
+  801-wa63-wa163                           (11.39,30.08) -> (12.64,30.23)
+  801-wa163-wa178                          (12.64,30.23) -> (12.64,31.26)
+  801-wo-1-6-wa178                         (12.64,31.26) -> (14.17,31.26)

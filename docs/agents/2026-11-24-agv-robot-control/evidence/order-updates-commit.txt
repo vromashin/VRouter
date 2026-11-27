@@ -1,0 +1,15 @@
+3dd307b2f8a98985ea949524d5ce519b95adf8b9
+    ╨Ю╨┤╨╕╨╜ VDA-╨╖╨░╨║╨░╨╖ ╨╜╨░ ╨╖╨░╨┤╨░╤З╤Г WMS: ╨┐╨╗╨╡╤З╨╕ ╨║╨░╨║ order update ╤Б ╤А╨░╤Б╤В╤Г╤Й╨╕╨╝ orderUpdateId
+
+ .../Configuration/OrderOptions.cs                  |  11 +
+ .../Robots/RobotOrderService.cs                    | 503 ++++++++++++++++++---
+ .../Kafka/SimpleTaskWorker.cs                      | 126 +++++-
+ .../Mqtt/VdaOrderBuilder.cs                        |  34 +-
+ .../ServiceCollectionExtensions.cs                 |   1 -
+ .../VR.RoutePlanner.Infrastructure.csproj          |   4 +
+ .../Robots/OrderFixtures.cs                        |   9 +-
+ .../Robots/OrderServiceFakes.cs                    |  28 +-
+ .../Robots/RobotOrderServiceTests.cs               |  62 ++-
+ .../Robots/TaskOrderLegTests.cs                    | 469 +++++++++++++++++++
+ .../Robots/VdaOrderReferenceTests.cs               |  18 +-
+ 11 files changed, 1146 insertions(+), 119 deletions(-)

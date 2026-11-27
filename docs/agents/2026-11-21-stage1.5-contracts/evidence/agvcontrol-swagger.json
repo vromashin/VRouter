@@ -1,0 +1,6325 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "VDA5050 AGV Service API",
+    "description": "API ��� ���������� AGV � ���������� ��������� VDA5050",
+    "version": "v2"
+  },
+  "paths": {
+    "/api/AgvCommand/{agvSerialNumber}/pause": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Pauses the specified AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/resume": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Resumes the specified AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/start-charging": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Starts charging the specified AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/stop-charging": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Stops charging the specified AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/cancel-order": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Cancels the current order of the specified AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/request-state": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Requests the current state of the specified AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/move-forward": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Moves the specified AGV forward.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          },
+          {
+            "name": "distance",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/move-backward": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Moves the specified AGV backward.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          },
+          {
+            "name": "distance",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/pick-load": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Picks up the load on the specified AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/drop-load": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Drops the load on the specified AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/set-angle": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Installs the AGV on the specified angle.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          },
+          {
+            "name": "angle",
+            "in": "query",
+            "description": "angle in grad",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/rotate-on-angle": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Installs the AGV on the specified angle.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          },
+          {
+            "name": "angle",
+            "in": "query",
+            "description": "angle in grad",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/move-to-node": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Moves the specified AGV to a target node. Movement in a straight line.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          },
+          {
+            "name": "NodeId",
+            "in": "query",
+            "description": "Node ID of the target node.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/move-to-node/{agvMoveDirection}": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Moves the specified AGV to a target node. Movement in a straight line.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          },
+          {
+            "name": "NodeId",
+            "in": "query",
+            "description": "Node ID of the target node.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agvMoveDirection",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "enum": [
+                0,
+                1,
+                -1
+              ],
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/move-to-nearest-node/{agvSerialNumber}": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Move Agv from Agv's coordinates to nearest node",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PathResultIds"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PathResultIds"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PathResultIds"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/init-position": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Initializes the position of the specified AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string",
+              "default": "78"
+            }
+          },
+          {
+            "name": "x",
+            "in": "query",
+            "description": "meters",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "y",
+            "in": "query",
+            "description": "meters",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "angle",
+            "in": "query",
+            "description": "radians",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/custom-action": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Sends a custom instant action to a specific AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Custom action request containing action type and optional parameters.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Model.CustomActionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Model.CustomActionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Model.CustomActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/order": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Sends a full order to a specific AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "query",
+            "description": "The order ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderUpdateId",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/can-send-command": {
+      "get": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Checks whether a specific command can be sent to the AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "commandType",
+            "in": "query",
+            "description": "Type of command to check.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/available-commands": {
+      "get": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Retrieves all available commands for the specified AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/download-map": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Downloads a map to the specified AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "query",
+            "description": "ID of the map to download.",
+            "schema": {
+              "type": "string",
+              "default": "78"
+            }
+          },
+          {
+            "name": "mapDownloadLink",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/enable-map": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Enables a map on the specified AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "query",
+            "description": "ID of the map to enable.",
+            "schema": {
+              "type": "string",
+              "default": "78"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvCommand/{agvSerialNumber}/delete-map": {
+      "post": {
+        "tags": [
+          "AgvCommand"
+        ],
+        "summary": "Deletes a map from the specified AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1001"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "query",
+            "description": "ID of the map to delete.",
+            "schema": {
+              "type": "string",
+              "default": "78"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "AGVControlApi"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/pause": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Поставить AGV на паузу (instantAction startPause).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Команда отправлена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "AGV не найден или уже на паузе",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/resume": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Снять AGV с паузы (instantAction stopPause).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/cancel-order": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Отменить текущий order AGV (instantAction cancelOrder).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/start-charging": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Запустить зарядку AGV (instantAction startCharging).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Серийный номер AGV",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Опциональные параметры зарядки (chg_id, chargerX, chargerY, thetaWhileCharging, mapId).\nЕсли не переданы — используются значения из конфига.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": { }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": { }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": { }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/stop-charging": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Остановить зарядку AGV (instantAction stopCharging).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/state-request": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Запросить state у AGV (instantAction stateRequest).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/init-position": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Инициализировать позицию AGV (instantAction initPosition).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Серийный номер AGV",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "query",
+            "description": "ID карты",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x",
+            "in": "query",
+            "description": "Координата X (метры)",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "y",
+            "in": "query",
+            "description": "Координата Y (метры)",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "angle",
+            "in": "query",
+            "description": "Угол (радианы)",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/rotate": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Повернуть AGV на указанный угол (instantAction rotate).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Серийный номер AGV",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "angle",
+            "in": "query",
+            "description": "Угол в градусах",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "relative",
+            "in": "query",
+            "description": "true — относительный угол, false — абсолютный",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/turn": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Повернуть AGV на указанный угол (instantAction turn).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Серийный номер AGV",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "angle",
+            "in": "query",
+            "description": "Угол в градусах",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "speed",
+            "in": "query",
+            "description": "Угловая скорость поворота, положительное значение — против часовой стрелки, отрицательное — по часовой стрелке, единица измерения: рад/с",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "description": "0 = режим одометрии (движение на основе пройденного пути), 1 = режим позиционирования>",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/move-to-node/{nodeId}": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Отправить AGV к указанному узлу (order с одной парой START→nodeId).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Серийный номер AGV",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nodeId",
+            "in": "path",
+            "description": "Целевой узел",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orientation",
+            "in": "query",
+            "description": "Ориентация: forward/backward (0 или π)",
+            "schema": {
+              "type": "number",
+              "format": "double",
+              "default": 0
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "query",
+            "description": "Опциональный orderId (если пусто — генерируется)",
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/pick-load": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Поднять груз (instantAction pick).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/drop-load": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Опустить груз (instantAction drop).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/download-map": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Скачать карту на AGV (instantAction downloadMap).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "link",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/enable-map": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Активировать карту на AGV (instantAction enableMap).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/delete-map": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Удалить карту с AGV (instantAction deleteMap).",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/custom": {
+      "post": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Отправить произвольный instantAction на AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Серийный номер AGV",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "actionType",
+            "in": "query",
+            "description": "Тип action (например, \"customAction\")",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Параметры action'а",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": { }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": { }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": { }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/can-send": {
+      "get": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Проверить, можно ли отправить команду на AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "commandType",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/available": {
+      "get": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Получить список доступных команд для AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agv/{agvSerialNumber}/actions/adapter-info": {
+      "get": {
+        "tags": [
+          "AgvInstantActions"
+        ],
+        "summary": "Получить информацию об адаптере, используемом для AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/start": {
+      "post": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Starts monitoring of AGV states.",
+        "responses": {
+          "200": {
+            "description": "Monitoring started successfully."
+          },
+          "500": {
+            "description": "An error occurred while starting monitoring."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/stop": {
+      "post": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Stops monitoring of AGV states.",
+        "responses": {
+          "200": {
+            "description": "Monitoring stopped successfully."
+          },
+          "500": {
+            "description": "An error occurred while stopping monitoring."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/status": {
+      "get": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Checks if the service is currently monitoring AGV states.",
+        "responses": {
+          "200": {
+            "description": "Returns monitoring status."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/state/{agvSerialNumber}": {
+      "get": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Requests a state update for a specific AGV.",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "The serial number of the AGV.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns the AGV state update."
+          },
+          "404": {
+            "description": "AGV not found.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An error occurred while processing the request."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/states/all": {
+      "get": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Requests state updates for all AGVs.",
+        "responses": {
+          "200": {
+            "description": "Returns dictionary of all AGV states."
+          },
+          "500": {
+            "description": "An error occurred while processing the request."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/subscribe": {
+      "post": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Subscribes to state updates for a specific AGV.",
+        "requestBody": {
+          "description": "Subscription request containing AGV details.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Controllers.SubscribeRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Controllers.SubscribeRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Controllers.SubscribeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription successful."
+          },
+          "400": {
+            "description": "Invalid request parameters.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An error occurred while processing the request."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/unsubscribe": {
+      "post": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Unsubscribes from state updates for a specific AGV.",
+        "requestBody": {
+          "description": "Unsubscription request containing AGV details.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Controllers.SubscribeRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Controllers.SubscribeRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Controllers.SubscribeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Unsubscription successful."
+          },
+          "400": {
+            "description": "Invalid request parameters.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An error occurred while processing the request."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/subscribe/all": {
+      "post": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Subscribes to state updates for all AGVs.",
+        "responses": {
+          "200": {
+            "description": "Subscription successful."
+          },
+          "500": {
+            "description": "An error occurred while processing the request."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/unsubscribe/all": {
+      "post": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Unsubscribes from state updates for all AGVs.",
+        "responses": {
+          "200": {
+            "description": "Unsubscription successful."
+          },
+          "500": {
+            "description": "An error occurred while processing the request."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/configure/interval": {
+      "post": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Configures the monitoring interval.",
+        "requestBody": {
+          "description": "Configuration request containing the interval.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Controllers.IntervalConfigRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Controllers.IntervalConfigRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Controllers.IntervalConfigRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration successful."
+          },
+          "400": {
+            "description": "Invalid interval.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An error occurred while processing the request."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/configure/retry": {
+      "post": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Configures the retry policy for state update requests.",
+        "requestBody": {
+          "description": "Configuration request containing retry settings.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Controllers.RetryPolicyRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Controllers.RetryPolicyRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlApi.Controllers.RetryPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration successful."
+          },
+          "400": {
+            "description": "Invalid retry settings.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An error occurred while processing the request."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/monitored": {
+      "get": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Gets the list of AGVs currently being monitored.",
+        "responses": {
+          "200": {
+            "description": "Returns list of monitored AGV serial numbers."
+          },
+          "500": {
+            "description": "An error occurred while processing the request."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/statistics": {
+      "get": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Gets monitoring statistics.",
+        "responses": {
+          "200": {
+            "description": "Returns monitoring statistics."
+          },
+          "500": {
+            "description": "An error occurred while processing the request."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/updates/recent": {
+      "get": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Gets recent state updates.",
+        "parameters": [
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Number of recent updates to retrieve (default: 50).",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns list of recent state updates."
+          },
+          "400": {
+            "description": "Invalid count value.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An error occurred while processing the request."
+          }
+        }
+      }
+    },
+    "/api/AgvStateMonitor/updates/order": {
+      "get": {
+        "tags": [
+          "AgvStateMonitor"
+        ],
+        "summary": "Gets state updates by order.",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "query",
+            "description": "The order ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderUpdateId",
+            "in": "query",
+            "description": "The order update ID.",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns list of state updates for the order."
+          },
+          "400": {
+            "description": "Invalid parameters.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An error occurred while processing the request."
+          }
+        }
+      }
+    },
+    "/api/AgvTask/assign": {
+      "post": {
+        "tags": [
+          "AgvTask"
+        ],
+        "summary": "��������� ������",
+        "requestBody": {
+          "description": "����� �� Kafka",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.WMS.TaskMessage"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.WMS.TaskMessage"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.WMS.TaskMessage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/AgvTask/assignTaskQueueItem": {
+      "post": {
+        "tags": [
+          "AgvTask"
+        ],
+        "summary": "�������� Task Item",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.WMS.TaskQueueItem"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.WMS.TaskQueueItem"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.WMS.TaskQueueItem"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/AgvTask/getready/{agvSerialNumber}": {
+      "get": {
+        "tags": [
+          "AgvTask"
+        ],
+        "summary": "AGV ready to get new order",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/AgvTask/lastnode/{agvSerialNumber}": {
+      "get": {
+        "tags": [
+          "AgvTask"
+        ],
+        "summary": "AGV last node",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "AGV serial number",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.Def.Node"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.Def.Node"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.Def.Node"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvTask/process": {
+      "post": {
+        "tags": [
+          "AgvTask"
+        ],
+        "summary": "���������� ������",
+        "requestBody": {
+          "description": "����� �� Kafka",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.WMS.TaskMessage"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.WMS.TaskMessage"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.WMS.TaskMessage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/AgvTask/process/{agvSerialNumber}": {
+      "post": {
+        "tags": [
+          "AgvTask"
+        ],
+        "summary": "���������� ������",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "����� �� Kafka",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.WMS.TaskMessage"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.WMS.TaskMessage"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.WMS.TaskMessage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/AgvTask/cancel": {
+      "post": {
+        "tags": [
+          "AgvTask"
+        ],
+        "summary": "�������� ������",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/AgvTask/pickdrop/{agvSerialNumber}/{mapId}/{pickNodeId}/{dropNodeId}": {
+      "post": {
+        "tags": [
+          "AgvTask"
+        ],
+        "summary": "��������� ������ ������� � �������� ����",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "DMR-600-02"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "baze_170926"
+            }
+          },
+          {
+            "name": "pickNodeId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dropNodeId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/AgvTask/pickdrop/{agvSerialNumber}/{mapId}/{startNodeId}/{pickNodeId}/{dropNodeId}": {
+      "post": {
+        "tags": [
+          "AgvTask"
+        ],
+        "summary": "��������� ������ ������� � �������� ����",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "DMR-600-02"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "baze_170926"
+            }
+          },
+          {
+            "name": "pickNodeId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dropNodeId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startNodeId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Order/agv/{agvSerialNumber}": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Get AGV by serial number",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "AGV serial number",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "98004"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Agv"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Agv"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Agv"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Order/shortest-path/{fromNodeId}/{toNodeId}/{mapId}": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Get shortest path",
+        "parameters": [
+          {
+            "name": "fromNodeId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "toNodeId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "801"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PathResultIds"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PathResultIds"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PathResultIds"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Order/move-to-node/{agvSerialNumber}/{toNodeId}": {
+      "post": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Move agv from current position to node",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Agv serial number",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "98004"
+            }
+          },
+          {
+            "name": "toNodeId",
+            "in": "path",
+            "description": "Goal node",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Order/move-to-node/{agvSerialNumber}/{toNodeId}/{agvMoveDirection}": {
+      "post": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Move agv from current position to node",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "Agv serial number",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "98004"
+            }
+          },
+          {
+            "name": "toNodeId",
+            "in": "path",
+            "description": "Goal node",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agvMoveDirection",
+            "in": "path",
+            "description": "Auto/Forward/Backward",
+            "required": true,
+            "schema": {
+              "enum": [
+                0,
+                1,
+                -1
+              ],
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Order/move-to-work/{agvSerialNumber}/{toNodeId}/{toNodeType}": {
+      "post": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Move agv to work",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "AgvId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "98004"
+            }
+          },
+          {
+            "name": "toNodeId",
+            "in": "path",
+            "description": "Node",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "toNodeType",
+            "in": "path",
+            "description": "Loading/Unloading",
+            "required": true,
+            "schema": {
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Order/pickdrop/{agvSerialNumber}/{mapId}/{pickNodeId}/{dropNodeId}": {
+      "post": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Pick and Drop",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "98004"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "801"
+            }
+          },
+          {
+            "name": "pickNodeId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dropNodeId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Order/pickdrop/{agvSerialNumber}/{mapId}/{startNodeId}/{pickNodeId}/{dropNodeId}": {
+      "post": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Pick and Drop",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "98004"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "801"
+            }
+          },
+          {
+            "name": "pickNodeId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dropNodeId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startNodeId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Order/move-to-charge/{agvSerialNumber}": {
+      "post": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Move agv to charge",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "98004"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Order/move-to-charge/{agvSerialNumber}/{toChargeNodeId}": {
+      "post": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Move agv to charge",
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "98004"
+            }
+          },
+          {
+            "name": "toChargeNodeId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "CHG"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Order/move-to-parking/{agvSerialNumber}": {
+      "post": {
+        "tags": [
+          "Order"
+        ],
+        "parameters": [
+          {
+            "name": "agvSerialNumber",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "98004"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.State.MqttOrderResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Order": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Get all orders",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Create a new order",
+        "requestBody": {
+          "description": "The order to create",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.VDA.Order"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.VDA.Order"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.VDA.Order"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/map/{Id}": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Get map by ID",
+        "parameters": [
+          {
+            "name": "Id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.Def.Map"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.Def.Map"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.Def.Map"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/node/{Id}/{mapId}": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Get node by ID",
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "1883"
+            }
+          },
+          {
+            "name": "Id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.Def.Node"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.Def.Node"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.Def.Node"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/edge/{Id}": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Get edge by ID",
+        "parameters": [
+          {
+            "name": "edgeId",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string",
+              "default": "1883"
+            }
+          },
+          {
+            "name": "Id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.Def.Edge"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.Def.Edge"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.Def.Edge"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Order/{orderId}": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Get order by ID",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "description": "The order ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/Order/{orderId}/{orderUpdateId}": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Get order by ID",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "description": "The order ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderUpdateId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/Order/{id}": {
+      "put": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Update an existing order",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The ID of the order to update",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The updated order data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.VDA.Order"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.VDA.Order"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.VDA.Order"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Delete an order",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "query",
+            "description": "The ID of the order to delete",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/Order/{id}/{orderUpdateId}": {
+      "put": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Update an existing order",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The ID of the order to update",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderUpdateId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The updated order data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.VDA.Order"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.VDA.Order"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.VDA.Order"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVModels.VDA.Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Order"
+        ],
+        "summary": "Delete an order",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "query",
+            "description": "The ID of the order to delete",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderUpdateId",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/Route/build-and-send": {
+      "post": {
+        "tags": [
+          "Route"
+        ],
+        "summary": "Построить и отправить маршрут",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlSystem.Graph.Controllers.BuildRouteApiRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlSystem.Graph.Controllers.BuildRouteApiRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlSystem.Graph.Controllers.BuildRouteApiRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVControlSystem.Graph.Controllers.RouteApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVControlSystem.Graph.Controllers.RouteApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVControlSystem.Graph.Controllers.RouteApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Route/update": {
+      "post": {
+        "tags": [
+          "Route"
+        ],
+        "summary": "Обновить маршрут (расширить horizon)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlSystem.Graph.Controllers.UpdateRouteApiRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlSystem.Graph.Controllers.UpdateRouteApiRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVControlSystem.Graph.Controllers.UpdateRouteApiRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVControlSystem.Graph.Controllers.RouteApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVControlSystem.Graph.Controllers.RouteApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AGVControlSystem.Graph.Controllers.RouteApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Route/cancel/{agvId}/{orderId}": {
+      "post": {
+        "tags": [
+          "Route"
+        ],
+        "summary": "Отменить заказ",
+        "parameters": [
+          {
+            "name": "agvId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderUpdateId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Route/info/{orderId}": {
+      "get": {
+        "tags": [
+          "Route"
+        ],
+        "summary": "Получить информацию о построенном маршруте",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Telemetry/rawStateall": {
+      "get": {
+        "tags": [
+          "Telemetry"
+        ],
+        "summary": "Получить сырую (raw) телеметрию (топик \"state\") сразу по всем AGV одним запросом",
+        "responses": {
+          "200": {
+            "description": "Успешно получена сырая телеметрия (может быть пустым объектом, если ещё ни одного state-сообщения не пришло)"
+          }
+        }
+      }
+    },
+    "/api/Telemetry/rawVisualisationAll": {
+      "get": {
+        "tags": [
+          "Telemetry"
+        ],
+        "summary": "Получить сырую (raw) visualization-телеметрию (топик \"visualization\") сразу\nпо всем AGV одним запросом — без фильтра по конкретному AGV.",
+        "responses": {
+          "200": {
+            "description": "Успешно получена сырая visualization-телеметрия (может быть пустым объектом, если ещё ни одного сообщения не пришло)"
+          }
+        }
+      }
+    },
+    "/Traffic/node/{nodeId}/{mapId}": {
+      "get": {
+        "tags": [
+          "Traffic"
+        ],
+        "summary": "Получить статус узла",
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": 801
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Traffic/edge/{edgeId}/{mapId}": {
+      "get": {
+        "tags": [
+          "Traffic"
+        ],
+        "summary": "Получить статус ребра",
+        "parameters": [
+          {
+            "name": "edgeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": 801
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Traffic/statistics/{mapId}": {
+      "get": {
+        "tags": [
+          "Traffic"
+        ],
+        "summary": "Получить статистику трафика",
+        "parameters": [
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": 801
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Traffic/edge/{edgeId}/{mapId}/{agvId}/reserve": {
+      "post": {
+        "tags": [
+          "Traffic"
+        ],
+        "summary": "Резервировать ребро",
+        "parameters": [
+          {
+            "name": "edgeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": 801
+            }
+          },
+          {
+            "name": "agvId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Traffic/edge/{edgeId}/{mapId}/{agvId}/release": {
+      "post": {
+        "tags": [
+          "Traffic"
+        ],
+        "summary": "Освободить ребро",
+        "parameters": [
+          {
+            "name": "edgeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": 801
+            }
+          },
+          {
+            "name": "agvId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Traffic/node/{nodeId}/{mapId}/{agvId}/reserve": {
+      "post": {
+        "tags": [
+          "Traffic"
+        ],
+        "summary": "Резервировать узел",
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": 801
+            }
+          },
+          {
+            "name": "agvId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Traffic/node/{nodeId}/{mapId}/{agvId}/release": {
+      "post": {
+        "tags": [
+          "Traffic"
+        ],
+        "summary": "Освободить узел",
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": 801
+            }
+          },
+          {
+            "name": "agvId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Traffic/node/{nodeId}/{mapId}/block": {
+      "post": {
+        "tags": [
+          "Traffic"
+        ],
+        "summary": "Заблокировать узел",
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": 801
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string",
+                "default": ""
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "string",
+                "default": ""
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "string",
+                "default": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Traffic/node/{nodeId}/{mapId}/unblock": {
+      "post": {
+        "tags": [
+          "Traffic"
+        ],
+        "summary": "Разблокировать узел",
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": 801
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Traffic/reservations/{mapId}": {
+      "get": {
+        "tags": [
+          "Traffic"
+        ],
+        "summary": "Получить все резервирования",
+        "parameters": [
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Traffic/path/check-availability": {
+      "post": {
+        "tags": [
+          "Traffic"
+        ],
+        "summary": "Проверить доступность пути для AGV",
+        "requestBody": {
+          "description": "Список узлов, рёбер и идентификатор AGV",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.Route.CheckPathRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.Route.CheckPathRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AGVModels.Route.CheckPathRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Traffic/nodes/check-availability": {
+      "post": {
+        "tags": [
+          "Traffic"
+        ],
+        "summary": "Проверить доступность списка узлов для AGV",
+        "parameters": [
+          {
+            "name": "agvId",
+            "in": "query",
+            "description": "Идентификатор AGV",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Список идентификаторов узлов",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/Traffic/edges/check-availability": {
+      "post": {
+        "tags": [
+          "Traffic"
+        ],
+        "summary": "Проверить доступность списка рёбер для AGV",
+        "parameters": [
+          {
+            "name": "agvId",
+            "in": "query",
+            "description": "Идентификатор AGV",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Список идентификаторов рёбер",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Visualization/rawVisualizationAll": {
+      "get": {
+        "tags": [
+          "Visualization"
+        ],
+        "summary": "Получить сырую (raw) visualization-телеметрию (топик \"visualization\") сразу\nпо всем AGV одним запросом — без фильтра по конкретному AGV.",
+        "responses": {
+          "200": {
+            "description": "Успешно получена сырая visualization-телеметрия (может быть пустым объектом, если ещё ни одного сообщения не пришло)"
+          }
+        }
+      }
+    },
+    "/api/Visualization/routes": {
+      "get": {
+        "tags": [
+          "Visualization"
+        ],
+        "summary": "Получить текущий планируемый маршрут (orderId/orderUpdateId/lastNodeId/lastNodeSequenceId\nи урезанные nodeStates/edgeStates) сразу по всем AGV одним запросом. Строится из уже\nзакэшированного сырого state-сообщения — новых MQTT-подписок не создаёт.",
+        "responses": {
+          "200": {
+            "description": "Успешно получены маршруты (может быть пустым массивом, если ещё ни одного state-сообщения не пришло)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AGVModels.DTOs.AgvRouteDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AGVControlApi.Controllers.IntervalConfigRequest": {
+        "type": "object",
+        "properties": {
+          "interval": {
+            "type": "string",
+            "description": "The interval for publishing state updates.",
+            "format": "date-span"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request model for configuring the monitoring interval."
+      },
+      "AGVControlApi.Controllers.RetryPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "maxRetries": {
+            "type": "integer",
+            "description": "The maximum number of retries.",
+            "format": "int32"
+          },
+          "retryDelay": {
+            "type": "string",
+            "description": "The delay between retries.",
+            "format": "date-span"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request model for configuring the retry policy."
+      },
+      "AGVControlApi.Controllers.SubscribeRequest": {
+        "type": "object",
+        "properties": {
+          "agvManufacturer": {
+            "type": "string",
+            "description": "The manufacturer of the AGV.",
+            "nullable": true
+          },
+          "agvSerialNumber": {
+            "type": "string",
+            "description": "The serial number of the AGV.",
+            "nullable": true
+          },
+          "interfaceName": {
+            "type": "string",
+            "description": "The interface name for the subscription.",
+            "nullable": true
+          },
+          "version": {
+            "type": "string",
+            "description": "The version of the interface.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request model for subscribing/unsubscribing to AGV state updates."
+      },
+      "AGVControlApi.Model.CustomActionRequest": {
+        "type": "object",
+        "properties": {
+          "actionType": {
+            "type": "string",
+            "description": "Type of action to perform.",
+            "nullable": true
+          },
+          "parameters": {
+            "type": "object",
+            "additionalProperties": { },
+            "description": "Parameters for the action.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request body for custom instant actions."
+      },
+      "AGVControlSystem.Graph.Controllers.BuildRouteApiRequest": {
+        "type": "object",
+        "properties": {
+          "agvId": {
+            "type": "string",
+            "nullable": true
+          },
+          "targetNodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "config": {
+            "$ref": "#/components/schemas/AGVModels.Route.RouteBuildConfig"
+          }
+        },
+        "additionalProperties": false,
+        "description": "API запрос на построение маршрута"
+      },
+      "AGVControlSystem.Graph.Controllers.RouteApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "route": {
+            "$ref": "#/components/schemas/AGVModels.Route.RouteBuildResult"
+          },
+          "details": {
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "API ответ маршрутизации"
+      },
+      "AGVControlSystem.Graph.Controllers.UpdateRouteApiRequest": {
+        "type": "object",
+        "properties": {
+          "agvId": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastReachedNodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "goalNodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "newHorizonNodeIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "API запрос на обновление маршрута"
+      },
+      "AGVModels.DTOs.ActionDto": {
+        "type": "object",
+        "properties": {
+          "actionType": {
+            "type": "string",
+            "nullable": true
+          },
+          "actionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "actionDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "blockingType": {
+            "type": "string",
+            "nullable": true
+          },
+          "actionParameters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGVModels.DTOs.ActionParameterDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.DTOs.ActionParameterDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "nullable": true
+          },
+          "value": {
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.DTOs.AgvRouteDto": {
+        "type": "object",
+        "properties": {
+          "agvSerialNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderUpdateId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastNodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastNodeSequenceId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "nodeStates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGVModels.DTOs.RouteNodeStateDto"
+            },
+            "nullable": true
+          },
+          "edgeStates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGVModels.DTOs.RouteEdgeStateDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.DTOs.EdgeDto": {
+        "required": [
+          "edgeId"
+        ],
+        "type": "object",
+        "properties": {
+          "edgeId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sequenceId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "startNodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "endNodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "orientation": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "orientationType": {
+            "type": "string",
+            "nullable": true
+          },
+          "rotationAllowed": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "released": {
+            "type": "boolean"
+          },
+          "trajectory": {
+            "$ref": "#/components/schemas/AGVModels.DTOs.TrajectoryDto"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGVModels.DTOs.ActionDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.DTOs.NodeDto": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "sequenceId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "released": {
+            "type": "boolean"
+          },
+          "nodePosition": {
+            "$ref": "#/components/schemas/AGVModels.DTOs.NodePositionDto"
+          },
+          "nodeDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGVModels.DTOs.ActionDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.DTOs.NodePositionDto": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "number",
+            "format": "double"
+          },
+          "y": {
+            "type": "number",
+            "format": "double"
+          },
+          "theta": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "allowedDeviationXY": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "allowedDeviationTheta": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "mapId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.DTOs.RouteEdgeStateDto": {
+        "type": "object",
+        "properties": {
+          "edgeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "sequenceId": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.DTOs.RouteNodeStateDto": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "sequenceId": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.DTOs.TrajectoryDto": {
+        "type": "object",
+        "properties": {
+          "degree": {
+            "type": "number",
+            "format": "double"
+          },
+          "knotVector": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "double"
+            },
+            "nullable": true
+          },
+          "controlPoints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGVModels.State.ControlPoint"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.Def.Edge": {
+        "required": [
+          "edgeId",
+          "fromNodeId",
+          "mapId",
+          "toNodeId"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "edgeId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "fromNodeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toNodeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mapId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "edgeDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "length": {
+            "type": "number",
+            "format": "double"
+          },
+          "maxSpeed": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "bidirectional": {
+            "type": "boolean"
+          },
+          "createdDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "modifiedBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "corridor": {
+            "type": "string",
+            "nullable": true
+          },
+          "maxRotationSpeed": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "orientation": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "orientationType": {
+            "type": "string",
+            "nullable": true
+          },
+          "rotationAllowed": {
+            "type": "boolean"
+          },
+          "trajectory": {
+            "type": "string",
+            "nullable": true
+          },
+          "startNode": {
+            "$ref": "#/components/schemas/AGVModels.Def.Node"
+          },
+          "endNode": {
+            "$ref": "#/components/schemas/AGVModels.Def.Node"
+          },
+          "map": {
+            "$ref": "#/components/schemas/AGVModels.Def.Map"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.Def.Map": {
+        "required": [
+          "mapId",
+          "mapVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "storeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mapId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "mapVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "mapDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "facilityName": {
+            "type": "string",
+            "nullable": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "mapDownloadLink": {
+            "type": "string",
+            "nullable": true
+          },
+          "width": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "height": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "createdDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "modifiedBy": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.Def.Node": {
+        "required": [
+          "mapId",
+          "nodeId"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nodeId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "nodeDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "mapId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "positionX": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "positionY": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "theta": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "allowedDeviationXY": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "allowedDeviationTheta": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "nodeType": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "modifiedBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "map": {
+            "$ref": "#/components/schemas/AGVModels.Def.Map"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.Route.CheckPathRequest": {
+        "type": "object",
+        "properties": {
+          "nodeIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "edgeIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "mapId": {
+            "type": "string",
+            "nullable": true
+          },
+          "agvId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.Route.RouteBuildConfig": {
+        "type": "object",
+        "properties": {
+          "baseNodesCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "horizonReservationCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxAlternativePaths": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defaultAllowedDeviation": {
+            "type": "number",
+            "format": "double"
+          },
+          "enableCollisionAvoidance": {
+            "type": "boolean"
+          },
+          "allowPathSharing": {
+            "type": "boolean"
+          },
+          "priorityThreshold": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reserveRetries": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reserveRetryDelayMs": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.Route.RouteBuildResult": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderUpdateId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "baseNodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGVModels.DTOs.NodeDto"
+            },
+            "nullable": true
+          },
+          "baseEdges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGVModels.DTOs.EdgeDto"
+            },
+            "nullable": true
+          },
+          "horizonNodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGVModels.DTOs.NodeDto"
+            },
+            "nullable": true
+          },
+          "horizonEdges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGVModels.DTOs.EdgeDto"
+            },
+            "nullable": true
+          },
+          "decisionPoint": {
+            "$ref": "#/components/schemas/AGVModels.DTOs.NodeDto"
+          },
+          "isValid": {
+            "type": "boolean"
+          },
+          "validationMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalLength": {
+            "type": "number",
+            "format": "double"
+          },
+          "estimatedTimeSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "pendingActions": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AGVModels.DTOs.ActionDto"
+            },
+            "nullable": true
+          },
+          "goalNodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "startNodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "stitchingNodeId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.State.ApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "commandId": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderUpdateId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sequenceId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "additionalData": {
+            "type": "object",
+            "additionalProperties": { },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.State.ControlPoint": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "number",
+            "format": "double"
+          },
+          "y": {
+            "type": "number",
+            "format": "double"
+          },
+          "weight": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.State.MqttOrderResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "orderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderUpdateId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sequenceId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "agvSerialNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mqttTopic": {
+            "type": "string",
+            "nullable": true
+          },
+          "mqttMessageId": {
+            "type": "string",
+            "nullable": true
+          },
+          "additionalData": {
+            "type": "object",
+            "additionalProperties": { },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.VDA.Agv": {
+        "required": [
+          "manufacturer",
+          "serialNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "manufacturer": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "serialNumber": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "agvType": {
+            "type": "string",
+            "nullable": true
+          },
+          "kinematic": {
+            "type": "string",
+            "nullable": true
+          },
+          "currentState": {
+            "type": "string",
+            "nullable": true
+          },
+          "operatingMode": {
+            "type": "string",
+            "nullable": true
+          },
+          "batteryCharge": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "number",
+            "format": "double"
+          },
+          "batteryVoltage": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "isCharging": {
+            "type": "boolean"
+          },
+          "isPaused": {
+            "type": "boolean"
+          },
+          "positionX": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "positionY": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "theta": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "mapId": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastNodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastNodeSequenceId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "driving": {
+            "type": "boolean"
+          },
+          "currentOrderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "velocity": {
+            "type": "number",
+            "format": "double"
+          },
+          "maxSpeed": {
+            "type": "number",
+            "format": "double"
+          },
+          "maxLoadMass": {
+            "type": "number",
+            "format": "double"
+          },
+          "hasLoad": {
+            "type": "boolean"
+          },
+          "loadType": {
+            "type": "string",
+            "nullable": true
+          },
+          "eStopStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "fieldViolation": {
+            "type": "boolean"
+          },
+          "lastUpdateTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "connectionState": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "weight": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "height": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "length": {
+            "type": "number",
+            "format": "double"
+          },
+          "width": {
+            "type": "number",
+            "format": "double"
+          },
+          "rotationRadius": {
+            "type": "number",
+            "format": "double"
+          },
+          "interfaceName": {
+            "type": "string",
+            "nullable": true
+          },
+          "majorVersion": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.VDA.Order": {
+        "required": [
+          "agvSerialNumber",
+          "orderId"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orderId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "orderUpdateId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "agvSerialNumber": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "mapId": {
+            "type": "string",
+            "nullable": true
+          },
+          "nodeSequence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "edgeSequence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "startNodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "endNodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "currentNodeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderData": {
+            "type": "string",
+            "nullable": true
+          },
+          "sentTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "completedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "priority": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "agv": {
+            "$ref": "#/components/schemas/AGVModels.VDA.Agv"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.WMS.TaskActionMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "actionType": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "actionOrder": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.WMS.TaskMessage": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "storeWmsId": {
+            "type": "string",
+            "nullable": true
+          },
+          "areaWmsId": {
+            "type": "string",
+            "nullable": true
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isTemplate": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "isHighestPriority": {
+            "type": "boolean"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AGVModels.WMS.TaskActionMessage"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AGVModels.WMS.TaskQueueItem": {
+        "type": "object",
+        "properties": {
+          "taskMessage": {
+            "$ref": "#/components/schemas/AGVModels.WMS.TaskMessage"
+          },
+          "orderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "enqueuedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "wmsTaskStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "agvSerialNumber": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Microsoft.AspNetCore.Mvc.ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": { }
+      },
+      "PathResultIds": {
+        "type": "object",
+        "properties": {
+          "edgeIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of edge IDs in traversal order",
+            "nullable": true
+          },
+          "nodeIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of node IDs in traversal order (including start and end nodes)",
+            "nullable": true
+          },
+          "totalLength": {
+            "type": "number",
+            "description": "Total length of the path in meters",
+            "format": "double"
+          },
+          "pathFound": {
+            "type": "boolean",
+            "description": "Indicates whether a valid path was found"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Result of path finding containing IDs of edges and nodes in order"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "AgvCommand"
+    },
+    {
+      "name": "AGVControlApi"
+    },
+    {
+      "name": "AgvInstantActions"
+    },
+    {
+      "name": "AgvStateMonitor"
+    },
+    {
+      "name": "AgvTask"
+    },
+    {
+      "name": "Order"
+    },
+    {
+      "name": "Route"
+    },
+    {
+      "name": "Telemetry"
+    },
+    {
+      "name": "Traffic"
+    },
+    {
+      "name": "Visualization"
+    }
+  ]
+}

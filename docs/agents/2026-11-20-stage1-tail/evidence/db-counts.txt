@@ -1,0 +1,8 @@
+columns of vrt_MapVersion
+Id, MapId, MapVersion, GraphVersion, CreatedAt
+map_versions
+73e58113-a563-4b0b-bad8-f83d60d0ede2|801|1|1-72573cd58f8264d9|2026-11-21 19:21:34.737207+03
+widths|resources|passability|warmup_state
+365|584|365|1
+raster_widths
+Raster|365|0.800|22.415

@@ -1,0 +1,300 @@
+      Executed DbCommand (2ms) [Parameters=[@__row_OrderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."SequenceId", v."ActionCount", v."NodeId", v."Reached", v."Released"
+      FROM public."vrt_RobotOrderNode" AS v
+      WHERE v."OrderId" = @__row_OrderId_0
+      ORDER BY v."SequenceId"
+info: VR.RoutePlanner.Workers.Worker[0]
+      Worker running at: 11/24/2026 20:29:03 +03:00
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__visualization_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__visualization_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (DbType = Double), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."Agvs" SET "BatteryCharge" = @p0, "LastUpdateTime" = @p1, "UpdatedDate" = @p2
+      WHERE "Id" = @p3;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__visualization_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__visualization_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (DbType = Double), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."Agvs" SET "BatteryCharge" = @p0, "LastUpdateTime" = @p1, "UpdatedDate" = @p2
+      WHERE "Id" = @p3;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."AcceptedAt", v."AgvSerialNumber", v."ApproachNodeId", v."CompletedAt", v."CreatedAt", v."FailureReason", v."OrderUpdateId", v."PlanJson", v."ReleasedNodeCount", v."SentAt", v."Status", v."TargetNodeId"
+      FROM public."vrt_RobotOrder" AS v
+      WHERE v."Status" IN ('Draft', 'Sent', 'Accepted', 'Executing')
+      ORDER BY v."CreatedAt"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@__orderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."AcceptedAt", v."AgvSerialNumber", v."ApproachNodeId", v."CompletedAt", v."CreatedAt", v."FailureReason", v."OrderUpdateId", v."PlanJson", v."ReleasedNodeCount", v."SentAt", v."Status", v."TargetNodeId"
+      FROM public."vrt_RobotOrder" AS v
+      WHERE v."OrderId" = @__orderId_0
+      LIMIT 2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__row_OrderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."SequenceId", v."ActionCount", v."NodeId", v."Reached", v."Released"
+      FROM public."vrt_RobotOrderNode" AS v
+      WHERE v."OrderId" = @__row_OrderId_0
+      ORDER BY v."SequenceId"
+info: VR.RoutePlanner.Workers.Worker[0]
+      Worker running at: 11/24/2026 20:29:04 +03:00
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__visualization_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__visualization_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (DbType = Double), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."Agvs" SET "BatteryCharge" = @p0, "LastUpdateTime" = @p1, "UpdatedDate" = @p2
+      WHERE "Id" = @p3;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__visualization_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__visualization_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (DbType = Double), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."Agvs" SET "BatteryCharge" = @p0, "LastUpdateTime" = @p1, "UpdatedDate" = @p2
+      WHERE "Id" = @p3;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__orderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."AcceptedAt", v."AgvSerialNumber", v."ApproachNodeId", v."CompletedAt", v."CreatedAt", v."FailureReason", v."OrderUpdateId", v."PlanJson", v."ReleasedNodeCount", v."SentAt", v."Status", v."TargetNodeId"
+      FROM public."vrt_RobotOrder" AS v
+      WHERE v."OrderId" = @__orderId_0
+      LIMIT 2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__row_OrderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."SequenceId", v."ActionCount", v."NodeId", v."Reached", v."Released"
+      FROM public."vrt_RobotOrderNode" AS v
+      WHERE v."OrderId" = @__row_OrderId_0
+      ORDER BY v."SequenceId"
+info: VR.RoutePlanner.Workers.Worker[0]
+      Worker running at: 11/24/2026 20:29:05 +03:00
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__visualization_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__visualization_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (DbType = Double), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."Agvs" SET "BatteryCharge" = @p0, "LastUpdateTime" = @p1, "UpdatedDate" = @p2
+      WHERE "Id" = @p3;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."AcceptedAt", v."AgvSerialNumber", v."ApproachNodeId", v."CompletedAt", v."CreatedAt", v."FailureReason", v."OrderUpdateId", v."PlanJson", v."ReleasedNodeCount", v."SentAt", v."Status", v."TargetNodeId"
+      FROM public."vrt_RobotOrder" AS v
+      WHERE v."Status" IN ('Draft', 'Sent', 'Accepted', 'Executing')
+      ORDER BY v."CreatedAt"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__orderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."AcceptedAt", v."AgvSerialNumber", v."ApproachNodeId", v."CompletedAt", v."CreatedAt", v."FailureReason", v."OrderUpdateId", v."PlanJson", v."ReleasedNodeCount", v."SentAt", v."Status", v."TargetNodeId"
+      FROM public."vrt_RobotOrder" AS v
+      WHERE v."OrderId" = @__orderId_0
+      LIMIT 2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__row_OrderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."SequenceId", v."ActionCount", v."NodeId", v."Reached", v."Released"
+      FROM public."vrt_RobotOrderNode" AS v
+      WHERE v."OrderId" = @__row_OrderId_0
+      ORDER BY v."SequenceId"
+info: VR.RoutePlanner.Workers.Worker[0]
+      Worker running at: 11/24/2026 20:29:06 +03:00
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__visualization_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__visualization_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (DbType = Double), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."Agvs" SET "BatteryCharge" = @p0, "LastUpdateTime" = @p1, "UpdatedDate" = @p2
+      WHERE "Id" = @p3;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__visualization_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__visualization_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (DbType = Double), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."Agvs" SET "BatteryCharge" = @p0, "LastUpdateTime" = @p1, "UpdatedDate" = @p2
+      WHERE "Id" = @p3;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__orderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."AcceptedAt", v."AgvSerialNumber", v."ApproachNodeId", v."CompletedAt", v."CreatedAt", v."FailureReason", v."OrderUpdateId", v."PlanJson", v."ReleasedNodeCount", v."SentAt", v."Status", v."TargetNodeId"
+      FROM public."vrt_RobotOrder" AS v
+      WHERE v."OrderId" = @__orderId_0
+      LIMIT 2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__row_OrderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."SequenceId", v."ActionCount", v."NodeId", v."Reached", v."Released"
+      FROM public."vrt_RobotOrderNode" AS v
+      WHERE v."OrderId" = @__row_OrderId_0
+      ORDER BY v."SequenceId"
+info: VR.RoutePlanner.Workers.Worker[0]
+      Worker running at: 11/24/2026 20:29:07 +03:00
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__visualization_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__visualization_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (DbType = Double), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."Agvs" SET "BatteryCharge" = @p0, "LastUpdateTime" = @p1, "UpdatedDate" = @p2
+      WHERE "Id" = @p3;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."AcceptedAt", v."AgvSerialNumber", v."ApproachNodeId", v."CompletedAt", v."CreatedAt", v."FailureReason", v."OrderUpdateId", v."PlanJson", v."ReleasedNodeCount", v."SentAt", v."Status", v."TargetNodeId"
+      FROM public."vrt_RobotOrder" AS v
+      WHERE v."Status" IN ('Draft', 'Sent', 'Accepted', 'Executing')
+      ORDER BY v."CreatedAt"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__orderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."AcceptedAt", v."AgvSerialNumber", v."ApproachNodeId", v."CompletedAt", v."CreatedAt", v."FailureReason", v."OrderUpdateId", v."PlanJson", v."ReleasedNodeCount", v."SentAt", v."Status", v."TargetNodeId"
+      FROM public."vrt_RobotOrder" AS v
+      WHERE v."OrderId" = @__orderId_0
+      LIMIT 2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__row_OrderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."SequenceId", v."ActionCount", v."NodeId", v."Reached", v."Released"
+      FROM public."vrt_RobotOrderNode" AS v
+      WHERE v."OrderId" = @__row_OrderId_0
+      ORDER BY v."SequenceId"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__visualization_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__visualization_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (DbType = Double), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."Agvs" SET "BatteryCharge" = @p0, "LastUpdateTime" = @p1, "UpdatedDate" = @p2
+      WHERE "Id" = @p3;
+info: VR.RoutePlanner.Workers.Worker[0]
+      Worker running at: 11/24/2026 20:29:08 +03:00
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__visualization_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__visualization_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (DbType = Double), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."Agvs" SET "BatteryCharge" = @p0, "LastUpdateTime" = @p1, "UpdatedDate" = @p2
+      WHERE "Id" = @p3;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__orderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."AcceptedAt", v."AgvSerialNumber", v."ApproachNodeId", v."CompletedAt", v."CreatedAt", v."FailureReason", v."OrderUpdateId", v."PlanJson", v."ReleasedNodeCount", v."SentAt", v."Status", v."TargetNodeId"
+      FROM public."vrt_RobotOrder" AS v
+      WHERE v."OrderId" = @__orderId_0
+      LIMIT 2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__row_OrderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."SequenceId", v."ActionCount", v."NodeId", v."Reached", v."Released"
+      FROM public."vrt_RobotOrderNode" AS v
+      WHERE v."OrderId" = @__row_OrderId_0
+      ORDER BY v."SequenceId"
+info: VR.RoutePlanner.Workers.Worker[0]
+      Worker running at: 11/24/2026 20:29:09 +03:00
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__visualization_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__visualization_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (DbType = Double), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."Agvs" SET "BatteryCharge" = @p0, "LastUpdateTime" = @p1, "UpdatedDate" = @p2
+      WHERE "Id" = @p3;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__visualization_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__visualization_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (DbType = Double), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."Agvs" SET "BatteryCharge" = @p0, "LastUpdateTime" = @p1, "UpdatedDate" = @p2
+      WHERE "Id" = @p3;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."AcceptedAt", v."AgvSerialNumber", v."ApproachNodeId", v."CompletedAt", v."CreatedAt", v."FailureReason", v."OrderUpdateId", v."PlanJson", v."ReleasedNodeCount", v."SentAt", v."Status", v."TargetNodeId"
+      FROM public."vrt_RobotOrder" AS v
+      WHERE v."Status" IN ('Draft', 'Sent', 'Accepted', 'Executing')
+      ORDER BY v."CreatedAt"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__orderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."AcceptedAt", v."AgvSerialNumber", v."ApproachNodeId", v."CompletedAt", v."CreatedAt", v."FailureReason", v."OrderUpdateId", v."PlanJson", v."ReleasedNodeCount", v."SentAt", v."Status", v."TargetNodeId"
+      FROM public."vrt_RobotOrder" AS v
+      WHERE v."OrderId" = @__orderId_0
+      LIMIT 2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__row_OrderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."SequenceId", v."ActionCount", v."NodeId", v."Reached", v."Released"
+      FROM public."vrt_RobotOrderNode" AS v
+      WHERE v."OrderId" = @__row_OrderId_0
+      ORDER BY v."SequenceId"
+info: VR.RoutePlanner.Workers.Worker[0]
+      Worker running at: 11/24/2026 20:29:10 +03:00
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__session_AgvSerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."AgvSerialNumber", v."ConnectionState", v."LastSeenAt", v."Manufacturer", v."ProtocolVersion", v."StateJson", v."UpdatedAt"
+      FROM public."vrt_RobotSession" AS v
+      WHERE v."AgvSerialNumber" = @__session_AgvSerialNumber_0
+      LIMIT 2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@p3='?', @p0='?' (DbType = DateTime), @p1='?', @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."vrt_RobotSession" SET "LastSeenAt" = @p0, "StateJson" = @p1, "UpdatedAt" = @p2
+      WHERE "AgvSerialNumber" = @p3;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__orderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."AcceptedAt", v."AgvSerialNumber", v."ApproachNodeId", v."CompletedAt", v."CreatedAt", v."FailureReason", v."OrderUpdateId", v."PlanJson", v."ReleasedNodeCount", v."SentAt", v."Status", v."TargetNodeId"
+      FROM public."vrt_RobotOrder" AS v
+      WHERE v."OrderId" = @__orderId_0
+      LIMIT 2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__row_OrderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."SequenceId", v."ActionCount", v."NodeId", v."Reached", v."Released"
+      FROM public."vrt_RobotOrderNode" AS v
+      WHERE v."OrderId" = @__row_OrderId_0
+      ORDER BY v."SequenceId"
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__order_OrderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."AcceptedAt", v."AgvSerialNumber", v."ApproachNodeId", v."CompletedAt", v."CreatedAt", v."FailureReason", v."OrderUpdateId", v."PlanJson", v."ReleasedNodeCount", v."SentAt", v."Status", v."TargetNodeId"
+      FROM public."vrt_RobotOrder" AS v
+      WHERE v."OrderId" = @__order_OrderId_0
+      LIMIT 2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__order_OrderId_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT v."OrderId", v."SequenceId", v."ActionCount", v."NodeId", v."Reached", v."Released"
+      FROM public."vrt_RobotOrderNode" AS v
+      WHERE v."OrderId" = @__order_OrderId_0
+info: VR.RoutePlanner.Application.Robots.RobotOrderService[0]
+      Заказ ORD_00204: статус Executing
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__snapshot_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__snapshot_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__visualization_SerialNumber_0='?'], CommandType='Text', CommandTimeout='30']
+      SELECT a."Id", a."AgvType", a."BatteryCharge", a."BatteryVoltage", a."ConnectionState", a."CreatedDate", a."CurrentOrderId", a."CurrentState", a."Driving", a."EStopStatus", a."FieldViolation", a."HasLoad", a."IsCharging", a."IsPaused", a."Kinematic", a."LastNodeId", a."LastUpdateTime", a."LoadType", a."Manufacturer", a."MapId", a."MaxLoadMass", a."MaxSpeed", a."OperatingMode", a."PositionX", a."PositionY", a."SerialNumber", a."Theta", a."UpdatedDate", a."Velocity", a."Weight"
+      FROM public."Agvs" AS a
+      WHERE a."SerialNumber" = @__visualization_SerialNumber_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (DbType = Double), @p1='?' (DbType = DateTime), @p2='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      UPDATE public."Agvs" SET "BatteryCharge" = @p0, "LastUpdateTime" = @p1, "UpdatedDate" = @p2
+      WHERE "Id" = @p3;

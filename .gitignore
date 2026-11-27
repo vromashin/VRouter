@@ -480,3 +480,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Доказательства агентских прогонов: логи из evidence версионируются
+!docs/agents/**/*.log
+

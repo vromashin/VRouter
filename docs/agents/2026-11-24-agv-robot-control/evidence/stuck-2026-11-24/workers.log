@@ -1,0 +1,96 @@
+      Задача f71d6fa3-a949-4434-8851-2f36aaf89f93: действий 2, первое wo-2-3
+      Заказ wo-2-3: старт wo-1-6 -> wo-2-3, lastNodeId=wo-1-6, seq=24, позиция 12.643874168395996/31.178104400634766
+      Заказ отправлен в APR/v2/Tuskrobots/98001/order, байт: 2878
+      Публикация заказ: заказ ORD_00203, orderUpdateId=0, sequenceId 0..10, цель плеча wo-2-3
+      Заказ ORD_00203 роботу 98001: узлов 6 (в сообщении 6, кусков 1), длина 6.39 м
+      Задача f71d6fa3-a949-4434-8851-2f36aaf89f93: шаг wo-2-3 под заказом ORD_00203, версия 0
+      Заказ отправлен в APR/v2/Tuskrobots/98001/order, байт: 6089
+      Публикация плечо: заказ ORD_00203, orderUpdateId=1, sequenceId 10..30, цель плеча wo-2-8
+      Задача f71d6fa3-a949-4434-8851-2f36aaf89f93: шаг wo-2-8 под заказом ORD_00203, версия 1
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+warn: VR.RoutePlanner.Application.Traffic.TrafficCoordinator[0]
+      Робот 98001: резервы снял свип, подтверждения state нет дольше 30 с
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Executing
+      Заказ ORD_00203: статус Completed
+      Робот 98001: снято резервов 17
+      Задача f71d6fa3-a949-4434-8851-2f36aaf89f93: выполнена
+      Задача 3c05f024-a9f2-459e-9a32-223369339745: действий 2, первое wo-3-1
+      Заказ wo-3-1: старт wo-2-8 -> wo-3-1, lastNodeId=wo-2-8, seq=30, позиция 11.282703399658203/28.19272804260254
+      Заказ отправлен в APR/v2/Tuskrobots/98001/order, байт: 6747
+      Публикация заказ: заказ ORD_00204, orderUpdateId=0, sequenceId 0..26, цель плеча wo-3-1
+      Заказ ORD_00204 роботу 98001: узлов 14 (в сообщении 14, кусков 1), длина 18.82 м
+      Задача 3c05f024-a9f2-459e-9a32-223369339745: шаг wo-3-1 под заказом ORD_00204, версия 0
+      Заказ отправлен в APR/v2/Tuskrobots/98001/order, байт: 5106
+      Публикация плечо: заказ ORD_00204, orderUpdateId=1, sequenceId 26..42, цель плеча wo-0-1
+      Задача 3c05f024-a9f2-459e-9a32-223369339745: шаг wo-0-1 под заказом ORD_00204, версия 1
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+warn: VR.RoutePlanner.Application.Traffic.TrafficCoordinator[0]
+      Робот 98001: резервы снял свип, подтверждения state нет дольше 30 с
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
+      Заказ ORD_00204: статус Executing
