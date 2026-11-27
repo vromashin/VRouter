@@ -38,6 +38,10 @@ public sealed record RobotEdgeState(string EdgeId, int SequenceId, bool Released
 /// <param name="NewBaseRequest">Робот запрашивает новый базовый план.</param>
 /// <param name="ActionStates">Состояния действий робота.</param>
 /// <param name="EdgeStates">Состояния ребер маршрута.</param>
+/// <param name="Charging">
+/// Робот заряжается: <c>batteryState.charging</c> из сообщения. Поле необязательное в VDA,
+/// отсутствие в сообщении дает <c>false</c>.
+/// </param>
 public sealed record RobotSnapshot(
     string SerialNumber,
     string ConnectionState,
@@ -57,7 +61,8 @@ public sealed record RobotSnapshot(
     int? LastNodeSequenceId = null,
     bool NewBaseRequest = false,
     IReadOnlyList<RobotActionState>? ActionStates = null,
-    IReadOnlyList<RobotEdgeState>? EdgeStates = null);
+    IReadOnlyList<RobotEdgeState>? EdgeStates = null,
+    bool Charging = false);
 
 /// <summary>
 /// Состояние действия робота из <c>state.actionStates</c>.

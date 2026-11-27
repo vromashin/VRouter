@@ -87,7 +87,8 @@ public static class RobotStateParser
                 ReadNullableInt(root, "lastNodeSequenceId"),
             ReadBool(root, "newBaseRequest"),
             ReadActionStates(root),
-            ReadEdgeStates(root));
+            ReadEdgeStates(root),
+            ReadBool(battery, "charging"));
 
             return true;
         }
@@ -144,8 +145,8 @@ public static class RobotStateParser
         return value.TryGetInt32(out var number) ? number : null;
     }
 
-    private static bool ReadBool(JsonElement root, string name) =>
-        root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
+    private static bool ReadBool(JsonElement? element, string name) =>
+        element is not null && element.Value.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
 
     private static IReadOnlyList<RobotActionState> ReadActionStates(JsonElement root)
     {

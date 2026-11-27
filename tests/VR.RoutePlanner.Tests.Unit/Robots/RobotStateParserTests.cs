@@ -131,6 +131,38 @@ public sealed class RobotStateParserTests
         Assert.Empty(snapshot.EdgeStates!);
     }
 
+    [Fact]
+    public void TryParse_ChargingTrue_SetsChargingFlag()
+    {
+        const string payload = """
+            {
+              "headerId": 9,
+              "timestamp": "2026-11-27T10:00:00.000Z",
+              "version": "2.1.0",
+              "manufacturer": "Tuskrobots",
+              "serialNumber": "98001",
+              "driving": false,
+              "agvPosition": { "x": 14.61, "y": 5.19, "theta": 3.14, "mapId": "801" },
+              "batteryState": { "batteryCharge": 42.5, "charging": true },
+              "errors": []
+            }
+            """;
+
+        Assert.True(RobotStateParser.TryParse(payload, out var snapshot, out var error), error);
+        Assert.NotNull(snapshot);
+        Assert.True(snapshot!.Charging);
+    }
+
+    [Fact]
+    public void TryParse_ChargingAbsent_ChargingFalse()
+    {
+        var payload = ReadAsset("vda-state-after.json");
+
+        Assert.True(RobotStateParser.TryParse(payload, out var snapshot, out var error), error);
+        Assert.NotNull(snapshot);
+        Assert.False(snapshot!.Charging);
+    }
+
     [Theory]
     [InlineData("{ \"version\": \"2.0.0\", ", "битый JSON")]
     [InlineData("не json вовсе", "битый JSON")]

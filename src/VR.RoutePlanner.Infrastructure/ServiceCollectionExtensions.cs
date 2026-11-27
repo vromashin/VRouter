@@ -77,6 +77,12 @@ public static class ServiceCollectionExtensions
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<MqttOptions>, MqttOptionsValidator>());
 
+        services.AddOptions<ChargingOptions>()
+            .Bind(configuration.GetSection(ChargingOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<ChargingOptions>, ChargingOptionsValidator>());
+
         services.AddMemoryCache();
 
         services.AddDbContextFactory<RoutePlannerDbContext>((_, options) => options
