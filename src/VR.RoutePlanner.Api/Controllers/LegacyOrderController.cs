@@ -9,7 +9,8 @@ namespace VR.RoutePlanner.Api.Controllers;
 /// Заказы и команды уходят в наш сервис заказов.
 /// </summary>
 [ApiController]
-public sealed class LegacyOrderController(RobotOrderService orders) : ControllerBase
+public sealed class LegacyOrderController(RobotOrderService orders, RobotRelocationService relocation)
+    : ControllerBase
 {
     /// <summary>Заказ на узел: <c>POST /api/Order/move-to-node/{serial}/{nodeId}/{dir}</c>.</summary>
     [HttpPost("api/Order/move-to-node/{serial}/{nodeId}/{direction}")]
@@ -36,21 +37,41 @@ public sealed class LegacyOrderController(RobotOrderService orders) : Controller
         }
     }
 
-    /// <summary>Заказ на зарядку: <c>POST /api/Order/move-to-charge/{serial}</c>.</summary>
+    /// <summary>
+    /// Заказ на зарядку: <c>POST /api/Order/move-to-charge/{serial}</c> — до ближайшего свободного
+    /// узла <c>CHARGING</c>; <c>POST /api/Order/move-to-charge/{serial}/{nodeId}</c> — до указанного.
+    /// Робот, уже стоящий на узле зарядки, заказа не получает: уходит мгновенное действие
+    /// <c>startCharging</c> (Д-8).
+    /// </summary>
     [HttpPost("api/Order/move-to-charge/{serial}")]
-    public async Task<IActionResult> MoveToChargeAsync(string serial, CancellationToken ct)
+    [HttpPost("api/Order/move-to-charge/{serial}/{nodeId}")]
+    public async Task<IActionResult> MoveToChargeAsync(
+        string serial,
+        string? nodeId,
+        CancellationToken ct)
     {
-        try
-        {
-            var result = await orders
-                .SendInstantActionAsync(serial, "startCharging", Guid.NewGuid().ToString("N"), ct)
-                .ConfigureAwait(false);
-            return Ok(new { success = true, actionId = result, agvSerialNumber = serial, message = "startCharging" });
-        }
-        catch (OrderRejectedException exception)
-        {
-            return Ok(Failure($"{exception.Reason}: {exception.Message}"));
-        }
+        var result = await relocation
+            .MoveToChargeAsync(serial, nodeId, ct)
+            .ConfigureAwait(false);
+        return Ok(RelocationResponse(serial, result));
+    }
+
+    /// <summary>
+    /// Заказ на парковку: <c>POST /api/Order/move-to-parking/{serial}</c> — до ближайшего
+    /// свободного узла <c>PARKING</c>; <c>POST /api/Order/move-to-parking/{serial}/{nodeId}</c> —
+    /// до указанного. Робот, уже стоящий на узле парковки, заказа не получает (Д-8).
+    /// </summary>
+    [HttpPost("api/Order/move-to-parking/{serial}")]
+    [HttpPost("api/Order/move-to-parking/{serial}/{nodeId}")]
+    public async Task<IActionResult> MoveToParkingAsync(
+        string serial,
+        string? nodeId,
+        CancellationToken ct)
+    {
+        var result = await relocation
+            .MoveToParkingAsync(serial, nodeId, ct)
+            .ConfigureAwait(false);
+        return Ok(RelocationResponse(serial, result));
     }
 
     /// <summary>Команда роботу: <c>POST /api/AgvCommand/{serial}/{command}</c>.</summary>
@@ -93,7 +114,23 @@ public sealed class LegacyOrderController(RobotOrderService orders) : Controller
         orderUpdateId = order.OrderUpdateId,
         sequenceId = 0,
         agvSerialNumber = order.AgvSerialNumber,
+        actionId = (string?)null,
         message = $"Заказ {order.TargetNodeId ?? "-"} принят",
+    };
+
+    /// <summary>
+    /// Ответ автопереезда: объединение формы заказа и мгновенного действия. <c>orderId</c>
+    /// заполнен для заказа, <c>actionId</c> — для мгновенного действия, второе поле <c>null</c>.
+    /// </summary>
+    private static object RelocationResponse(string serial, RobotRelocationResult result) => new
+    {
+        success = result.Success,
+        orderId = result.OrderId,
+        orderUpdateId = result.OrderUpdateId,
+        sequenceId = 0,
+        agvSerialNumber = (string?)serial,
+        actionId = result.ActionId,
+        message = result.Message,
     };
 
     private static object Failure(string message) => new
@@ -103,6 +140,7 @@ public sealed class LegacyOrderController(RobotOrderService orders) : Controller
         orderUpdateId = 0,
         sequenceId = 0,
         agvSerialNumber = (string?)null,
+        actionId = (string?)null,
         message,
     };
 }

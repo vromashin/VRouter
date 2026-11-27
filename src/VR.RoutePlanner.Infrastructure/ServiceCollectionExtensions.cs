@@ -117,6 +117,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IRobotLastNodeResolver, RobotLastNodeResolver>();
         services.AddSingleton<RobotOrderService>();
+        services.AddSingleton<IRobotEventPublisher, KafkaRobotEventPublisher>();
+        services.AddSingleton<RobotRelocationService>();
         services.AddSingleton<IMapRasterProvider, MapRasterProvider>();
         services.AddSingleton<TrafficResourceBuilder>();
         services.AddSingleton<ITrafficResourceBuilder>(provider => provider.GetRequiredService<TrafficResourceBuilder>());

@@ -43,6 +43,9 @@ public static class VdaOrderBuilder
 
     private const string OrientationTypeTangential = "TANGENTIAL";
 
+    /// <summary>Блокирующий тип действия целевого узла по умолчанию, как у действий вил.</summary>
+    private const string DefaultActionBlockingType = "SOFT";
+
     private const string VirtualEdgePrefix = "VIRTUAL_START_";
 
     /// <summary>
@@ -507,6 +510,13 @@ public static class VdaOrderBuilder
                 containerTheta ?? 0));
         }
 
+        // Действие целевого узла без вилочных параметров: startCharging у узла CHARGING (Д-4).
+        // Ставится рядом с TerminalActionType и не меняет поведение вил и курсов.
+        if (isTarget && !string.IsNullOrWhiteSpace(request.TargetNodeActionType))
+        {
+            actions.Add(BuildTargetNodeAction(request));
+        }
+
         return new JsonObject
         {
             ["nodeId"] = node.NodeId,
@@ -698,6 +708,39 @@ public static class VdaOrderBuilder
             ["actionType"] = actionType,
             ["actionDescription"] = actionType,
             ["blockingType"] = "SOFT",
+            ["actionParameters"] = parameters,
+        };
+    }
+
+    /// <summary>
+    /// Действие целевого узла без вилочных параметров: только ключи из
+    /// <see cref="VdaOrderRequest.TargetNodeActionParameters"/> (устройство зарядки и точка стыковки).
+    /// Вилочные ключи в такое действие не попадают: у <c>CHARGING</c> вил нет.
+    /// </summary>
+    private static JsonObject BuildTargetNodeAction(VdaOrderRequest request)
+    {
+        var parameters = new JsonArray();
+        if (request.TargetNodeActionParameters is not null)
+        {
+            foreach (var pair in request.TargetNodeActionParameters)
+            {
+                parameters.Add(new JsonObject
+                {
+                    ["key"] = pair.Key,
+                    ["value"] = pair.Value is null ? null : JsonValue.Create(pair.Value),
+                });
+            }
+        }
+
+        var actionType = request.TargetNodeActionType!;
+        return new JsonObject
+        {
+            ["actionId"] = Guid.NewGuid().ToString(),
+            ["actionType"] = actionType,
+            ["actionDescription"] = actionType,
+            ["blockingType"] = string.IsNullOrWhiteSpace(request.TargetNodeActionBlockingType)
+                ? DefaultActionBlockingType
+                : request.TargetNodeActionBlockingType,
             ["actionParameters"] = parameters,
         };
     }

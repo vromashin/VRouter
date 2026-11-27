@@ -197,6 +197,12 @@ public sealed class RobotOrderService
     /// и действие уедет в сообщении, которое начнется на этом узле).
     /// </param>
     /// <param name="ct">Токен отмены.</param>
+    /// <param name="targetNodeActionType">
+    /// Действие в последнем узле плана без вилочных параметров (<c>startCharging</c> у узла
+    /// <c>CHARGING</c>); <c>null</c> — без действия.
+    /// </param>
+    /// <param name="targetNodeActionBlockingType">Блокирующий тип этого действия; <c>null</c> — <c>SOFT</c>.</param>
+    /// <param name="targetNodeActionParameters">Параметры действия целевого узла.</param>
     /// <returns>Созданный заказ.</returns>
     /// <exception cref="OrderInProgressException">У робота уже есть незавершенный заказ.</exception>
     /// <exception cref="OrderRejectedException">Заказ не создан: карта, узел или маршрут недоступны.</exception>
@@ -207,7 +213,10 @@ public sealed class RobotOrderService
         bool hasLoad,
         string finalTargetNodeId,
         string? targetActionType,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? targetNodeActionType = null,
+        string? targetNodeActionBlockingType = null,
+        IReadOnlyDictionary<string, object?>? targetNodeActionParameters = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(mapId);
         ArgumentException.ThrowIfNullOrWhiteSpace(serialNumber);
@@ -332,8 +341,10 @@ public sealed class RobotOrderService
             RobotX: snapshot?.PositionX,
             RobotY: snapshot?.PositionY,
             RobotTheta: snapshot?.Theta,
-            // Завершающее действие только в последнем плече задачи (Д-4).
-            TerminalActionType: singleLeg ? options.Order.TerminalActionType : null,
+            // Завершающее действие только в последнем плече задачи (Д-4). Заказ на зарядку несет
+            // в целевом узле ровно одно действие — startCharging: detectObject у станции не нужен
+            // и на симуляторе не завершается, оставляя робота в WORKING.
+            TerminalActionType: singleLeg && targetNodeActionType is null ? options.Order.TerminalActionType : null,
             ApproachTarget: approachTarget,
             // Стоянка в узле: сообщение начинается тройкой узла-якоря, маршрута нет,
             // действие вил стоит на дубле узла.
@@ -341,7 +352,11 @@ public sealed class RobotOrderService
             AnchorActionType: stationary ? legAction : null,
             TargetActionType: stationary ? null : legAction,
             SequenceIdBase: 0,
-            FirstNodeIsPose: true);
+            FirstNodeIsPose: true,
+            // Действие целевого узла (startCharging у CHARGING): без вилочных параметров (Д-4).
+            TargetNodeActionType: targetNodeActionType,
+            TargetNodeActionBlockingType: targetNodeActionBlockingType,
+            TargetNodeActionParameters: targetNodeActionParameters);
 
         // В PlanJson лежит полный план: нарезка нужна только для отправки и обновлений.
         var planJson = composer.Compose(fullRequest);

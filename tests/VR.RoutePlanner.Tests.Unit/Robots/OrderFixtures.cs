@@ -175,7 +175,10 @@ internal static class OrderFixtures
         string? anchorActionType = null,
         string? targetActionType = null,
         int sequenceIdBase = 0,
-        bool? firstNodeIsPose = null) => new(
+        bool? firstNodeIsPose = null,
+        string? targetNodeActionType = null,
+        string? targetNodeActionBlockingType = null,
+        IReadOnlyDictionary<string, object?>? targetNodeActionParameters = null) => new(
         route,
         graph,
         MapId,
@@ -198,7 +201,10 @@ internal static class OrderFixtures
         targetActionType,
         sequenceIdBase,
         // Как в сервисе: позу робота получает только первое сообщение задачи.
-        firstNodeIsPose ?? orderUpdateId <= 0);
+        firstNodeIsPose ?? orderUpdateId <= 0,
+        targetNodeActionType,
+        targetNodeActionBlockingType,
+        targetNodeActionParameters);
 
     /// <summary>Собирает заказ для маршрута из двух ребер.</summary>
     public static JsonObject Order(double orderNumber = 7)

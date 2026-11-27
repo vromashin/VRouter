@@ -46,6 +46,17 @@ namespace VR.RoutePlanner.Application.Robots;
 /// <c>true</c> только для первого сообщения задачи; сообщение плеча N начинается узлом-якорем
 /// с координатами карты и без курса.
 /// </param>
+/// <param name="TargetNodeActionType">
+/// Действие в последнем узле плана без вилочных параметров: <c>startCharging</c> у узла
+/// <c>CHARGING</c>. Ставится рядом с <see cref="TerminalActionType"/> и не меняет поведение вил.
+/// </param>
+/// <param name="TargetNodeActionBlockingType">
+/// Блокирующий тип действия целевого узла; <c>null</c> — <c>SOFT</c>.
+/// </param>
+/// <param name="TargetNodeActionParameters">
+/// Параметры действия целевого узла: устройство зарядки и точка стыковки. Вилочные ключи
+/// <c>BuildAction</c> здесь не используются.
+/// </param>
 public sealed record VdaOrderRequest(
     PlannedRoute Route,
     WarehouseGraph Graph,
@@ -68,4 +79,7 @@ public sealed record VdaOrderRequest(
     string? AnchorActionType = null,
     string? TargetActionType = null,
     int SequenceIdBase = 0,
-    bool FirstNodeIsPose = false);
+    bool FirstNodeIsPose = false,
+    string? TargetNodeActionType = null,
+    string? TargetNodeActionBlockingType = null,
+    IReadOnlyDictionary<string, object?>? TargetNodeActionParameters = null);

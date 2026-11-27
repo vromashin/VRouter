@@ -39,5 +39,16 @@ if (kafkaOptions.Enabled)
     builder.Services.AddHostedService<SimpleTaskWorker>();
 }
 
+// Автопереезды на зарядку и парковку: фоновые триггеры включаются только флагом
+// Routing:Charging:Enabled, эндпоинты move-to-charge/move-to-parking работают всегда.
+var chargingOptions = builder.Configuration
+    .GetSection(ChargingOptions.SectionName)
+    .Get<ChargingOptions>() ?? new ChargingOptions();
+
+if (chargingOptions.Enabled)
+{
+    builder.Services.AddHostedService<RobotRelocationWorker>();
+}
+
 var host = builder.Build();
 host.Run();
