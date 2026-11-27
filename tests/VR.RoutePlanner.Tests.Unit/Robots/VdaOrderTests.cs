@@ -125,21 +125,82 @@ public sealed class VdaOrderBuilderTests
     }
 
     [Fact]
-    public void Build_MultiPointEdge_UsesStraightTwoPointCurveAsInReference()
+    public void Build_CurvedEdgeFromMap_SendsCurveAsIs()
     {
-        var points = new[]
+        // Узлы заданы в том же порядке, что и контрольные точки карты: 6.84,34.73 -> 8.9,37.55.
+        var from = OrderFixtures.Node("wa104", 6.84, 34.73);
+        var to = OrderFixtures.Node("wa148", 8.9, 37.55);
+        var edge = OrderFixtures.Edge(from, to, "801-wa104-wa148") with
         {
-            new VR.RoutePlanner.Domain.Graph.MapPoint(0, 0, null),
-            new VR.RoutePlanner.Domain.Graph.MapPoint(1, 0, null),
-            new VR.RoutePlanner.Domain.Graph.MapPoint(2, 1, null),
-            new VR.RoutePlanner.Domain.Graph.MapPoint(2, 2, null),
+            TrajectoryRaw = CurvedTrajectory,
         };
 
-        var trajectory = VdaOrderBuilder.BuildTrajectory(points, RouteEdgeDirection.Forward);
+        var trajectory = VdaOrderBuilder.BuildTrajectory(
+            edge,
+            RouteEdgeDirection.Forward,
+            from.X,
+            from.Y,
+            to.X,
+            to.Y);
 
-        // Эталон AGVControl публикует прямую: degree 1, четыре узла, две точки.
+        // Кривая из карты уходит целиком: degree 3, восемь узлов, четыре контрольные точки.
+        Assert.Equal(3, trajectory["degree"]!.GetValue<int>());
+        Assert.Equal(8, trajectory["knotVector"]!.AsArray().Count);
+        var points = trajectory["controlPoints"]!.AsArray();
+        Assert.Equal(4, points.Count);
+        Assert.Equal(6.84, points[0]!["x"]!.GetValue<double>(), 6);
+        Assert.Equal(1, points[0]!["weight"]!.GetValue<double>(), 6);
+    }
+
+    [Fact]
+    public void Build_CurvedEdgeBackward_ReversesControlPoints()
+    {
+        var from = OrderFixtures.Node("wa148", 8.9, 37.55);
+        var to = OrderFixtures.Node("wa104", 6.84, 34.73);
+        var edge = OrderFixtures.Edge(from, to, "801-wa148-wa104") with
+        {
+            TrajectoryRaw = CurvedTrajectory,
+        };
+
+        // Едем по ребру в обратную сторону: старт у wa148, конец у wa104.
+        var trajectory = VdaOrderBuilder.BuildTrajectory(
+            edge,
+            RouteEdgeDirection.Backward,
+            from.X,
+            from.Y,
+            to.X,
+            to.Y);
+
+        var points = trajectory["controlPoints"]!.AsArray();
+        Assert.Equal(4, points.Count);
+        Assert.Equal(8.9, points[0]!["x"]!.GetValue<double>(), 6);
+        Assert.Equal(6.84, points[^1]!["x"]!.GetValue<double>(), 6);
+    }
+
+    /// <summary>
+    /// Траектория ребра 801-wa104-wa148 из карты 801: кубическая кривая с четырьмя точками.
+    /// </summary>
+    private const string CurvedTrajectory =
+        "{\"degree\":3.0,\"knotVector\":[0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0],\"controlPoints\":[" +
+        "{\"x\":6.84,\"y\":34.73,\"weight\":1},{\"x\":6.84,\"y\":36.23,\"weight\":1}," +
+        "{\"x\":7.0,\"y\":37.47,\"weight\":1},{\"x\":8.9,\"y\":37.55,\"weight\":1}]}";
+
+    [Fact]
+    public void Build_EdgeWithoutTrajectory_FallsBackToStraightLine()
+    {
+        var from = OrderFixtures.Node("wa1", 0, 0);
+        var to = OrderFixtures.Node("wa2", 2, 2);
+        var edge = OrderFixtures.Edge(from, to, "801-wa1-wa2");
+
+        var trajectory = VdaOrderBuilder.BuildTrajectory(
+            edge,
+            RouteEdgeDirection.Forward,
+            from.X,
+            from.Y,
+            to.X,
+            to.Y);
+
         Assert.Equal(1, trajectory["degree"]!.GetValue<int>());
-        Assert.Equal(4, trajectory["knotVector"]!.AsArray().Count);
         Assert.Equal(2, trajectory["controlPoints"]!.AsArray().Count);
     }
 

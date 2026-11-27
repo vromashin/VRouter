@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using VR.RoutePlanner.Application.Robots;
 using VR.RoutePlanner.Domain.Graph;
 using VR.RoutePlanner.Domain.Planning;
+using VR.RoutePlanner.Infrastructure.Graph;
 
 namespace VR.RoutePlanner.Infrastructure.Mqtt;
 
@@ -43,6 +44,12 @@ public static class VdaOrderBuilder
     private const string OrientationTypeTangential = "TANGENTIAL";
 
     private const string VirtualEdgePrefix = "VIRTUAL_START_";
+
+    /// <summary>
+    /// Шаг дискретизации при разборе траектории карты. Для заказа используется сама кривая,
+    /// полилиния здесь не нужна, шаг влияет только на внутреннюю проверку разбора.
+    /// </summary>
+    private const double SampleStep = 0.05;
 
     /// <summary>
     /// Собирает заказ.
@@ -109,17 +116,106 @@ public static class VdaOrderBuilder
     }
 
     /// <summary>
-    /// Строит NURBS-траекторию по точкам ребра в направлении движения.
+    /// Строит траекторию ребра так же, как AGVControl: в заказ уходит кривая из карты
+    /// (degree, knotVector, controlPoints с весами). Спрямлять ребро до двух точек нельзя:
+    /// на дуге робот упирается и не начинает перегон. Проверено на стенде: ребро
+    /// <c>801-wa148-wa104</c> в карте имеет <c>degree 3</c> и четыре контрольные точки,
+    /// с прямой хордой робот вставал на этом ребре в двух прогонах подряд.
+    /// </summary>
+    /// <param name="edge">Ребро карты с исходным JSON траектории.</param>
+    /// <param name="direction">Направление прохождения ребра.</param>
+    /// <param name="startX">Координата X начала движения.</param>
+    /// <param name="startY">Координата Y начала движения.</param>
+    /// <param name="endX">Координата X конца движения.</param>
+    /// <param name="endY">Координата Y конца движения.</param>
+    /// <returns>Объект <c>trajectory</c>.</returns>
+    public static JsonObject BuildTrajectory(
+        WarehouseEdge edge,
+        RouteEdgeDirection direction,
+        double startX,
+        double startY,
+        double endX,
+        double endY)
+    {
+        var curve = TrajectoryParser.Parse(edge.TrajectoryRaw, SampleStep, null, edge.EdgeId).Curve;
+        if (curve is null)
+        {
+            // У ребра нет траектории в карте: остается прямая по крайним точкам.
+            return StraightTrajectory(edge.TrajectoryPoints, direction);
+        }
+
+        var controlPoints = curve.ControlPoints.ToList();
+        if (edge.Bidirectional && ShouldReverseControlPoints(controlPoints, startX, startY, endX, endY))
+        {
+            controlPoints.Reverse();
+        }
+
+        var points = new JsonArray();
+        foreach (var point in controlPoints)
+        {
+            points.Add(new JsonObject
+            {
+                ["x"] = point.X,
+                ["y"] = point.Y,
+                ["weight"] = point.Weight,
+            });
+        }
+
+        var knotVector = new JsonArray();
+        foreach (var knot in curve.KnotVector)
+        {
+            knotVector.Add(knot);
+        }
+
+        return new JsonObject
+        {
+            ["degree"] = curve.Degree,
+            ["knotVector"] = knotVector,
+            ["controlPoints"] = points,
+        };
+    }
+
+    /// <summary>
+    /// Нужно ли развернуть контрольные точки: сравнивается направление траектории
+    /// (от первой точки к последней) с направлением движения по узлам, как в AGVControl.
+    /// </summary>
+    /// <param name="controlPoints">Контрольные точки ребра в направлении карты.</param>
+    /// <param name="startX">Координата X начала движения.</param>
+    /// <param name="startY">Координата Y начала движения.</param>
+    /// <param name="endX">Координата X конца движения.</param>
+    /// <param name="endY">Координата Y конца движения.</param>
+    /// <returns><c>true</c>, если точки идут против движения.</returns>
+    private static bool ShouldReverseControlPoints(
+        IReadOnlyList<ControlPoint> controlPoints,
+        double startX,
+        double startY,
+        double endX,
+        double endY)
+    {
+        if (controlPoints.Count < 2)
+        {
+            return false;
+        }
+
+        var first = controlPoints[0];
+        var last = controlPoints[^1];
+        var trajectoryDx = last.X - first.X;
+        var trajectoryDy = last.Y - first.Y;
+        var movementDx = endX - startX;
+        var movementDy = endY - startY;
+        return (trajectoryDx * movementDx) + (trajectoryDy * movementDy) < 0;
+    }
+
+    /// <summary>
+    /// Прямая по крайним точкам ребра: резерв, когда в карте у ребра нет траектории.
     /// </summary>
     /// <param name="points">Точки ребра в его собственном направлении.</param>
     /// <param name="direction">Направление прохождения.</param>
     /// <returns>Объект <c>trajectory</c>.</returns>
-    public static JsonObject BuildTrajectory(IReadOnlyList<MapPoint> points, RouteEdgeDirection direction)
+    private static JsonObject StraightTrajectory(IReadOnlyList<MapPoint> points, RouteEdgeDirection direction)
     {
         var ordered = direction == RouteEdgeDirection.Forward ? points : points.Reverse().ToList();
 
-        // Эталон AGVControl публикует прямую: ровно две точки, degree 1, knotVector [0,0,1,1].
-        // Симулятор на длинной NURBS-кривой не начинает движение, поэтому форму держим как в эталоне.
         var controlPoints = new JsonArray();
         if (ordered.Count > 0)
         {
@@ -456,7 +552,7 @@ public static class VdaOrderBuilder
                 ? OrientationTypeTangential
                 : edge.OrientationType,
             ["released"] = true,
-            ["trajectory"] = BuildTrajectory(edge.TrajectoryPoints, link.Direction),
+            ["trajectory"] = BuildTrajectory(edge, link.Direction, from.X, from.Y, to.X, to.Y),
             ["actions"] = new JsonArray(),
         };
     }
