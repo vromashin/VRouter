@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using VR.RoutePlanner.Application.Configuration;
+using VR.RoutePlanner.Application.Robots;
 using VR.RoutePlanner.Domain.Robots;
 using VR.RoutePlanner.Tests.Unit.Planning;
 using VR.RoutePlanner.Workers;
@@ -223,6 +224,38 @@ public sealed class RobotRelocationWorkerTests
         var harness = RelocationFixtures.Create();
         harness.States.Snapshots[RelocationFixtures.Serial] =
             RelocationFixtures.Snapshot(RelocationFixtures.Serial, battery: 90);
+        var worker = CreateWorker(harness);
+
+        await worker.TickAsync(Ct);
+        Assert.Empty(harness.Repository.Orders);
+
+        harness.Time.Now = harness.Time.Now.AddMinutes(6);
+        await worker.TickAsync(Ct);
+
+        Assert.Equal("pk1", Assert.Single(harness.Repository.Orders).Value.TargetNodeId);
+    }
+
+    [Fact]
+    public async Task TickAsync_ParkedRobotWithLowBattery_GoesToCharge()
+    {
+        // Робот уже стоит в парковке и разрядился: зарядка важнее, он должен поехать на станцию.
+        var harness = RelocationFixtures.Create();
+        harness.States.Snapshots[RelocationFixtures.Serial] = RelocationFixtures.Snapshot(
+            RelocationFixtures.Serial, battery: 10, lastNodeId: "pk1", x: 10, y: 0);
+        var worker = CreateWorker(harness);
+
+        await worker.TickAsync(Ct);
+
+        Assert.Equal("ch1", Assert.Single(harness.Repository.Orders).Value.TargetNodeId);
+    }
+
+    [Fact]
+    public async Task TickAsync_ChargedOnStation_GoesToParkingAndFreesCharger()
+    {
+        // Зарядился на единственной станции: должен уехать в парковку и освободить зарядку.
+        var harness = RelocationFixtures.Create(RelocationFixtures.Graph(chargingCount: 1));
+        harness.States.Snapshots[RelocationFixtures.Serial] = RelocationFixtures.Snapshot(
+            RelocationFixtures.Serial, battery: 95, lastNodeId: "ch1", x: 5, y: 0);
         var worker = CreateWorker(harness);
 
         await worker.TickAsync(Ct);

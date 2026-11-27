@@ -150,7 +150,11 @@ public sealed class RobotRelocationWorker : BackgroundService
                     activeOrder,
                     graph,
                     options.IdleNodeToleranceMeters);
-                TrackIdle(snapshot.SerialNumber, state, now);
+                // Простой считается и для заряженного робота на станции: иначе он никогда
+                // не освободит зарядку, а второй робот будет ждать вхолостую.
+                var countsAsIdle = state == RobotRelocationState.Idle
+                    || (state == RobotRelocationState.Charging && snapshot.BatteryCharge >= options.TargetLimit);
+                TrackIdle(snapshot.SerialNumber, countsAsIdle, now);
                 machines[snapshot.SerialNumber] = state;
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -193,8 +197,10 @@ public sealed class RobotRelocationWorker : BackgroundService
         var charged = new HashSet<string>(StringComparer.Ordinal);
 
         // Д-3.5: первым едет робот с самым низким зарядом, тай-брейк по серийному номеру.
+        // Стоящий в парковке робот тоже кандидат: состояние Parked не мешает зарядке,
+        // иначе разряженный робот остался бы в парковке навсегда (проверено на стенде).
         var candidates = states
-            .Where(snapshot => IsIdle(machines, snapshot.SerialNumber))
+            .Where(snapshot => IsFreeForCharge(machines, snapshot.SerialNumber))
             .Where(snapshot => snapshot.BatteryCharge < options.LowerLimit)
             .Where(snapshot => RetryAllowed(snapshot.SerialNumber, RelocationNodeTypes.Charging, now, options))
             .OrderBy(snapshot => snapshot.BatteryCharge)
@@ -233,8 +239,10 @@ public sealed class RobotRelocationWorker : BackgroundService
         // Д-3.5: первым паркуется тот, кто дольше простаивает, тай-брейк по серийному номеру.
         // Робот с зарядом ниже LowerLimit в парковку не попадает: зарядка приоритетнее, иначе
         // он попеременно дергал бы оба триггера и сбрасывал счетчик попыток.
+        // Заряженный робот на станции освобождает ее: иначе единственная зарядка занята вечно,
+        // а второй робот с низким зарядом ждет без пользы (проверено разбором кода).
         var candidates = states
-            .Where(snapshot => IsIdle(machines, snapshot.SerialNumber))
+            .Where(snapshot => IsParkingCandidate(machines, snapshot, options))
             .Where(snapshot => snapshot.BatteryCharge >= options.LowerLimit)
             .Where(snapshot => !charged.Contains(snapshot.SerialNumber))
             .Where(snapshot => _idleSince.TryGetValue(snapshot.SerialNumber, out var idleSince)
@@ -410,9 +418,9 @@ public sealed class RobotRelocationWorker : BackgroundService
             || now - last >= TimeSpan.FromSeconds(options.RetryDelaySeconds);
     }
 
-    private void TrackIdle(string serial, RobotRelocationState state, DateTimeOffset now)
+    private void TrackIdle(string serial, bool countsAsIdle, DateTimeOffset now)
     {
-        if (state == RobotRelocationState.Idle)
+        if (countsAsIdle)
         {
             _idleSince.TryAdd(serial, now);
             return;
@@ -432,6 +440,42 @@ public sealed class RobotRelocationWorker : BackgroundService
 
     private static bool IsIdle(Dictionary<string, RobotRelocationState> machines, string serial) =>
         machines.TryGetValue(serial, out var state) && state == RobotRelocationState.Idle;
+
+    /// <summary>
+    /// Робот свободен для переезда на зарядку: простаивает либо уже стоит в парковке.
+    /// </summary>
+    /// <param name="machines">Состояния роботов.</param>
+    /// <param name="serial">Серийный номер робота.</param>
+    /// <returns><c>true</c>, если робота можно отправлять на зарядку.</returns>
+    private static bool IsFreeForCharge(Dictionary<string, RobotRelocationState> machines, string serial) =>
+        machines.TryGetValue(serial, out var state)
+        && state is RobotRelocationState.Idle or RobotRelocationState.Parked;
+
+    /// <summary>
+    /// Робот может ехать в парковку: простаивает либо зарядился на станции.
+    /// Второй случай нужен, чтобы освобождать станцию, когда зарядка одна на несколько роботов.
+    /// </summary>
+    /// <param name="machines">Состояния роботов.</param>
+    /// <param name="snapshot">Состояние робота.</param>
+    /// <param name="options">Параметры автопереездов.</param>
+    /// <returns><c>true</c>, если робот может ехать в парковку.</returns>
+    private static bool IsParkingCandidate(
+        Dictionary<string, RobotRelocationState> machines,
+        RobotSnapshot snapshot,
+        ChargingOptions options)
+    {
+        if (!machines.TryGetValue(snapshot.SerialNumber, out var state))
+        {
+            return false;
+        }
+
+        return state switch
+        {
+            RobotRelocationState.Idle => true,
+            RobotRelocationState.Charging => snapshot.BatteryCharge >= options.TargetLimit,
+            _ => false,
+        };
+    }
 
     private static bool IsCharging(Dictionary<string, RobotRelocationState> machines, string serial) =>
         machines.TryGetValue(serial, out var state) && state == RobotRelocationState.Charging;
